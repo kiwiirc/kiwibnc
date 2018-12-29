@@ -42,7 +42,8 @@ module.exports = class Database {
     }
 
     async init() {
-        let sql = `
+        let sql = [];
+        sql.push(`
         CREATE TABLE IF NOT EXISTS connections (
             conid TEXT PRIMARY KEY,
             last_statesave INTEGER,
@@ -54,9 +55,38 @@ module.exports = class Database {
             isupports TEXT,
             caps TEXT,
             channels TEXT,
-            nick TEXT
+            nick TEXT,
+            auth_user_id INTEGER,
+            auth_network_id INTEGER
         );
-        `;
-        await this.run(sql);
+        `);
+
+        sql.push(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT,
+            password TEXT,
+            created_at INTEGER
+        );
+        `);
+
+        sql.push(`
+        CREATE TABLE IF NOT EXISTS user_networks (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            user_id INTEGER,
+            host TEXT,
+            port INTEGER,
+            tls BOOLEAN,
+            nick TEXT,
+            username TEXT,
+            realname TEXT,
+            password TEXT
+        );
+        `);
+
+        for (let i=0; i<sql.length; i++) {
+            await this.run(sql[i]);
+        }
     }
 }

@@ -1,7 +1,9 @@
+const uuidv4 = require('uuid/v4');
 const { ConnectionState, Channel } = require('./connectionstate');
 
 class ConnectionOutgoing {
-    constructor(id, db, queue) {
+    constructor(_id, db, queue) {
+        let id = _id || uuidv4();
         this.state = new ConnectionState(id, db);
         this.state.type = 0;
         this.queue = queue;
@@ -63,10 +65,14 @@ class ConnectionOutgoing {
     }
 
     onUpstreamConnected() {
+        this.state.connected = true;
         this.state.isupports = [];
 
-        this.write('USER myuser myuser myuser myuser\n');
-        this.write('NICK myuser\n');
+        if (this.state.password) {
+            this.write(`PASS ${this.state.password}\n`);
+        }
+        this.write(`NICK ${this.state.nick}\n`);
+        this.write(`USER ${this.state.username} * * ${this.state.realname}\n`);
     }
 
     onUpstreamClosed() {

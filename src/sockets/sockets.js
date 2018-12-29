@@ -41,6 +41,10 @@ async function run() {
             return;
         }
 
+        if (!opts.host || !opts.port) {
+            l('Missing hort or port for connection.open');
+        }
+
         let con = new SocketConnection(opts.id, app.queue);
         cons.set(opts.id, con);
         throttledConnect(connectThrottler, con, opts.host, opts.port, opts.tls);

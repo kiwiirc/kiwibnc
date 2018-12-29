@@ -17,11 +17,16 @@ class ConnectionState {
         this.caps = [];
         this.channels = [];
         this.nick = '';
+        this.username = 'user';
+        this.realname = 'BNC user';
+        this.password = '';
         this.host = '';
         this.port = 6667;
         this.tls = false;
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
         this.connected = false;
+        this.authUserId = 0;
+        this.authNetworkId = 0;
     }
     
     async maybeLoad() {
@@ -35,7 +40,7 @@ class ConnectionState {
         let caps = JSON.stringify(this.caps);
         let channels = JSON.stringify(this.channels);
 
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, isupports, caps, channels, nick) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, isupports, caps, channels, nick, auth_user_id, auth_network_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
             this.conId,
             Date.now(),
@@ -47,7 +52,9 @@ class ConnectionState {
             isupports,
             caps,
             channels,
-            this.nick
+            this.nick,
+            this.authUserId,
+            this.authNetworkId,
         ]);
     }
 
@@ -69,6 +76,8 @@ class ConnectionState {
             this.caps = JSON.parse(row.caps);
             this.channels = JSON.parse(row.channels);
             this.nick = row.nick;
+            this.authUserId = row.auth_user_id;
+            this.authNetworkId = row.auth_network_id;
         }
 
         this.loaded = true;
