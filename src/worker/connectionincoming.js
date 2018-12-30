@@ -2,6 +2,16 @@ const uuidv4 = require('uuid/v4');
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
 
+// Client commands can be hot reloaded as they contain no state
+let ClientCommands = null;
+
+function hotReloadClientCommands() {
+    delete require.cache[require.resolve('./ClientCommands')];
+    ClientCommands = require('./ClientCommands');
+}
+
+hotReloadClientCommands();
+
 class ConnectionIncoming {
     constructor(_id, db, userDb, queue) {
         let id = _id || uuidv4();
@@ -70,67 +80,18 @@ class ConnectionIncoming {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
+    writeStatus(data) {
+        this.write(`:*!bnc@bnc PRIVMSG ${this.state.nick} :${data}\n`);
+    }
+
+    // Handy helper to reach the hotReloadClientCommands() function
+    reloadClientCommands() {
+        hotReloadClientCommands();
+    }
+
     async messageFromClient(message) {
         this.state.maybeLoad();
-
-        if (message.command === 'PASS' && !this.state.authUserId) {
-            // Matching for user/network:pass or user:pass
-            let m = (message.params[0] || '').match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
-            if (!m) {
-                this.write('ERROR :Invalid password\n');
-                return;
-            }
-
-            let username = m[1] || '';
-            let networkName = m[2] || '';
-            let password = m[3] || '';
-
-            let network = await this.userDb.authUserNetwork(username, password, networkName);
-            if (!network) {
-                this.write('ERROR :Invalid password\n');
-                return;
-            }
-
-            this.state.authUserId = network.user_id;
-            this.state.authNetworkId = network.id;
-            await this.state.save();
-
-            if (!this.upstream) {
-                this.makeUpstream(network);
-            } else {
-                this.write(`:*!bnc@bnc PRIVMSG ${this.nick} :Attaching you to the network\n`);
-            }
-        }
-
-        // PM to * while logged in
-        if (message.command === 'PRIVMSG' && message.params[0] === '*' && this.state.authUserId) {
-            if (message.params[1] === 'connect') {
-                if (this.upstream) {
-                    this.write(`:*!bnc@bnc PRIVMSG ${this.state.nick} :Already connected\n`);
-                } else {
-                    this.makeUpstream();
-                }
-            }
-        }
-
-        if (message.command === 'NICK') {
-            this.state.nick = message.params[0];
-            this.state.save();
-            this.write(`:${this.state.nick} NICK ${this.state.nick}\n`);
-        }
-
-        if (message.command === 'PING') {
-            this.write('PONG :' + message.params[0] + '\n');
-        }
-
-        if (message.command === 'STATE') {
-            this.write(':bnc NOTICE * :You are ' + this.state.nick + '\n');
-        }
-
-        // TODO: Remove this kill code!
-        if (message.command === 'KILL') {
-            this.queue.stopListening().then(process.exit);
-        }
+        ClientCommands.run(message, this);
     }
 
     async makeUpstream(network) {
