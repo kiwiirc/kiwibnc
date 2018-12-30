@@ -14,8 +14,8 @@ module.exports = class Queue extends EventEmitter {
 
     async connect() {
         let channel = await this.getChannel();
-        channel.assertQueue(this.queueToSockets, {durable: true});
-        channel.assertQueue(this.queueToWorker, {durable: true});
+        await channel.assertQueue(this.queueToSockets, {durable: true});
+        await channel.assertQueue(this.queueToWorker, {durable: true});
         this.channel = channel;
     }
 

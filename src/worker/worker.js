@@ -30,8 +30,10 @@ function listenToQueue(app) {
     app.queue.listenForEvents(app.queue.queueToWorker);
 
     app.queue.on('reset', async (opts) => {
-        // If we don't have any connections, we don't need to clear anything out
+        // If we don't have any connections then we don't need to clear anything out. We do
+        // need to start our servers again though
         if (cons.size === 0) {
+            startServers(app);
             return;
         }
 
@@ -109,7 +111,10 @@ function listenToQueue(app) {
     });
 }
 
+// Start any listening servers on interfaces specified in the config, or any existing
+// servers that were previously started outside of the config
 async function startServers(app) {
+    l('startServers()')
     let existingBinds = await app.db.all('SELECT host, port FROM connections WHERE type = 2');
     let binds = app.conf.get('listeners.bind', []);
 
