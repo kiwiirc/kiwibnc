@@ -1,4 +1,3 @@
-const uuidv4 = require('uuid/v4');
 const SocketConnection = require('./connection');
 const SocketServer = require('./socketserver');
 const Throttler = require('../libs/throttler');
@@ -68,14 +67,17 @@ async function run() {
             return;
         }
 
+        if (!opts.host || !opts.port) {
+            l('Missing hort or port for connection.listen');
+        }
+
         let srv = new SocketServer(opts.id, app.queue);
         cons.set(opts.id, srv);
         srv.listen(opts.host, opts.port || 0);
 
         srv.on('connection.new', (socket) => {
-            let newId = uuidv4();
-            let con = new SocketConnection(newId, app.queue, socket);
-            cons.set(newId, con);
+            let con = new SocketConnection(null, app.queue, socket);
+            cons.set(con.id, con);
             app.queue.sendToWorker('connection.new', {
                 id: con.id,
                 host: socket.remoteAddress,

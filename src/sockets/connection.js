@@ -1,9 +1,10 @@
 const net = require('net');
+const uuidv4 = require('uuid/v4');
 
 module.exports = class SocketConnection {
     constructor(conId, queue, sock) {
         this.queue = queue;
-        this.id = conId;
+        this.id = conId || uuidv4();
         this.buffer = [];
         this.readBuffer = '';
 
