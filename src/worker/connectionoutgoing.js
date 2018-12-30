@@ -37,6 +37,7 @@ class ConnectionOutgoing {
         if (message.command === '001') {
             l(message);
             this.state.nick = message.params[0];
+            this.state.netRegistered = true;
             this.state.save();
         }
 
