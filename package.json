@@ -5,6 +5,7 @@
   "main": "queue.js",
   "dependencies": {
     "amqplib": "^0.5.3",
+    "bcrypt": "^3.0.3",
     "commander": "^2.19.0",
     "irc-framework": "^4.0.0",
     "lodash": "^4.17.11",

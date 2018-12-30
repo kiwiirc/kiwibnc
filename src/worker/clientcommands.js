@@ -42,7 +42,9 @@ commands.PASS = async function(msg, con) {
 commands.PRIVMSG = async function(msg, con) {
     // PM to * while logged in
     if (msg.params[0] === '*' && con.state.authUserId) {
-        let command = (msg.params[1] || '').toLowerCase();
+        let parts = (msg.params[1] || '').split(' ');
+        let command = (parts[0] || '').toLowerCase();
+
         if (command === 'connect') {
             if (con.upstream) {
                 con.writeStatus(`Already connected`);
@@ -59,6 +61,22 @@ commands.PRIVMSG = async function(msg, con) {
             nets.forEach((net) => {
                 con.writeStatus(`Network: ${net.name} ${net.nick} ${net.host}:${net.tls?'+':''}${net.port}`);
             });
+        }
+
+        if (command === 'setpass') {
+            let newPass = parts[1] || '';
+            if (!newPass) {
+                con.writeStatus('Usage: setpass <newpass>');
+                return;
+            }
+
+            try {
+                await con.userDb.changeUserPassword(con.state.authUserId, newPass);
+                con.writeStatus('New password set');
+            } catch (err) {
+                l('Error setting new password:', err.message);
+                con.writeStatus('There was an error changing your password');
+            }
         }
     }
 };

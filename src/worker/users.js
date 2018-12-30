@@ -1,17 +1,28 @@
+const bcrypt = require('bcrypt');
+
 class Users {
     constructor(db) {
         this.db = db;
     }
 
     async authUserNetwork(username, password, network) {
-        // TODO: Hash this password!
         let row = null;
         try {
             row = await this.db.get(`
-                SELECT nets.* from user_networks nets
+                SELECT nets.*, users.password as _pass FROM user_networks nets
                 INNER JOIN users ON users.id = nets.user_id
-                WHERE users.username = ? AND users.password = ? AND nets.name = ?
-        `, [username, password, network]);
+                WHERE users.username = ? AND nets.name = ?
+            `, [username, network]);
+            
+            if (row) {
+                let correctHash = await bcrypt.compare(password, row._pass);
+                if (!correctHash) {
+                    row = null;
+                }
+
+                // We don't need the password hash going anywhere else, get rid of it
+                delete row._pass;
+            }
         } catch (err) {
             l('Error logging user in:', err.message);
         }
@@ -20,13 +31,25 @@ class Users {
     }
 
     async authUser(username, password) {
-        // TODO: Hash this password!
-        let row = await this.db.get(`
-            SELECT * from users
-            WHERE username = ? AND password = ?
-        `, [username, password]);
+        let row = await this.db.get(`SELECT * from users WHERE username = ?`, [username]);
+        if (row) {
+            let correctHash = await bcrypt.compare(password, row.password);
+            if (!correctHash) {
+                row = null;
+            }
+
+            // We don't need the password hash going anywhere else, get rid of it
+            delete row.password;
+        }
         return row;
     }
+
+    async changeUserPassword(id, password) {
+        await this.db.run('UPDATE users SET password = ? WHERE id = ?', [
+            await bcrypt.hash(password, 8),
+            id,
+        ]);
+    };
 
     async getNetwork(id) {
         let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id]);
