@@ -84,16 +84,22 @@ class ConnectionIncoming {
         this.state.destroy();
     }
 
+    close() {
+        this.queue.sendToSockets('connection.close', {
+            id: this.id,
+        });
+    }
+
     write(data) {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
     writeStatus(data) {
-        this.write(`:*!bnc@bnc PRIVMSG ${this.state.nick} :${data}\n`);
+        this.write(`:bnc PRIVMSG ${this.state.nick} :${data}\n`);
     }
 
     writeFromBnc(command, ...params) {
-        this.writeLine(':*!bnc@bnc', command, ...params);
+        this.writeLine(':bnc', command, ...params);
     }
 
     writeLine(...params) {
@@ -172,7 +178,6 @@ class ConnectionIncoming {
     }
 
     onAccepted() {
-        this.write(`:bnc NOTICE ${this.state.nick} :Welcome to BNC!\n`);
     }
 
     onClientClosed() {

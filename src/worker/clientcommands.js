@@ -3,10 +3,15 @@ let commands = Object.create(null);
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
 
-    // No commands are allowed to be run before PASS has authed us in
+    // Before this connection is authed, only reply to NICK commands explaining that a pass is needed
+    if (!con.state.netRegistered && command === 'NICK') {
+        con.write(`:bnc 464 ${con.state.nick} :Password required\n`);
+        con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
+        return false;
+    }
+
+    // If we're not authed, only accept PASS commands
     if (!con.state.netRegistered && command !== 'PASS') {
-        con.write(`:*!bnc@bnc 464 ${con.state.nick} :Password required\n`);
-        con.writeStatus('You must send your password first. /quote PASS <username>/<network>:<password>');
         return false;
     }
 
@@ -34,6 +39,7 @@ commands.PASS = async function(msg, con) {
     let m = (msg.params[0] || '').match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
     if (!m) {
         con.write('ERROR :Invalid password\n');
+        con.close();
         return;
     }
 
@@ -44,6 +50,7 @@ commands.PASS = async function(msg, con) {
     let network = await con.userDb.authUserNetwork(username, password, networkName);
     if (!network) {
         con.write('ERROR :Invalid password\n');
+        con.close();
         return;
     }
 
@@ -107,8 +114,8 @@ commands.PRIVMSG = async function(msg, con) {
 };
 
 commands.NICK = async function(msg, con) {
-    if (con.upstream && con.upstream.state.netRegistered) {
-        // We only want to pass a NICK upstream if we're registered to the
+    if (con.upstream && !con.upstream.state.netRegistered) {
+        // We only want to pass a NICK upstream if we're done registered to the
         // network otherwise it may interfere with any ongoing registration
         return;
     }
@@ -122,6 +129,12 @@ commands.NICK = async function(msg, con) {
 
 commands.PING = async function(msg, con) {
     con.write('PONG :' + msg.params[0] + '\n');
+    return false;
+};
+
+commands.QUIT = async function(msg, con) {
+    // Some clients send a QUIT when they close, don't send that upstream
+    con.close();
     return false;
 };
 
