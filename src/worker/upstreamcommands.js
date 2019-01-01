@@ -50,6 +50,7 @@ commands['005'] = async function(msg, con) {
 
 commands.PING = async function(msg, con) {
     con.write('PONG :' + msg.params[0] + '\n');
+    return false;
 };
 
 commands.JOIN = async function(msg, con) {
