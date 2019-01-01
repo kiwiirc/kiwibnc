@@ -124,6 +124,7 @@ class ConnectionIncoming {
             let channel = upstream.state.channels[chanName];
             if (channel.joined) {
                 this.writeLine(':' + nick, 'JOIN', channel.name);
+                channel.topic && this.writeLine('TOPIC', channel.name, channel.topic);
             }
         }
 

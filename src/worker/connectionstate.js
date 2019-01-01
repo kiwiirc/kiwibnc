@@ -3,12 +3,14 @@ class Channel {
         this.name = name;
         this.key = '';
         this.joined = false;
+        this.topic = '';
     }
 
     static fromObj(obj) {
         let c = new Channel(obj.name);
-        c.key = obj.key;
-        c.joined = obj.joined;
+        c.key = obj.key || '';
+        c.joined = obj.joined || false;
+        c.topic = obj.topic || '';
         return c;
     }
 }
@@ -100,7 +102,7 @@ class ConnectionState {
             this.channels = Object.create(null);
             let rowChans = JSON.parse(row.channels);
             for (let chanName in rowChans) {
-                this.channels[chanName] = Channel.fromObj(rowChans[chanName]);
+                this.addChannel(rowChans[chanName]);
             }
             this.nick = row.nick;
             this.netRegistered = row.net_registered;
@@ -113,6 +115,22 @@ class ConnectionState {
 
     async destroy() {
         await this.db.run(`DELETE FROM connections WHERE conid = ?`, [this.conId]);
+    }
+
+    getChannel(name) {
+        return this.channels[name.toString()];
+    }
+
+    addChannel(chan) {
+        let channel = null;
+        if (typeof chan === 'string') {
+            channel = new Channel(chan);
+        } else {
+            channel = Channel.fromObj(chan);
+        }
+
+        this.channels[channel.name.toLowerCase()] = channel;
+        return channel;
     }
 }
 

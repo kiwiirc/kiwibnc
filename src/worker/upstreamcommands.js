@@ -59,12 +59,53 @@ commands.JOIN = async function(msg, con) {
     }
 
     let chanName = msg.params[0];
-    let chan = null;
-    if (!con.state.channels[chanName]) {
-        chan = con.state.channels[chanName] = new Channel(chanName);
+    let chan = con.state.getChannel(chanName);
+    if (!chan) {
+        chan = con.state.addChannel(chanName);
     }
 
     chan.joined = true;
+    await con.state.save();
+};
+
+commands.PART = async function(msg, con) {
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        return;
+    }
+
+    let chanName = msg.params[0];
+    let chan = con.state.getChannel(chanName);
+    if (!chan) {
+        return;
+    }
+
+    chan.joined = false;
+    await con.state.save();
+};
+
+commands.KICK = async function(msg, con) {
+    if (msg.params[1].toLowerCase() !== con.state.nick.toLowerCase()) {
+        return;
+    }
+
+    let chanName = msg.params[0];
+    let chan = con.state.getChannel(chanName);
+    if (!chan) {
+        return;
+    }
+
+    chan.joined = false;
+    await con.state.save();
+};
+
+// RPL_TOPIC
+commands['332'] = async function(msg, con) {
+    let channel = con.state.getChannel(msg.params[1]);
+    if (!channel) {
+        channel = con.state.addChannel(msg.params[1]);
+    }
+
+    channel.topic = msg.params[2];
     await con.state.save();
 };
 
