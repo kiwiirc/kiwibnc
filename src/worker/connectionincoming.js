@@ -6,8 +6,8 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 let ClientCommands = null;
 
 function hotReloadClientCommands() {
-    delete require.cache[require.resolve('./ClientCommands')];
-    ClientCommands = require('./ClientCommands');
+    delete require.cache[require.resolve('./clientcommands')];
+    ClientCommands = require('./clientcommands');
 }
 
 hotReloadClientCommands();

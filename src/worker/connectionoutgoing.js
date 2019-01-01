@@ -1,6 +1,16 @@
 const uuidv4 = require('uuid/v4');
 const { ConnectionState, Channel } = require('./connectionstate');
 
+// Upstream commands can be hot reloaded as they contain no state
+let UpstreamCommands = null;
+
+function hotReloadUpstreamCommands() {
+    delete require.cache[require.resolve('./upstreamcommands')];
+    UpstreamCommands = require('./upstreamcommands');
+}
+
+hotReloadUpstreamCommands();
+
 class ConnectionOutgoing {
     constructor(_id, db, queue) {
         let id = _id || uuidv4();
@@ -31,44 +41,17 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
-    messageFromUpstream(message, raw) {
+    async messageFromUpstream(message, raw) {
         this.state.maybeLoad();
 
-        if (message.command === '001') {
-            l(message);
-            this.state.nick = message.params[0];
-            this.state.netRegistered = true;
-            this.state.save();
+        let passDownstream = await UpstreamCommands.run(message, this);
+        if (passDownstream !== false) {
+            // Send this data down to any linked clients
+            this.state.linkedIncomingConIds.forEach((conId) => {
+                let con = this.map.get(conId);
+                con && con.state.netRegistered && con.write(raw + '\n');
+            });
         }
-
-        // Keep track of our isupport tokens
-        if (message.command === '005') {
-            // Take these new tokens and add them to our existing recorded tokens
-            let tokens = message.params.slice(1);
-            tokens.pop();
-            this.state.isupports = [...this.state.isupports, ...tokens];
-        }
-
-        if (message.command === 'PING') {
-            this.write('PONG :' + message.params[0] + '\n');
-        }
-
-        if (message.command === 'JOIN' && message.prefix.nick === this.state.nick) {
-            let chanName = message.params[0];
-            let chan = null;
-            if (!this.state.channels[chanName]) {
-                chan = this.state.channels[chanName] = new Channel(chanName);
-            }
-
-            chan.joined = true;
-            this.state.save();
-        }
-
-        // Send this data down to any linked clients
-        this.state.linkedIncomingConIds.forEach((conId) => {
-            let con = this.map.get(conId);
-            con && con.state.netRegistered && con.write(raw + '\n');
-        });
     }
 
     onUpstreamConnected() {
