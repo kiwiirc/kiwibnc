@@ -49,7 +49,6 @@ class ConnectionIncoming {
         let foundCon = null;
         this.map.forEach((con) => {
             if (foundCon) return;
-            l('matching with con', con.state.authUserId, con.state.authNetworkId)
             if (
                 con.state.type === 0 &&
                 con.state.authUserId === this.state.authUserId &&
@@ -98,7 +97,6 @@ class ConnectionIncoming {
     }
 
     writeLine(...params) {
-        l('writeLine()', ...params);
         // If the last param contains a space, turn it into a trailing param
         if (params.length > 1 && params[params.length - 1].indexOf(' ') > -1) {
             params[params.length - 1] = ':' + params[params.length - 1];
