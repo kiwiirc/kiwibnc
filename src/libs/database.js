@@ -52,6 +52,8 @@ module.exports = class Database {
             tls BOOLEAN,
             type INTEGER,
             connected BOOLEAN,
+            server_prefix TEXT,
+            registration_lines TEXT,
             isupports TEXT,
             caps TEXT,
             channels TEXT,

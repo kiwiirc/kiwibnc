@@ -55,8 +55,10 @@ class ConnectionOutgoing {
     }
 
     onUpstreamConnected() {
+        // Reset some state. They will be re-populated when upstream sends its registration burst again
         this.state.connected = true;
         this.state.isupports = [];
+        this.state.registrationLines = [];
 
         if (this.state.password) {
             this.write(`PASS ${this.state.password}\n`);

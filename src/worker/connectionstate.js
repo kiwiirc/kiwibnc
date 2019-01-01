@@ -4,6 +4,13 @@ class Channel {
         this.key = '';
         this.joined = false;
     }
+
+    static fromObj(obj) {
+        let c = new Channel(obj.name);
+        c.key = obj.key;
+        c.joined = obj.joined;
+        return c;
+    }
 }
 
 module.exports.Channel = Channel;
@@ -12,11 +19,15 @@ class ConnectionState {
     constructor(id, db) {
         this.db = db;
         this.conId = id;
+        // loaded - State has been loaded from the db
         this.loaded = false;
+        // serverPrefix - The server name given in the 001 message prefix
+        this.serverPrefix = 'bnc';
+        this.registrationLines = [];
         this.isupports = [];
         this.caps = [];
-        this.channels = [];
-        this.nick = '';
+        this.channels = Object.create(null);
+        this.nick = 'unknown-user';
         this.username = 'user';
         this.realname = 'BNC user';
         this.password = '';
@@ -41,11 +52,12 @@ class ConnectionState {
     }
 
     async save() {
+        let registrationLines = JSON.stringify(this.registrationLines);
         let isupports = JSON.stringify(this.isupports);
         let caps = JSON.stringify(this.caps);
         let channels = JSON.stringify(this.channels);
 
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
             this.conId,
             Date.now(),
@@ -54,6 +66,8 @@ class ConnectionState {
             this.tls,
             this.type,
             this.connected,
+            this.serverPrefix,
+            registrationLines,
             isupports,
             caps,
             channels,
@@ -69,6 +83,7 @@ class ConnectionState {
         let row = await this.db.get(sql, [this.conId]);
 
         if (!row) {
+            this.registrationLines = [];
             this.isupports = [];
             this.caps = [];
             this.channels = [];
@@ -78,9 +93,15 @@ class ConnectionState {
             this.tls = row.tls;
             this.type = row.type;
             this.connected = row.connected;
+            this.serverPrefix = row.server_prefix;
+            this.registrationLines = JSON.parse(row.registration_lines);
             this.isupports = JSON.parse(row.isupports);
             this.caps = JSON.parse(row.caps);
-            this.channels = JSON.parse(row.channels);
+            this.channels = Object.create(null);
+            let rowChans = JSON.parse(row.channels);
+            for (let chanName in rowChans) {
+                this.channels[chanName] = Channel.fromObj(rowChans[chanName]);
+            }
             this.nick = row.nick;
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;

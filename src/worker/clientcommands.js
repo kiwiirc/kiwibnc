@@ -2,12 +2,26 @@ let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
+
+    // No commands are allowed to be run before PASS has authed us in
+    if (!con.state.netRegistered && command !== 'PASS') {
+        con.write(`:*!bnc@bnc 464 ${con.state.nick} :Password required\n`);
+        con.writeStatus('You must send your password first. /quote PASS <username>/<network>:<password>');
+        return false;
+    }
+
     if (commands[command]) {
         return await commands[command](msg, con);
     }
 
     // By default, send any unprocessed lines upstream
     return true;
+};
+
+commands.CAP = async function(msg, con) {
+    // Purposely disable CAP commands for now
+    // TODO: Implement this
+    return false;
 };
 
 commands.PASS = async function(msg, con) {
@@ -39,9 +53,15 @@ commands.PASS = async function(msg, con) {
 
     if (!con.upstream) {
         con.makeUpstream(network);
+        // TODO: Hook into upstream registration so that we can call registerClient() after
     } else {
         con.writeStatus(`Attaching you to the network`);
+        if (con.upstream.state.netRegistered) {
+            await con.registerClient();
+        }
     }
+
+    return false;
 };
 
 commands.PRIVMSG = async function(msg, con) {

@@ -1,3 +1,5 @@
+const { Channel } = require('./connectionstate');
+
 let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
@@ -11,9 +13,25 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['001'] = async function(msg, con) {
-    l(message);
     con.state.nick = msg.params[0];
+    con.state.serverPrefix = msg.prefix || '';
     con.state.netRegistered = true;
+    con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+    con.state.save();
+    return false;
+};
+commands['002'] = async function(msg, con) {
+    con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+    con.state.save();
+    return false;
+};
+commands['004'] = async function(msg, con) {
+    con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+    con.state.save();
+    return false;
+};
+commands['004'] = async function(msg, con) {
+    con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     con.state.save();
     return false;
 };
@@ -24,6 +42,10 @@ commands['005'] = async function(msg, con) {
     let tokens = msg.params.slice(1);
     tokens.pop();
     con.state.isupports = [...con.state.isupports, ...tokens];
+
+    con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+    con.state.save();
+    return false;
 };
 
 commands.PING = async function(msg, con) {
@@ -31,7 +53,7 @@ commands.PING = async function(msg, con) {
 };
 
 commands.JOIN = async function(msg, con) {
-    if (msg.prefix.nick !== con.state.nick) {
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
         return;
     }
 
@@ -42,5 +64,14 @@ commands.JOIN = async function(msg, con) {
     }
 
     chan.joined = true;
+    await con.state.save();
+};
+
+commands.NICK = async function(msg, con) {
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        return;
+    }
+
+    con.state.nick = msg.params[0];
     con.state.save();
 };

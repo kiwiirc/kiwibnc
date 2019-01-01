@@ -93,6 +93,43 @@ class ConnectionIncoming {
         this.write(`:*!bnc@bnc PRIVMSG ${this.state.nick} :${data}\n`);
     }
 
+    writeFromBnc(command, ...params) {
+        this.writeLine(':*!bnc@bnc', command, ...params);
+    }
+
+    writeLine(...params) {
+        l('writeLine()', ...params);
+        // If the last param contains a space, turn it into a trailing param
+        if (params.length > 1 && params[params.length - 1].indexOf(' ') > -1) {
+            params[params.length - 1] = ':' + params[params.length - 1];
+        }
+        this.write(params.join(' ') + '\n');
+    }
+
+    async registerClient() {
+        let upstream = this.upstream;
+        this.state.nick = upstream.state.nick;
+        this.state.username = upstream.state.username;
+        this.state.realname = upstream.state.realname;
+
+        let nick = this.state.nick;
+        upstream.state.registrationLines.forEach((regLine) => {
+            this.writeLine(':' + upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
+        });
+
+        this.state.netRegistered = true;
+
+        // Dump all our joined channels..
+        for (let chanName in upstream.state.channels) {
+            let channel = upstream.state.channels[chanName];
+            if (channel.joined) {
+                this.writeLine(':' + nick, 'JOIN', channel.name);
+            }
+        }
+
+        await this.state.save();
+    }
+
     // Handy helper to reach the hotReloadClientCommands() function
     reloadClientCommands() {
         hotReloadClientCommands();
