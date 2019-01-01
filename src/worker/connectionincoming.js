@@ -129,6 +129,7 @@ class ConnectionIncoming {
             if (channel.joined) {
                 this.writeLine(':' + nick, 'JOIN', channel.name);
                 channel.topic && this.writeLine('TOPIC', channel.name, channel.topic);
+                upstream.write(`NAMES ${channel.name}\n`);
             }
         }
 
