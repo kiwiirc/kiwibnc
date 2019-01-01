@@ -98,15 +98,16 @@ function listenToQueue(app) {
             return;
         }
 
-        let msg = ircLineParser(opts.data.trim('\n\r'));
+        let line = opts.data.trim('\n\r');
+        let msg = ircLineParser(line);
         if (!msg) {
             return;
         }
 
         if (con instanceof ConnectionIncoming) {
-            con.messageFromClient(msg);
+            con.messageFromClient(msg, line);
         } else {
-            con.messageFromUpstream(msg);
+            con.messageFromUpstream(msg, line);
         }
     });
 }
@@ -114,7 +115,6 @@ function listenToQueue(app) {
 // Start any listening servers on interfaces specified in the config, or any existing
 // servers that were previously started outside of the config
 async function startServers(app) {
-    l('startServers()')
     let existingBinds = await app.db.all('SELECT host, port FROM connections WHERE type = 2');
     let binds = app.conf.get('listeners.bind', []);
 

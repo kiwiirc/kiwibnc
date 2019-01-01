@@ -25,9 +25,13 @@ class ConnectionState {
         this.tls = false;
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
         this.connected = false;
+        // netRegistered - incomingcon = client authed+registered, outgoingcon = regged to the upstream irc network
         this.netRegistered = false;
         this.authUserId = 0;
         this.authNetworkId = 0;
+
+        // When an incoming connection finds its upstream, they add them here
+        this.linkedIncomingConIds = new Set([]);
     }
     
     async maybeLoad() {

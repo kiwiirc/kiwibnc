@@ -60,6 +60,11 @@ class ConnectionIncoming {
             }
         });
 
+        // If we found an upstream, add this incoming connection to it
+        if (foundCon) {
+            foundCon.state.linkedIncomingConIds.add(this.id);
+        }
+
         return foundCon;
     }
 
@@ -71,6 +76,10 @@ class ConnectionIncoming {
     destroy() {
         if (this.map) {
             this.map.delete(this.id);
+        }
+
+        if (this.upstream) {
+            this.upstream.state.linkedIncomingConIds.delete(this.id);
         }
 
         this.state.destroy();
@@ -89,7 +98,7 @@ class ConnectionIncoming {
         hotReloadClientCommands();
     }
 
-    async messageFromClient(message) {
+    async messageFromClient(message, raw) {
         this.state.maybeLoad();
         ClientCommands.run(message, this);
     }
@@ -109,6 +118,7 @@ class ConnectionIncoming {
         con.state.username = network.username;
         con.state.realname = network.realname;
         con.state.password = network.password;
+        con.state.linkedIncomingConIds.add(this.id);
         con.trackInMap(this.map);
         await con.state.save();
 

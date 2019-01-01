@@ -31,7 +31,7 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
-    messageFromUpstream(message) {
+    messageFromUpstream(message, raw) {
         this.state.maybeLoad();
 
         if (message.command === '001') {
@@ -63,6 +63,12 @@ class ConnectionOutgoing {
             chan.joined = true;
             this.state.save();
         }
+
+        // Send this data down to any linked clients
+        this.state.linkedIncomingConIds.forEach((conId) => {
+            let con = this.map.get(conId);
+            con && con.netRegistered && con.write(raw + '\n');
+        });
     }
 
     onUpstreamConnected() {
@@ -78,6 +84,7 @@ class ConnectionOutgoing {
 
     onUpstreamClosed() {
         this.state.connected = false;
+        this.state.netRegistered = false;
         for (let chanName in this.state.channels) {
             this.state.channels[chanName].joined = false;
         }
