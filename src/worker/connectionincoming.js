@@ -100,7 +100,10 @@ class ConnectionIncoming {
 
     async messageFromClient(message, raw) {
         this.state.maybeLoad();
-        ClientCommands.run(message, this);
+        let passUpstream = await ClientCommands.run(message, this);
+        if (passUpstream !== false && this.upstream) {
+            this.upstream.write(raw + '\n');
+        }
     }
 
     async makeUpstream(network) {

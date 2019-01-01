@@ -2,7 +2,12 @@ let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
-    commands[command] && await commands[command](msg, con);
+    if (commands[command]) {
+        return await commands[command](msg, con);
+    }
+
+    // By default, send any unprocessed lines upstream
+    return true;
 };
 
 commands.PASS = async function(msg, con) {
@@ -82,20 +87,31 @@ commands.PRIVMSG = async function(msg, con) {
 };
 
 commands.NICK = async function(msg, con) {
+    if (con.upstream && con.upstream.state.netRegistered) {
+        // We only want to pass a NICK upstream if we're registered to the
+        // network otherwise it may interfere with any ongoing registration
+        return;
+    }
+
     con.state.nick = msg.params[0];
     con.state.save();
     con.write(`:${con.state.nick} NICK ${con.state.nick}\n`);
+
+    return false;
 };
 
 commands.PING = async function(msg, con) {
     con.write('PONG :' + msg.params[0] + '\n');
+    return false;
 };
 
 // TODO: Put these below commands behind a login or something
 commands.KILL = async function(msg, con) {
     con.queue.stopListening().then(process.exit);
+    return false;
 };
 
 commands.RELOAD = async function(msg, con) {
     con.reloadClientCommands();
+    return false;
 };

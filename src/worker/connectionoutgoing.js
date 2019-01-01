@@ -67,7 +67,7 @@ class ConnectionOutgoing {
         // Send this data down to any linked clients
         this.state.linkedIncomingConIds.forEach((conId) => {
             let con = this.map.get(conId);
-            con && con.netRegistered && con.write(raw + '\n');
+            con && con.state.netRegistered && con.write(raw + '\n');
         });
     }
 
