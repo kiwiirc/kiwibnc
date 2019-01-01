@@ -13,6 +13,7 @@ module.exports = class SocketConnection {
             this.connected = true;
         } else {
             this.sock = new net.Socket({allowHalfOpen: false});
+            this.sock.setEncoding('utf8');
             this.connected = false;
         }
 
