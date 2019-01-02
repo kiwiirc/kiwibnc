@@ -56,9 +56,8 @@ class ConnectionOutgoing {
         let passDownstream = await UpstreamCommands.run(message, this);
         if (passDownstream !== false) {
             // Send this data down to any linked clients
-            this.state.linkedIncomingConIds.forEach((conId) => {
-                let con = this.map.get(conId);
-                con && con.state.netRegistered && con.write(raw + '\n');
+            this.forEachClient((client) => {
+                client.state.netRegistered && client.write(raw + '\n');
             });
         }
     }
@@ -75,9 +74,8 @@ class ConnectionOutgoing {
         this.write(`NICK ${this.state.nick}\n`);
         this.write(`USER ${this.state.username} * * ${this.state.realname}\n`);
 
-        this.state.linkedIncomingConIds.forEach((conId) => {
-            let clientCon = this.map.get(conId);
-            clientCon && clientCon.writeStatus('Network connected!');
+        this.forEachClient((client) => {
+            client.writeStatus('Network connected!');
         });
     }
 
@@ -88,9 +86,8 @@ class ConnectionOutgoing {
             this.state.channels[chanName].joined = false;
         }
 
-        this.state.linkedIncomingConIds.forEach((conId) => {
-            let clientCon = this.map.get(conId);
-            clientCon && clientCon.writeStatus('Network disconnected');
+        this.forEachClient((client) => {
+            client.writeStatus('Network disconnected');
         });
 
         // TODO: this connection object should be kept around. only destroy
