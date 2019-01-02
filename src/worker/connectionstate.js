@@ -59,7 +59,7 @@ class ConnectionState {
         let caps = JSON.stringify(this.caps);
         let channels = JSON.stringify(this.channels);
 
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, linked_con_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
             this.conId,
             Date.now(),
@@ -77,6 +77,7 @@ class ConnectionState {
             this.netRegistered,
             this.authUserId,
             this.authNetworkId,
+            JSON.stringify([...this.linkedIncomingConIds]),
         ]);
     }
 
@@ -108,6 +109,7 @@ class ConnectionState {
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
+            this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
         }
 
         this.loaded = true;

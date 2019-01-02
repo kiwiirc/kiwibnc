@@ -32,7 +32,7 @@ commands.CAP = async function(msg, con) {
 commands.PASS = async function(msg, con) {
     // PASS is only accepted if we haven't logged in already
     if (con.state.authUserId) {
-        return;
+        return false;
     }
 
     // Matching for user/network:pass or user:pass
@@ -40,7 +40,7 @@ commands.PASS = async function(msg, con) {
     if (!m) {
         con.write('ERROR :Invalid password\n');
         con.close();
-        return;
+        return false;
     }
 
     let username = m[1] || '';
@@ -51,7 +51,7 @@ commands.PASS = async function(msg, con) {
     if (!network) {
         con.write('ERROR :Invalid password\n');
         con.close();
-        return;
+        return false;
     }
 
     con.state.authUserId = network.user_id;
