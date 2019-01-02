@@ -104,7 +104,8 @@ class ConnectionIncoming {
 
     writeLine(...params) {
         // If the last param contains a space, turn it into a trailing param
-        if (params.length > 1 && params[params.length - 1].indexOf(' ') > -1) {
+        let lastParam = params[params.length - 1];
+        if (params.length > 1 && (lastParam[0] === ':' || lastParam.indexOf(' ') > -1)) {
             params[params.length - 1] = ':' + params[params.length - 1];
         }
         this.write(params.join(' ') + '\n');

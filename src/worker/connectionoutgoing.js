@@ -41,6 +41,15 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
+    async forEachClient(fn, excludeCon) {
+        this.state.linkedIncomingConIds.forEach(async (conId) => {
+            let clientCon = this.map.get(conId);
+            if (clientCon && clientCon !== excludeCon) {
+                await fn(clientCon);
+            }
+        });
+    }
+
     async messageFromUpstream(message, raw) {
         this.state.maybeLoad();
 

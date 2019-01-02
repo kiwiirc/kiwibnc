@@ -72,7 +72,19 @@ commands.PASS = async function(msg, con) {
     return false;
 };
 
+commands.NOTICE = async function(msg, con) {
+    // Send this message to other connected clients
+    con.upstream && con.upstream.forEachClient((client) => {
+        client.writeLine(`:${con.upstream.state.nick}`, 'NOTICE', msg.params[0], msg.params[1]);
+    }, con);
+};
+
 commands.PRIVMSG = async function(msg, con) {
+    // Send this message to other connected clients
+    con.upstream && con.upstream.forEachClient((client) => {
+        client.writeLine(`:${con.upstream.state.nick}`, 'PRIVMSG', msg.params[0], msg.params[1]);
+    }, con);
+
     // PM to * while logged in
     if (msg.params[0] === '*' && con.state.authUserId) {
         let parts = (msg.params[1] || '').split(' ');
