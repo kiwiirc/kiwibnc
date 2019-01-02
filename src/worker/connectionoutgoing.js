@@ -65,6 +65,11 @@ class ConnectionOutgoing {
         }
         this.write(`NICK ${this.state.nick}\n`);
         this.write(`USER ${this.state.username} * * ${this.state.realname}\n`);
+
+        this.state.linkedIncomingConIds.forEach((conId) => {
+            let clientCon = this.map.get(conId);
+            clientCon && clientCon.writeStatus('Network connected!');
+        });
     }
 
     onUpstreamClosed() {
@@ -73,6 +78,11 @@ class ConnectionOutgoing {
         for (let chanName in this.state.channels) {
             this.state.channels[chanName].joined = false;
         }
+
+        this.state.linkedIncomingConIds.forEach((conId) => {
+            let clientCon = this.map.get(conId);
+            clientCon && clientCon.writeStatus('Network disconnected');
+        });
 
         // TODO: this connection object should be kept around. only destroy
         // when the user deletes the connection

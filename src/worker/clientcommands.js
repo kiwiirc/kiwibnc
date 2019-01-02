@@ -60,7 +60,8 @@ commands.PASS = async function(msg, con) {
 
     if (!con.upstream) {
         con.makeUpstream(network);
-        // TODO: Hook into upstream registration so that we can call registerClient() after
+        con.writeStatus('Connecting to the network..');
+        // The upstream connection will call con.registerClient() when it's ready
     } else {
         con.writeStatus(`Attaching you to the network`);
         if (con.upstream.state.netRegistered) {

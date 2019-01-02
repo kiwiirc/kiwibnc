@@ -18,6 +18,12 @@ commands['001'] = async function(msg, con) {
     con.state.netRegistered = true;
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     con.state.save();
+
+    con.state.linkedIncomingConIds.forEach((conId) => {
+        let clientCon = con.map.get(conId);
+        clientCon && clientCon.registerClient();
+    });
+
     return false;
 };
 commands['002'] = async function(msg, con) {
