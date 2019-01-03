@@ -13,7 +13,7 @@ function hotReloadClientCommands() {
 hotReloadClientCommands();
 
 class ConnectionIncoming {
-    constructor(_id, db, userDb, queue) {
+    constructor(_id, db, userDb, messages, queue) {
         let id = _id || uuidv4();
         this.state = new ConnectionState(id, db);
         this.state.type = 1;
@@ -21,6 +21,7 @@ class ConnectionIncoming {
         this.map = null;
         this.db = db;
         this.userDb = userDb;
+        this.messages = messages;
         this.cachedUpstreamId = '';
     }
 
@@ -62,6 +63,7 @@ class ConnectionIncoming {
         // If we found an upstream, add this incoming connection to it
         if (foundCon) {
             foundCon.state.linkedIncomingConIds.add(this.id);
+            foundCon.state.save();
         }
 
         return foundCon;
@@ -134,6 +136,19 @@ class ConnectionIncoming {
             }
         }
 
+        for (let chanName in upstream.state.channels) {
+            let messages = await this.messages.getMessagesFromTime(
+                this.state.authUserId,
+                this.state.authNetworkId,
+                chanName,
+                Date.now() - 3600*1000
+            );
+
+            messages.forEach(async (msg) => {
+                this.write(msg.to1459() + '\n');
+            });
+        }
+
         await this.state.save();
     }
 
@@ -155,7 +170,7 @@ class ConnectionIncoming {
             network = await this.userDb.getNetwork(this.state.authNetworkId);
         }
 
-        let con = new ConnectionOutgoing(null, this.db, this.queue);
+        let con = new ConnectionOutgoing(null, this.db, this.messages, this.queue);
         con.state.authUserId = this.state.authUserId;
         con.state.authNetworkId = this.state.authNetworkId
         con.state.host = network.host;

@@ -122,3 +122,11 @@ commands.NICK = async function(msg, con) {
     con.state.nick = msg.params[0];
     con.state.save();
 };
+
+commands.PRIVMSG = async function(msg, con) {
+    await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+};
+
+commands.NOTICE = async function(msg, con) {
+    await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+};

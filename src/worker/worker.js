@@ -2,6 +2,7 @@ const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
 const Database = require('../libs/database');
 const Users = require('./users');
+const MessageStore = require('./messagestores/sqlite');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 
@@ -12,6 +13,9 @@ async function run() {
     await app.db.init();
 
     app.userDb = new Users(app.db);
+
+    app.messages = new MessageStore(app.conf.get('messages', {}));
+    await app.messages.init();
 
     // Container for all connection instances
     app.cons = new Map();
@@ -50,7 +54,7 @@ function listenToQueue(app) {
 
     // When the socket layer accepts a new incoming connection
     app.queue.on('connection.new', async (opts) => {
-        let c = new ConnectionIncoming(opts.id, app.db, app.userDb, app.queue);
+        let c = new ConnectionIncoming(opts.id, app.db, app.userDb, app.messages, app.queue);
         c.trackInMap(cons);
         c.state.host = opts.host;
         c.state.port = opts.port;
@@ -142,13 +146,13 @@ async function loadConnections(app) {
         l(` connection ${row.conid} ${row.type} ${row.host}:${row.port}`);
         let con = null;
         if (row.type === 0) {
-            con = new ConnectionOutgoing(row.conid, app.db, app.queue);
+            con = new ConnectionOutgoing(row.conid, app.db, app.messages, app.queue);
             con.trackInMap(app.cons);
             await con.state.maybeLoad();
             openConnection(app, con);
 
         } else if (row.type === 1) {
-            con = new ConnectionIncoming(row.conid, app.db, app.userDb, app.queue);
+            con = new ConnectionIncoming(row.conid, app.db, app.userDb, app.messages, app.queue);
             con.trackInMap(app.cons);
             await con.state.maybeLoad();
 

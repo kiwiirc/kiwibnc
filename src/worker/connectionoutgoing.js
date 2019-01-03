@@ -12,10 +12,11 @@ function hotReloadUpstreamCommands() {
 hotReloadUpstreamCommands();
 
 class ConnectionOutgoing {
-    constructor(_id, db, queue) {
+    constructor(_id, db, messages, queue) {
         let id = _id || uuidv4();
         this.state = new ConnectionState(id, db);
         this.state.type = 0;
+        this.messages = messages;
         this.queue = queue;
         this.map = null;
     }
