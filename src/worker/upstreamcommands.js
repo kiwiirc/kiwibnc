@@ -19,7 +19,7 @@ commands['001'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     con.state.save();
 
-    con.forEachClient((conId) => {
+    con.forEachClient((clientCon) => {
         clientCon.registerClient();
     });
 
