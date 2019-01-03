@@ -1,6 +1,7 @@
 const uuidv4 = require('uuid/v4');
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
+const strftime = require('strftime');
 
 // Client commands can be hot reloaded as they contain no state
 let ClientCommands = null;
@@ -136,6 +137,7 @@ class ConnectionIncoming {
             }
         }
 
+        // Now the client has a channel list, send any messages we have for them
         for (let chanName in upstream.state.channels) {
             let messages = await this.messages.getMessagesFromTime(
                 this.state.authUserId,
@@ -144,7 +146,14 @@ class ConnectionIncoming {
                 Date.now() - 3600*1000
             );
 
+            let supportsTime = this.state.caps.includes('server-time');
             messages.forEach(async (msg) => {
+                // TODO: The times here should come from the message itself
+                if (supportsTime) {
+                    msg.tags['time'] = strftime('%Y-%m-%dT%H:%M:%S.%LZ');
+                } else if(msg.command === 'PRIVMSG') {
+                    msg.params[1] = `[${strftime('%H:%M:%S')}] ${msg.params[1]}`;
+                }
                 this.write(msg.to1459() + '\n');
             });
         }

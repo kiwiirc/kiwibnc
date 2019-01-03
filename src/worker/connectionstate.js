@@ -45,6 +45,9 @@ class ConnectionState {
 
         // When an incoming connection finds its upstream, they add them here
         this.linkedIncomingConIds = new Set([]);
+
+        // Temporary misc data such as CAP negotiation status
+        this.temp = {};
     }
     
     async maybeLoad() {
@@ -59,7 +62,7 @@ class ConnectionState {
         let caps = JSON.stringify(this.caps);
         let channels = JSON.stringify(this.channels);
 
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, linked_con_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, linked_con_ids, temp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
             this.conId,
             Date.now(),
@@ -78,6 +81,7 @@ class ConnectionState {
             this.authUserId,
             this.authNetworkId,
             JSON.stringify([...this.linkedIncomingConIds]),
+            JSON.stringify(this.temp),
         ]);
     }
 
@@ -90,6 +94,7 @@ class ConnectionState {
             this.isupports = [];
             this.caps = [];
             this.channels = [];
+            this.temp = {};
         } else {
             this.host = row.host;
             this.port = row.port;
@@ -110,6 +115,7 @@ class ConnectionState {
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
+            this.temp = JSON.parse(row.temp);
         }
 
         this.loaded = true;
@@ -117,6 +123,30 @@ class ConnectionState {
 
     async destroy() {
         await this.db.run(`DELETE FROM connections WHERE conid = ?`, [this.conId]);
+    }
+
+    tempGet(key) {
+        return this.temp[key];
+    }
+
+    tempSet(key, val) {
+        if (typeof key === 'string') {
+            if (val === null) {
+                delete this.temp[key];
+            } else {
+                this.temp[key] = val;
+            }
+        } else if (typeof key === 'object') {
+            for (let prop in key) {
+                if (key[prop] === null) {
+                    delete this.temp[prop];
+                } else {
+                    this.temp[prop] = key[prop];
+                }
+            }
+        }
+
+        this.save();
     }
 
     getChannel(name) {

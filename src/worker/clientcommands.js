@@ -1,7 +1,26 @@
+const { ircLineParser } = require('irc-framework');
+
 let commands = Object.create(null);
+
+function mParam(msg, idx, def) {
+    return msg.params[idx] || def;
+}
+function mParamU(msg, idx, def) {
+    return (mParam(msg, idx, def) || '').toUpperCase();
+}
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
+
+    // If we're in the CAP negotiating phase, don't allow any other commands to be processed yet.
+    // Once CAP negotiations have ended, this queue will be run through.
+    // If msg.source === queue, the message is being processed from the queue and should not be re-queued.
+    if (con.state.tempGet('capping') && command !== 'CAP' && msg.source !== 'queue') {
+        let messageQueue = con.state.tempGet('capping.queue') || [];
+        messageQueue.push(msg.to1459());
+        con.state.tempSet('capping.queue', messageQueue);
+        return;
+    }
 
     // Before this connection is authed, only reply to NICK commands explaining that a pass is needed
     if (!con.state.netRegistered && command === 'NICK') {
@@ -11,7 +30,7 @@ module.exports.run = async function run(msg, con) {
     }
 
     // If we're not authed, only accept PASS commands
-    if (!con.state.netRegistered && command !== 'PASS') {
+    if (!con.state.netRegistered && (command !== 'PASS' && command !== 'CAP')) {
         return false;
     }
 
@@ -24,8 +43,49 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands.CAP = async function(msg, con) {
-    // Purposely disable CAP commands for now
-    // TODO: Implement this
+    let availableCaps = ['server-time', 'batch'];
+
+    if (mParamU(msg, 0, '') === 'LIST') {
+        con.writeLine('CAP', '*', 'LIST', con.state.caps.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'LS') {
+        con.state.tempSet('capping', true);
+        con.writeLine('CAP', '*', 'LS', availableCaps.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'REQ') {
+        let requested = mParam(msg, 1, '').split(' ');
+        let matched = requested.filter((cap) => availableCaps.includes(cap));
+        con.state.caps = con.state.caps.concat(matched);
+        await con.state.save();
+        con.writeLine('CAP', '*', 'ACK', matched.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'END') {
+        // Process any messages that came in during the CAP negotiation phase
+        let messageQueue = con.state.tempGet('capping.queue') || [];
+        while (messageQueue.length > 0) {
+            let line = messageQueue.shift();
+            con.state.tempSet('capping.queue', messageQueue);
+
+            let msg = ircLineParser(line);
+            if (!line || !msg) {
+                continue;
+            }
+
+            // Indicate that this message is from the queue, and therefore should not be re-queued
+            msg.source = 'queue';
+            await module.exports.run(msg, con);
+
+            // Update our list incase any messages has come in since we started processing it
+            messageQueue = con.state.tempGet('capping.queue') || [];
+        }
+
+        con.state.tempSet('capping', null);
+        con.state.tempSet('capping.queue', null);
+    }
+
     return false;
 };
 
