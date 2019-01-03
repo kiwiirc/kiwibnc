@@ -38,6 +38,12 @@ class ConnectionOutgoing {
         this.state.destroy();
     }
 
+    close() {
+        this.queue.sendToSockets('connection.close', {
+            id: this.id,
+        });
+    }
+
     write(data) {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
@@ -68,6 +74,7 @@ class ConnectionOutgoing {
         this.state.connected = true;
         this.state.isupports = [];
         this.state.registrationLines = [];
+        this.state.save();
 
         if (this.state.password) {
             this.write(`PASS ${this.state.password}\n`);

@@ -98,11 +98,11 @@ class ConnectionIncoming {
     }
 
     writeStatus(data) {
-        this.write(`:bnc PRIVMSG ${this.state.nick} :${data}\n`);
+        this.write(`:*bnc PRIVMSG ${this.state.nick} :${data}\n`);
     }
 
     writeFromBnc(command, ...params) {
-        this.writeLine(':bnc', command, ...params);
+        this.writeLine(':*bnc', command, ...params);
     }
 
     writeLine(...params) {

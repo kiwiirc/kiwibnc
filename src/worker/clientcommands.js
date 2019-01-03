@@ -146,7 +146,7 @@ commands.PRIVMSG = async function(msg, con) {
     }, con);
 
     // PM to * while logged in
-    if (msg.params[0] === '*' && con.state.authUserId) {
+    if (msg.params[0] === '*bnc' && con.state.authUserId) {
         let parts = (msg.params[1] || '').split(' ');
         let command = (parts[0] || '').toLowerCase();
 
@@ -155,6 +155,14 @@ commands.PRIVMSG = async function(msg, con) {
                 con.writeStatus(`Already connected`);
             } else {
                 con.makeUpstream();
+            }
+        }
+
+        if (command === 'disconnect') {
+            if (con.upstream) {
+                con.upstream.close();
+            } else {
+                con.writeStatus(`Not connected`);
             }
         }
 
@@ -183,7 +191,22 @@ commands.PRIVMSG = async function(msg, con) {
                 con.writeStatus('There was an error changing your password');
             }
         }
+
+        if (command === 'status') {
+            if (con.upstream && con.upstream.state.connected) {
+                con.writeStatus('Connected to ' + con.upstream.state.host);
+            } else {
+                con.writeStatus('Not connected');
+            }
+
+            if (parts[1] === 'more' && con.upstream) {
+                con.writeStatus('This ID: ' + con.id);
+                con.writeStatus('Upstream ID: ' + con.upstream.id);
+            }
+        }
     }
+
+    return false;
 };
 
 commands.NICK = async function(msg, con) {
