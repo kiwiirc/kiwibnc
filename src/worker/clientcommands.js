@@ -36,11 +36,7 @@ module.exports.run = async function run(msg, con) {
         }
 
         await commands[command](msg, con);
-
-        // If we now have all the needed info for registration, start registration
-        if (regState.nick && regState.user && regState.pass) {
-            await maybeProcessRegistration(con);
-        }
+        await maybeProcessRegistration(con);
 
         return;
     }
@@ -54,7 +50,16 @@ module.exports.run = async function run(msg, con) {
 };
 
 async function maybeProcessRegistration(con) {
+    // We can only register the client once we have all the info and CAP has ended
     let regState = con.state.tempGet('reg.state');
+    if (
+        !regState.nick ||
+        !regState.user ||
+        !regState.pass ||
+        con.state.tempGet('capping')
+    ) {
+        return;
+    }
 
     // Matching for user/network:pass or user:pass
     let m = regState.pass.match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
@@ -189,7 +194,7 @@ commands.PRIVMSG = async function(msg, con) {
             let nets = await con.db.all('SELECT * FROM user_networks WHERE user_id = ?', [
                 con.state.authUserId
             ]);
-            con.writeStatus(`${nets.length} networks`)
+            con.writeStatus(`${nets.length} network(s)`)
             nets.forEach((net) => {
                 con.writeStatus(`Network: ${net.name} ${net.nick} ${net.host}:${net.tls?'+':''}${net.port}`);
             });
