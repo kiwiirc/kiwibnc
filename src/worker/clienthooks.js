@@ -53,6 +53,18 @@ hooks.push(function(commandHooks) {
     });
 });
 
+// account-tag support
+hooks.push(function(commandHooks) {
+    commandHooks.on('message_to_client', event => {
+        if (!event.client.state.caps.includes('account-tag') && event.message.tags['account']) {
+            delete event.message.tags['account'];
+        }
+    });
+    commandHooks.on('available_caps', event => {
+        event.caps.push('account-tag');
+    });
+});
+
 // extended-join support
 hooks.push(function(commandHooks) {
     commandHooks.on('available_caps', event => {
