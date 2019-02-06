@@ -48,6 +48,15 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }
 
+    writeLine(...params) {
+        // If the last param contains a space, turn it into a trailing param
+        let lastParam = params[params.length - 1];
+        if (params.length > 1 && (lastParam[0] === ':' || lastParam.indexOf(' ') > -1)) {
+            params[params.length - 1] = ':' + params[params.length - 1];
+        }
+        this.write(params.join(' ') + '\r\n');
+    }
+
     async forEachClient(fn, excludeCon) {
         this.state.linkedIncomingConIds.forEach(async (conId) => {
             let clientCon = this.map.get(conId);
@@ -58,13 +67,13 @@ class ConnectionOutgoing {
     }
 
     async messageFromUpstream(message, raw) {
-        this.state.maybeLoad();
+        await this.state.maybeLoad();
 
         let passDownstream = await UpstreamCommands.run(message, this);
         if (passDownstream !== false) {
             // Send this data down to any linked clients
             this.forEachClient((client) => {
-                client.state.netRegistered && client.write(raw + '\n');
+                client.state.netRegistered && client.write(raw + '\r\n');
             });
         }
     }
@@ -75,6 +84,8 @@ class ConnectionOutgoing {
         this.state.isupports = [];
         this.state.registrationLines = [];
         this.state.save();
+
+        this.writeLine('CAP LS');
 
         if (this.state.password) {
             this.write(`PASS ${this.state.password}\n`);

@@ -98,7 +98,7 @@ class ConnectionIncoming {
     }
 
     writeStatus(data) {
-        this.write(`:*bnc PRIVMSG ${this.state.nick} :${data}\n`);
+        this.write(`:*bnc PRIVMSG ${this.state.nick} :${data}\r\n`);
     }
 
     writeFromBnc(command, ...params) {
@@ -111,7 +111,7 @@ class ConnectionIncoming {
         if (params.length > 1 && (lastParam[0] === ':' || lastParam.indexOf(' ') > -1)) {
             params[params.length - 1] = ':' + params[params.length - 1];
         }
-        this.write(params.join(' ') + '\n');
+        this.write(params.join(' ') + '\r\n');
     }
 
     async registerClient() {
@@ -167,7 +167,7 @@ class ConnectionIncoming {
     }
 
     async messageFromClient(message, raw) {
-        this.state.maybeLoad();
+        await this.state.maybeLoad();
         let passUpstream = await ClientCommands.run(message, this);
         if (passUpstream !== false && this.upstream) {
             this.upstream.write(raw + '\n');

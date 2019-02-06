@@ -47,7 +47,7 @@ class ConnectionState {
         this.linkedIncomingConIds = new Set([]);
 
         // Temporary misc data such as CAP negotiation status
-        this.temp = {};
+        this.tempData = {};
     }
     
     async maybeLoad() {
@@ -61,6 +61,7 @@ class ConnectionState {
         let isupports = JSON.stringify(this.isupports);
         let caps = JSON.stringify(this.caps);
         let channels = JSON.stringify(this.channels);
+        let tempData = JSON.stringify(this.tempData);
 
         let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, linked_con_ids, temp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
@@ -81,7 +82,7 @@ class ConnectionState {
             this.authUserId,
             this.authNetworkId,
             JSON.stringify([...this.linkedIncomingConIds]),
-            JSON.stringify(this.temp),
+            tempData,
         ]);
     }
 
@@ -94,7 +95,7 @@ class ConnectionState {
             this.isupports = [];
             this.caps = [];
             this.channels = [];
-            this.temp = {};
+            this.tempData = {};
         } else {
             this.host = row.host;
             this.port = row.port;
@@ -115,7 +116,7 @@ class ConnectionState {
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
-            this.temp = JSON.parse(row.temp);
+            this.tempData = JSON.parse(row.temp);
         }
 
         this.loaded = true;
@@ -126,27 +127,27 @@ class ConnectionState {
     }
 
     tempGet(key) {
-        return this.temp[key];
+        return this.tempData[key];
     }
 
-    tempSet(key, val) {
+    async tempSet(key, val) {
         if (typeof key === 'string') {
             if (val === null) {
-                delete this.temp[key];
+                delete this.tempData[key];
             } else {
-                this.temp[key] = val;
+                this.tempData[key] = val;
             }
         } else if (typeof key === 'object') {
             for (let prop in key) {
                 if (key[prop] === null) {
-                    delete this.temp[prop];
+                    delete this.tempData[prop];
                 } else {
-                    this.temp[prop] = key[prop];
+                    this.tempData[prop] = key[prop];
                 }
             }
         }
 
-        this.save();
+        await this.save();
     }
 
     getChannel(name) {

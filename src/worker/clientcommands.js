@@ -1,37 +1,48 @@
 const { ircLineParser } = require('irc-framework');
+const { mParam, mParamU } = require('../libs/helpers');
 
 let commands = Object.create(null);
 
-function mParam(msg, idx, def) {
-    return msg.params[idx] || def;
-}
-function mParamU(msg, idx, def) {
-    return (mParam(msg, idx, def) || '').toUpperCase();
-}
+
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
+    l('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
+    if (command === 'DEB' || command === 'RELOAD') {
+        return await commands[command](msg, con);
+    }
 
     // If we're in the CAP negotiating phase, don't allow any other commands to be processed yet.
     // Once CAP negotiations have ended, this queue will be run through.
     // If msg.source === queue, the message is being processed from the queue and should not be re-queued.
     if (con.state.tempGet('capping') && command !== 'CAP' && msg.source !== 'queue') {
-        let messageQueue = con.state.tempGet('capping.queue') || [];
+        let messageQueue = con.state.tempGet('reg.queue') || [];
         messageQueue.push(msg.to1459());
-        con.state.tempSet('capping.queue', messageQueue);
+        return await con.state.tempSet('reg.queue', messageQueue);
+    }
+
+    // We're done capping, but not yet registered. Process registration commands
+    if (!con.state.netRegistered) {
+        // Only allow a subset of commands to be accepted at this point
+        let preRegisterCommands = ['USER', 'NICK', 'PASS', 'CAP'];
+        if (preRegisterCommands.indexOf(command) === -1) {
+            return false;
+        }
+
+        let regState = con.state.tempGet('reg.state');
+        if (!regState) {
+            regState = {nick: '', user: '', pass: ''};
+            await con.state.tempSet('reg.state', regState);
+        }
+
+        await commands[command](msg, con);
+
+        // If we now have all the needed info for registration, start registration
+        if (regState.nick && regState.user && regState.pass) {
+            await maybeProcessRegistration(con);
+        }
+
         return;
-    }
-
-    // Before this connection is authed, only reply to NICK commands explaining that a pass is needed
-    if (!con.state.netRegistered && command === 'NICK') {
-        con.write(`:bnc 464 ${con.state.nick} :Password required\n`);
-        con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
-        return false;
-    }
-
-    // If we're not authed, only accept PASS commands
-    if (!con.state.netRegistered && (command !== 'PASS' && command !== 'CAP')) {
-        return false;
     }
 
     if (commands[command]) {
@@ -42,61 +53,11 @@ module.exports.run = async function run(msg, con) {
     return true;
 };
 
-commands.CAP = async function(msg, con) {
-    let availableCaps = ['server-time', 'batch'];
-
-    if (mParamU(msg, 0, '') === 'LIST') {
-        con.writeLine('CAP', '*', 'LIST', con.state.caps.join(' '));
-    }
-
-    if (mParamU(msg, 0, '') === 'LS') {
-        con.state.tempSet('capping', true);
-        con.writeLine('CAP', '*', 'LS', availableCaps.join(' '));
-    }
-
-    if (mParamU(msg, 0, '') === 'REQ') {
-        let requested = mParam(msg, 1, '').split(' ');
-        let matched = requested.filter((cap) => availableCaps.includes(cap));
-        con.state.caps = con.state.caps.concat(matched);
-        await con.state.save();
-        con.writeLine('CAP', '*', 'ACK', matched.join(' '));
-    }
-
-    if (mParamU(msg, 0, '') === 'END') {
-        // Process any messages that came in during the CAP negotiation phase
-        let messageQueue = con.state.tempGet('capping.queue') || [];
-        while (messageQueue.length > 0) {
-            let line = messageQueue.shift();
-            con.state.tempSet('capping.queue', messageQueue);
-
-            let msg = ircLineParser(line);
-            if (!line || !msg) {
-                continue;
-            }
-
-            // Indicate that this message is from the queue, and therefore should not be re-queued
-            msg.source = 'queue';
-            await module.exports.run(msg, con);
-
-            // Update our list incase any messages has come in since we started processing it
-            messageQueue = con.state.tempGet('capping.queue') || [];
-        }
-
-        con.state.tempSet('capping', null);
-        con.state.tempSet('capping.queue', null);
-    }
-
-    return false;
-};
-
-commands.PASS = async function(msg, con) {
-    // PASS is only accepted if we haven't logged in already
-    if (con.state.authUserId) {
-        return false;
-    }
+async function maybeProcessRegistration(con) {
+    let regState = con.state.tempGet('reg.state');
 
     // Matching for user/network:pass or user:pass
-    let m = (msg.params[0] || '').match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
+    let m = regState.pass.match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
     if (!m) {
         con.write('ERROR :Invalid password\n');
         con.close();
@@ -118,6 +79,11 @@ commands.PASS = async function(msg, con) {
     con.state.authNetworkId = network.id;
     await con.state.save();
 
+    // If CAP is in negotiation phase, that will start the upstream when ready
+    if (con.state.tempGet('capping')) {
+        return;
+    }
+
     if (!con.upstream) {
         con.makeUpstream(network);
         con.writeStatus('Connecting to the network..');
@@ -129,6 +95,59 @@ commands.PASS = async function(msg, con) {
         }
     }
 
+    await con.state.tempSet('reg.state', null);
+}
+
+commands.CAP = async function(msg, con) {
+    let availableCaps = ['server-time', 'batch'];
+
+    if (mParamU(msg, 0, '') === 'LIST') {
+        con.writeLine('CAP', '*', 'LIST', con.state.caps.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'LS') {
+        // Record the version of CAP the client is using
+        await con.state.tempSet('capping', mParamU(msg, 1, '301'));
+        con.writeLine('CAP', '*', 'LS', availableCaps.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'REQ') {
+        let requested = mParam(msg, 1, '').split(' ');
+        let matched = requested.filter((cap) => availableCaps.includes(cap));
+        con.state.caps = con.state.caps.concat(matched);
+        await con.state.save();
+        con.writeLine('CAP', '*', 'ACK', matched.join(' '));
+    }
+
+    if (mParamU(msg, 0, '') === 'END') {
+        await processConQueue(con);
+        await con.state.tempSet('capping', null);
+    }
+
+    return false;
+};
+
+commands.PASS = async function(msg, con) {
+    // PASS is only accepted if we haven't logged in already
+    if (con.state.authUserId) {
+        return false;
+    }
+
+    let regState = con.state.tempGet('reg.state');
+    regState.pass = mParam(msg, 0, '');
+    await con.state.tempSet('reg.state', regState);
+
+    return false;
+};
+
+commands.USER = async function(msg, con) {
+    let regState = con.state.tempGet('reg.state');
+    if (regState) {
+        regState.user = mParam(msg, 0, '');
+        await con.state.tempSet('reg.state', regState);
+    }
+
+    // Never send USER upstream
     return false;
 };
 
@@ -145,7 +164,7 @@ commands.PRIVMSG = async function(msg, con) {
         client.writeLine(`:${con.upstream.state.nick}`, 'PRIVMSG', msg.params[0], msg.params[1]);
     }, con);
 
-    // PM to * while logged in
+    // PM to *bnc while logged in
     if (msg.params[0] === '*bnc' && con.state.authUserId) {
         let parts = (msg.params[1] || '').split(' ');
         let command = (parts[0] || '').toLowerCase();
@@ -204,9 +223,11 @@ commands.PRIVMSG = async function(msg, con) {
                 con.writeStatus('Upstream ID: ' + con.upstream.id);
             }
         }
+
+        return false;
     }
 
-    return false;
+    return true;
 };
 
 commands.NICK = async function(msg, con) {
@@ -216,11 +237,27 @@ commands.NICK = async function(msg, con) {
         return;
     }
 
-    con.state.nick = msg.params[0];
-    con.state.save();
-    con.write(`:${con.state.nick} NICK ${con.state.nick}\n`);
+    // If this client hasn't registered itself to the BNC yet, don't send it's nick upstream as
+    // we will make use of it ourselves first
+    if (!con.state.netRegistered) {
+        con.state.nick = msg.params[0];
+        con.state.save();
+        con.write(`:${con.state.nick} NICK ${con.state.nick}\n`);
 
-    return false;
+        let regState = con.state.tempGet('reg.state');
+        if (regState) {
+            regState.nick = mParam(msg, 0, '');
+            await con.state.tempSet('reg.state', regState);
+        }
+
+        // A quick reminder for the client that they need to send a password
+        con.write(`:bnc 464 ${con.state.nick} :Password required\n`);
+        con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
+
+        return false;
+    }
+
+    return true;
 };
 
 commands.PING = async function(msg, con) {
@@ -244,3 +281,35 @@ commands.RELOAD = async function(msg, con) {
     con.reloadClientCommands();
     return false;
 };
+
+commands.DEB = async function(msg, con) {
+    l('upstream id', con.upstream ? con.upstream.id : '<no upstream>');
+    l('clients', con.upstream ? con.upstream.state.linkedIncomingConIds.size : '<no upstream>');
+    l('this client registered?', con.state.netRegistered);
+    l('tmp vars', con.state.tempData);
+    return false;
+};
+
+
+async function processConQueue(con) {
+    // Process any messages that came in before we got its PASS
+    let messageQueue = con.state.tempGet('reg.queue') || [];
+    while (messageQueue.length > 0) {
+        let line = messageQueue.shift();
+        await con.state.tempSet('reg.queue', messageQueue);
+
+        let msg = ircLineParser(line);
+        if (!line || !msg) {
+            continue;
+        }
+
+        // Indicate that this message is from the queue, and therefore should not be re-queued
+        msg.source = 'queue';
+        await module.exports.run(msg, con);
+
+        // Update our list incase any messages has come in since we started processing it
+        messageQueue = con.state.tempGet('reg.queue') || [];
+    }
+
+    await con.state.tempSet('reg.queue', null);
+}

@@ -1,4 +1,5 @@
 const { Channel } = require('./connectionstate');
+const { mParam, mParamU } = require('../libs/helpers');
 
 let commands = Object.create(null);
 
@@ -10,6 +11,30 @@ module.exports.run = async function run(msg, con) {
 
     // By default, send any unprocessed lines to clients
     return true;
+};
+
+commands['CAP'] = async function(msg, con) {
+    if (mParam(msg, 0) === '*' && mParamU(msg, 1, '') === 'LS') {
+        let offeredCaps = mParam(msg, 2, '').split(' ');
+        let wantedCaps = ['server-time', 'extended-join', 'multi-prefix', 'away-notify', 'account-notify', 'extended-join'];
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
+        if (requestingCaps.length === 0) {
+            con.writeLine('CAP', 'END');
+        } else {
+            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+    }
+
+    // We only expect one ACK so just CAP END it here
+    //if (mParam(msg, 0) === '*' && mParamU(msg, 1, '') === 'ACK') {
+    if (mParamU(msg, 1, '') === 'ACK') {
+        let caps = mParam(msg, 2, '').split(' ');
+        con.state.caps = con.state.caps.concat(caps);
+        await con.state.save();
+        con.writeLine('CAP', 'END');
+    }
+
+    return false;
 };
 
 commands['001'] = async function(msg, con) {

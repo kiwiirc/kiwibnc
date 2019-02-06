@@ -40,7 +40,7 @@ module.exports = class SocketConnection {
         this.sock.on('data', (data) => {
             this.readBuffer += data;
 
-            var lines = this.readBuffer.split('\n');
+            let lines = this.readBuffer.split('\n');
             if (lines[lines.length - 1] !== '') {
                 this.readBuffer = lines.pop();
             } else {
@@ -49,7 +49,7 @@ module.exports = class SocketConnection {
             }
     
             lines.forEach((line) => {
-                this.queue.sendToWorker('connection.data', {id: this.id, data: line});
+                this.queue.sendToWorker('connection.data', {id: this.id, data: line.trimEnd()});
             });            
         });
     }
