@@ -1,4 +1,5 @@
 const uuidv4 = require('uuid/v4');
+const IrcMessage = require('irc-framework').Message;
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const strftime = require('strftime');
@@ -98,20 +99,35 @@ class ConnectionIncoming {
     }
 
     writeStatus(data) {
-        this.write(`:*bnc PRIVMSG ${this.state.nick} :${data}\r\n`);
+        this.writeMsgFrom('*bnc', 'PRIVMSG', this.state.nick, data);
     }
 
     writeFromBnc(command, ...params) {
-        this.writeLine(':*bnc', command, ...params);
+        this.writeMsgFrom('*bnc', command, ...params);
     }
 
-    writeLine(...params) {
-        // If the last param contains a space, turn it into a trailing param
-        let lastParam = params[params.length - 1];
-        if (params.length > 1 && (lastParam[0] === ':' || lastParam.indexOf(' ') > -1)) {
-            params[params.length - 1] = ':' + params[params.length - 1];
+    writeMsg(msg, ...args) {
+        let msgObj;
+
+        if (typeof msg === 'string') {
+            msgObj = new IrcMessage(msg, ...args);
+        } else {
+            msgObj = msg;
         }
-        this.write(params.join(' ') + '\r\n');
+
+        let eventObj = {halt: false, client: this, message: msgObj};
+        ClientCommands.triggerHook('message_to_client', eventObj);
+        if (eventObj.halt) {
+            return;
+        }
+
+        this.write(msgObj.to1459() + '\r\n');
+    }
+
+    writeMsgFrom(fromMask, command, ...args) {
+        let m = new IrcMessage(command, ...args);
+        m.prefix = fromMask;
+        return this.writeMsg(m);
     }
 
     async registerClient() {
@@ -122,7 +138,7 @@ class ConnectionIncoming {
 
         let nick = this.state.nick;
         upstream.state.registrationLines.forEach((regLine) => {
-            this.writeLine(':' + upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
+            this.writeMsgFrom(upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
         });
 
         this.state.netRegistered = true;
@@ -131,8 +147,8 @@ class ConnectionIncoming {
         for (let chanName in upstream.state.channels) {
             let channel = upstream.state.channels[chanName];
             if (channel.joined) {
-                this.writeLine(':' + nick, 'JOIN', channel.name);
-                channel.topic && this.writeLine('TOPIC', channel.name, channel.topic);
+                this.writeMsgFrom(nick, 'JOIN', channel.name);
+                channel.topic && this.writeMsg('TOPIC', channel.name, channel.topic);
                 upstream.write(`NAMES ${channel.name}\n`);
             }
         }

@@ -1,9 +1,13 @@
+const EventEmitter = require('events');
 const { ircLineParser } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
 
 let commands = Object.create(null);
+let commandHooks = new EventEmitter();
 
-
+module.exports.triggerHook = function triggerHook(hookName, event) {
+    commandHooks.emit(hookName, event);
+};
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
@@ -65,7 +69,7 @@ async function maybeProcessRegistration(con) {
     // Matching for user/network:pass or user:pass
     let m = regState.pass.match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
     if (!m) {
-        con.write('ERROR :Invalid password\n');
+        con.writeMsg('ERROR', 'Invalid password');
         con.close();
         return false;
     }
@@ -76,7 +80,7 @@ async function maybeProcessRegistration(con) {
 
     let network = await con.userDb.authUserNetwork(username, password, networkName);
     if (!network) {
-        con.write('ERROR :Invalid password\n');
+        con.writeMsg('ERROR', 'Invalid password');
         con.close();
         return false;
     }
@@ -104,17 +108,164 @@ async function maybeProcessRegistration(con) {
     await con.state.tempSet('reg.state', null);
 }
 
+
+/**
+ * Tap into some hooks to modify messages and capabilities
+ */
+
+// Some caps to always request
+commandHooks.on('available_caps', event => {
+    event.caps.push('batch');
+});
+
+// server-time support
+commandHooks.on('message_to_client', event => {
+    let caps = event.client.state.caps;
+
+    if (caps.includes('server-time')) {
+        if (!event.message.tags['time']) {
+            event.message.tags['time'] = strftime('%Y-%m-%dT%H:%M:%S.%LZ');
+        }
+    } else {
+        delete event.message.tags['time'];
+    }
+});
+commandHooks.on('available_caps', event => {
+    let caps = event.caps.push('server-time');
+});
+
+// away-notify support
+commandHooks.on('message_to_client', event => {
+    if (!event.client.state.caps.includes('away-notify') && event.message.command === 'AWAY') {
+        event.halt = true;
+    }
+});
+commandHooks.on('available_caps', event => {
+    event.caps.push('away-notify');
+});
+
+// account-notify support
+commandHooks.on('message_to_client', event => {
+    if (!event.client.state.caps.includes('account-notify') && event.message.command === 'ACCOUNT') {
+        event.halt = true;
+    }
+});
+commandHooks.on('available_caps', event => {
+    event.caps.push('account-notify');
+});
+
+// extended-join
+commandHooks.on('available_caps', event => {
+    if (!event.client.upstream) {
+        return;
+    }
+
+    // Only allow the client to use extended-join if upstream has it
+    let upstream = event.client.upstream;
+    if (upstream.state.caps.include('extended-join')) {
+        event.caps.push('extended-join');
+    }
+});
+commandHooks.on('message_to_client', event => {
+    // :nick!user@host JOIN #channelname * :Real Name
+    let caps = event.client.state.caps;
+    let m = event.message;
+    if (!caps.includes('extended-join') && m.command === 'JOIN' && m.params.length > 2) {
+        // Drop the account name from the params (The * in the above example)
+        m.params.splice(1, 1);
+    }
+});
+
+// multi-prefix
+commandHooks.on('available_caps', event => {
+    event.caps.push('multi-prefix');
+});
+commandHooks.on('message_to_client', event => {
+    let m = event.message;
+    // Only listen for 353(NAMES) and 352(WHO) replies
+    if (m.command !== '353' && m.command !== '352') {
+        return;
+    }
+
+    if (!event.client.upstream) {
+        return;
+    }
+
+    let clientCaps = event.client.state.caps;
+    let upstreamCaps = event.client.upstream.state.caps;
+    if (!clientCaps.includes('multi-prefix') && upstreamCaps.includes('multi-prefix')) {
+        // Make sure only one prefix is included in the message before sending them to the client
+
+        let prefixes = event.client.upstream.state.isupports.find(token => {
+            return token.indexOf('PREFIX=') === 0;
+        });
+
+        // Convert "PREFIX=(qaohv)~&@%+" to "~&@%+"
+        prefixes = (prefixes || '').split('=')[1] || '';
+        prefixes = prefixes.substr(prefixes.indexOf(')') + 1);
+
+        // :server.com 353 guest = #tethys :~&@%+aji &@Attila @+alyx +KindOne Argure
+        if (m.command === '353') {
+            // Only keep the first prefix for each user from the userlist
+            let list = m.params[3].split(' ').map(item => {
+                let itemPrefixes = '';
+                let nick = '';
+                for (let i = 0; i < item.length; i++) {
+                    if (prefixes.indexOf(item[i]) > -1) {
+                        itemPrefixes += item[i];
+                    } else {
+                        nick = item.substr(i + 1);
+                        break;
+                    }
+                }
+
+                return itemPrefixes[0] + nick;
+            });
+
+            m.params[3] = list.join(' ');
+        }
+
+        // :kenny.chatspike.net 352 guest #test grawity broken.symlink *.chatspike.net grawity H@%+ :0 Mantas M.
+        if (m.command === '352') {
+            let remapped = '';
+            let status = m.params[6] || '';
+            if (status[0] === 'H' || status[0] === 'A') {
+                remapped += status[0];
+                status = status.substr(1);
+            }
+
+            if (status[0] === '*') {
+                remapped += status[0];
+                status = status.substr(1);
+            }
+
+            if (status[0]) {
+                remapped += status[0];
+                status = status.substr(1);
+            }
+
+            m.params[6] = remapped;
+        }
+    }
+});
+
+
+/**
+ * Commands sent from the client get handled here
+ */
+
 commands.CAP = async function(msg, con) {
-    let availableCaps = ['server-time', 'batch'];
+    let availableCaps = [];
+    commandHooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
-        con.writeLine('CAP', '*', 'LIST', con.state.caps.join(' '));
+        con.writeMsg('CAP', '*', 'LIST', con.state.caps.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'LS') {
         // Record the version of CAP the client is using
         await con.state.tempSet('capping', mParamU(msg, 1, '301'));
-        con.writeLine('CAP', '*', 'LS', availableCaps.join(' '));
+        con.writeMsg('CAP', '*', 'LS', availableCaps.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'REQ') {
@@ -122,7 +273,7 @@ commands.CAP = async function(msg, con) {
         let matched = requested.filter((cap) => availableCaps.includes(cap));
         con.state.caps = con.state.caps.concat(matched);
         await con.state.save();
-        con.writeLine('CAP', '*', 'ACK', matched.join(' '));
+        con.writeMsg('CAP', '*', 'ACK', matched.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'END') {
@@ -160,14 +311,14 @@ commands.USER = async function(msg, con) {
 commands.NOTICE = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeLine(`:${con.upstream.state.nick}`, 'NOTICE', msg.params[0], msg.params[1]);
+        client.writeMsgFrom(con.upstream.state.nick, 'NOTICE', msg.params[0], msg.params[1]);
     }, con);
 };
 
 commands.PRIVMSG = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeLine(`:${con.upstream.state.nick}`, 'PRIVMSG', msg.params[0], msg.params[1]);
+        client.writeMsgFrom(con.upstream.state.nick, 'PRIVMSG', msg.params[0], msg.params[1]);
     }, con);
 
     // PM to *bnc while logged in
@@ -248,7 +399,7 @@ commands.NICK = async function(msg, con) {
     if (!con.state.netRegistered) {
         con.state.nick = msg.params[0];
         con.state.save();
-        con.write(`:${con.state.nick} NICK ${con.state.nick}\n`);
+        con.writeMsgFrom(con.state.nick, 'NICK', con.state.nick);
 
         let regState = con.state.tempGet('reg.state');
         if (regState) {
@@ -257,7 +408,7 @@ commands.NICK = async function(msg, con) {
         }
 
         // A quick reminder for the client that they need to send a password
-        con.write(`:bnc 464 ${con.state.nick} :Password required\n`);
+        con.writeMsgFrom('bnc', 464, con.state.nick, 'Password required');
         con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
 
         return false;
@@ -267,7 +418,7 @@ commands.NICK = async function(msg, con) {
 };
 
 commands.PING = async function(msg, con) {
-    con.write('PONG :' + msg.params[0] + '\n');
+    con.writeMsg('PONG', msg.params[0]);
     return false;
 };
 

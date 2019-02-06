@@ -16,7 +16,7 @@ module.exports.run = async function run(msg, con) {
 commands['CAP'] = async function(msg, con) {
     if (mParam(msg, 0) === '*' && mParamU(msg, 1, '') === 'LS') {
         let offeredCaps = mParam(msg, 2, '').split(' ');
-        let wantedCaps = ['server-time', 'extended-join', 'multi-prefix', 'away-notify', 'account-notify', 'extended-join'];
+        let wantedCaps = ['server-time', 'multi-prefix', 'away-notify', 'account-notify', 'extended-join'];
         let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
