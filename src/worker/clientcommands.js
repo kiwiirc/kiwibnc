@@ -18,7 +18,8 @@ module.exports.run = async function run(msg, con) {
     if (con.state.tempGet('capping') && command !== 'CAP' && msg.source !== 'queue') {
         let messageQueue = con.state.tempGet('reg.queue') || [];
         messageQueue.push(msg.to1459());
-        return await con.state.tempSet('reg.queue', messageQueue);
+        await con.state.tempSet('reg.queue', messageQueue);
+        return false;
     }
 
     // We're done capping, but not yet registered. Process registration commands
@@ -38,7 +39,7 @@ module.exports.run = async function run(msg, con) {
         await commands[command](msg, con);
         await maybeProcessRegistration(con);
 
-        return;
+        return false;
     }
 
     if (commands[command]) {
@@ -204,7 +205,7 @@ commands.PRIVMSG = async function(msg, con) {
             let newPass = parts[1] || '';
             if (!newPass) {
                 con.writeStatus('Usage: setpass <newpass>');
-                return;
+                return false;
             }
 
             try {
