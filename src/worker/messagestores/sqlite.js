@@ -40,22 +40,24 @@ class SqliteMessageStore {
         return messages;
     }
 
-    async storeMessage(userId, networkId, message, state) {
+    async storeMessage(userId, networkId, message, conState) {
         let sql = 'INSERT INTO messages (user_id, network_id, buffer, type, ts, msg_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)';
         let bufferName = '';
         let type = 0;
         let data = '';
         let msgId = '';
+        // If no prefix, it's because we're sending it upstream
+        let prefix = message.prefix || conState.nick;
 
         if (message.command === 'PRIVMSG') {
             type = 1;
-            bufferName = bufferNameIfPm(message, state.nick, 0);
-            data = JSON.stringify([message.prefix, message.tags, message.command, message.params]);
+            bufferName = bufferNameIfPm(message, conState.nick, 0);
+            data = JSON.stringify([prefix, message.tags, message.command, message.params]);
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
         } else if (message.command === 'NOTICE') {
             type = 2;
-            bufferName = bufferNameIfPm(message, state.nick, 0);
-            data = JSON.stringify([message.prefix, message.tags, message.command, message.params]);
+            bufferName = bufferNameIfPm(message, conState.nick, 0);
+            data = JSON.stringify([prefix, message.tags, message.command, message.params]);
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
         }
         

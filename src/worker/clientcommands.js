@@ -178,6 +178,15 @@ commands.NOTICE = async function(msg, con) {
     con.upstream && con.upstream.forEachClient((client) => {
         client.writeMsgFrom(con.upstream.state.nick, 'NOTICE', msg.params[0], msg.params[1]);
     }, con);
+
+    if (con.upstream) {
+        await con.messages.storeMessage(
+            con.upstream.state.authUserId,
+            con.upstream.state.authNetworkId,
+            msg,
+            con.upstream.state
+        );
+    }
 };
 
 commands.PRIVMSG = async function(msg, con) {
@@ -190,6 +199,15 @@ commands.PRIVMSG = async function(msg, con) {
     if (msg.params[0] === '*bnc' && con.state.authUserId) {
         await ClientControl.run(msg, con);
         return false;
+    }
+
+    if (con.upstream) {
+        await con.messages.storeMessage(
+            con.upstream.state.authUserId,
+            con.upstream.state.authNetworkId,
+            msg,
+            con.upstream.state
+        );
     }
 
     return true;
