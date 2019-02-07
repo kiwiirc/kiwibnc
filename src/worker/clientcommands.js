@@ -6,7 +6,9 @@ const ClientControl = require('./clientcontrol');
 let commands = Object.create(null);
 let commandHooks = new EventEmitter();
 
-// Attach all the command hooks
+// Attach all the command hooks. Make sure we don't get a cached version so that they
+// can be reloaded when this module is hot reloaded
+delete require.cache[require.resolve('./clienthooks')];
 require('./clienthooks').hooks.forEach(hook => hook(commandHooks));
 
 module.exports.triggerHook = function triggerHook(hookName, event) {

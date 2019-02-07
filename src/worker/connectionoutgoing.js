@@ -73,7 +73,7 @@ class ConnectionOutgoing {
         if (passDownstream !== false) {
             // Send this data down to any linked clients
             this.forEachClient((client) => {
-                client.state.netRegistered && client.write(raw + '\r\n');
+                client.state.netRegistered && client.writeMsg(message);
             });
         }
     }
