@@ -2,6 +2,7 @@ const uuidv4 = require('uuid/v4');
 const IrcMessage = require('irc-framework').Message;
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
+const { isoTime } = require('../libs/helpers');
 const strftime = require('strftime');
 
 // Client commands can be hot reloaded as they contain no state
@@ -164,13 +165,10 @@ class ConnectionIncoming {
 
             let supportsTime = this.state.caps.includes('server-time');
             messages.forEach(async (msg) => {
-                // TODO: The times here should come from the message itself
-                if (supportsTime) {
-                    msg.tags['time'] = strftime('%Y-%m-%dT%H:%M:%S.%LZ');
-                } else if(msg.command === 'PRIVMSG') {
+                if (!supportsTime) {
                     msg.params[1] = `[${strftime('%H:%M:%S')}] ${msg.params[1]}`;
                 }
-                this.write(msg.to1459() + '\n');
+                this.writeMsg(msg);
             });
         }
 

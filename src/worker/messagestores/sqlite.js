@@ -1,4 +1,6 @@
 const sqlite3 = require('sqlite3');
+const { isoTime } = require('../../libs/helpers');
+
 const IrcMessage = require('irc-framework').Message;
 
 class SqliteMessageStore {
@@ -34,6 +36,7 @@ class SqliteMessageStore {
             let m = new IrcMessage(data[2], ...data[3]);
             m.prefix = data[0];
             m.tags = data[1];
+            m.tags.time = isoTime(new Date(row.ts));
             return m;
         });
 
@@ -48,6 +51,7 @@ class SqliteMessageStore {
         let msgId = '';
         // If no prefix, it's because we're sending it upstream
         let prefix = message.prefix || conState.nick;
+        let time = message.tags.time || isoTime();
 
         if (message.command === 'PRIVMSG') {
             type = 1;

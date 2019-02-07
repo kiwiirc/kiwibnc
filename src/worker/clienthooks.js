@@ -1,4 +1,4 @@
-const strftime = require('strftime');
+const { isoTime } = require('../libs/helpers');
 
 /**
  * Tap into some hooks to modify messages and capabilities
@@ -20,7 +20,7 @@ hooks.push(function(commandHooks) {
 
         if (caps.includes('server-time')) {
             if (!event.message.tags['time']) {
-                event.message.tags['time'] = strftime('%Y-%m-%dT%H:%M:%S.%LZ');
+                event.message.tags['time'] = isoTime();
             }
         } else {
             delete event.message.tags['time'];
@@ -76,7 +76,7 @@ hooks.push(function(commandHooks) {
 
         // Only allow the client to use extended-join if upstream has it
         let upstream = event.client.upstream;
-        if (upstream.state.caps.include('extended-join')) {
+        if (upstream.state.caps.includes('extended-join')) {
             event.caps.push('extended-join');
         }
     });
