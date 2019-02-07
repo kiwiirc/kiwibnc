@@ -95,7 +95,6 @@ function listenToQueue(app) {
         }
     });
     app.queue.on('connection.data', (opts) => {
-        l(`Connection ${opts.id} data:`, opts.data);
         let con = cons.get(opts.id);
         if (!con) {
             l('Recieved data for unknown connection ' + opts.id);
