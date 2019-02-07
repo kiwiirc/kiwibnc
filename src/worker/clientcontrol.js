@@ -35,6 +35,18 @@ commands.DISCONNECT = async function(input, con, msg) {
     }
 };
 
+commands.LISTCLIENTS = async function(input, con, msg) {
+    let entries = [];
+    if (con.upstream) {
+        con.upstream.forEachClient(client => {
+            entries.push(`Client: ${client.state.host}`);
+        });
+    }
+
+    con.writeStatus(`${entries.length} client(s) connected`);
+    entries.forEach(e => con.writeStatus(e));
+};
+
 commands.LISTNETWORKS = async function(input, con, msg) {
     let nets = await con.db.all('SELECT * FROM user_networks WHERE user_id = ?', [
         con.state.authUserId
