@@ -88,10 +88,10 @@ class ConnectionOutgoing {
         this.writeLine('CAP LS');
 
         if (this.state.password) {
-            this.write(`PASS ${this.state.password}\n`);
+            this.writeLine(`PASS ${this.state.password}`);
         }
-        this.write(`NICK ${this.state.nick}\n`);
-        this.write(`USER ${this.state.username} * * ${this.state.realname}\n`);
+        this.writeLine(`NICK ${this.state.nick}`);
+        this.writeLine(`USER ${this.state.username} * * ${this.state.realname}`);
 
         this.forEachClient((client) => {
             client.writeStatus('Network connected!');
