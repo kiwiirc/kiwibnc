@@ -122,18 +122,8 @@ hooks.push(function(commandHooks) {
             if (m.command === '353') {
                 // Only keep the first prefix for each user from the userlist
                 let list = m.params[3].split(' ').map(item => {
-                    let itemPrefixes = '';
-                    let nick = '';
-                    for (let i = 0; i < item.length; i++) {
-                        if (prefixes.indexOf(item[i]) > -1) {
-                            itemPrefixes += item[i];
-                        } else {
-                            nick = item.substr(i + 1);
-                            break;
-                        }
-                    }
-
-                    return itemPrefixes[0] + nick;
+                    let parts = splitPrefixAndNick(prefixes, item);
+                    return parts.prefixes[0] + parts.nick;
                 });
 
                 m.params[3] = list.join(' ');
@@ -163,3 +153,60 @@ hooks.push(function(commandHooks) {
         }
     });
 });
+
+// userhost-in-names support
+hooks.push(function(commandHooks) {
+    commandHooks.on('available_caps', event => {
+        event.caps.push('userhost-in-names');
+    });
+    commandHooks.on('message_to_client', event => {
+        // :server.com 353 guest = #tethys :~&@%+aji &@Attila @+alyx +KindOne Argure
+        let caps = event.client.state.caps;
+        let m = event.message;
+        if (m.command === '353' && !caps.includes('userhost-in-names')) {
+            let prefixes = event.client.upstream.state.isupports.find(token => {
+                return token.indexOf('PREFIX=') === 0;
+            });
+
+            // Convert "PREFIX=(qaohv)~&@%+" to "~&@%+"
+            prefixes = (prefixes || '').split('=')[1] || '';
+            prefixes = prefixes.substr(prefixes.indexOf(')') + 1);
+
+            // Make sure the user masks only contain nicks
+            let list = m.params[3].split(' ').map(item => {
+                let parts = splitPrefixAndNick(prefixes, item);
+                let mask = parts.nick;
+
+                let pos = mask.indexOf('!');
+                if (pos === -1) {
+                    // No username separator, so it's safely just the nick
+                    return mask;
+                }
+
+                return mask.substring(0, pos)
+            });
+
+            m.params[3] = list.join(' ');
+        }
+    });
+});
+
+
+function splitPrefixAndNick(prefixes, input) {
+    let itemPrefixes = '';
+    let nick = '';
+
+    for (let i = 0; i < input.length; i++) {
+        if (prefixes.indexOf(input[i]) > -1) {
+            itemPrefixes += input[i];
+        } else {
+            nick = input.substr(i + 1);
+            break;
+        }
+    }
+
+    return {
+        nick: nick || '',
+        prefixes: itemPrefixes || '',
+    };
+}
