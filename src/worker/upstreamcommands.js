@@ -14,7 +14,8 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
-    if (mParam(msg, 0) === '*' && mParamU(msg, 1, '') === 'LS') {
+    // :irc.example.net CAP 1TCAA1SXP LS :invite-notify ...
+    if (mParamU(msg, 1, '') === 'LS') {
         let offeredCaps = mParam(msg, 2, '').split(' ');
         let wantedCaps = [
             'server-time',
