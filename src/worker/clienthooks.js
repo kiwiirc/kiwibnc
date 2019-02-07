@@ -1,3 +1,5 @@
+const strftime = require('strftime');
+
 /**
  * Tap into some hooks to modify messages and capabilities
  */
