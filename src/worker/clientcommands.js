@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const { ircLineParser } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
+const ClientControl = require('./clientcontrol');
 
 let commands = Object.create(null);
 let commandHooks = new EventEmitter();
@@ -185,64 +186,7 @@ commands.PRIVMSG = async function(msg, con) {
 
     // PM to *bnc while logged in
     if (msg.params[0] === '*bnc' && con.state.authUserId) {
-        let parts = (msg.params[1] || '').split(' ');
-        let command = (parts[0] || '').toLowerCase();
-
-        if (command === 'connect') {
-            if (con.upstream) {
-                con.writeStatus(`Already connected`);
-            } else {
-                con.makeUpstream();
-            }
-        }
-
-        if (command === 'disconnect') {
-            if (con.upstream) {
-                con.upstream.close();
-            } else {
-                con.writeStatus(`Not connected`);
-            }
-        }
-
-        if (command === 'listnetworks') {
-            let nets = await con.db.all('SELECT * FROM user_networks WHERE user_id = ?', [
-                con.state.authUserId
-            ]);
-            con.writeStatus(`${nets.length} network(s)`)
-            nets.forEach((net) => {
-                con.writeStatus(`Network: ${net.name} ${net.nick} ${net.host}:${net.tls?'+':''}${net.port}`);
-            });
-        }
-
-        if (command === 'setpass') {
-            let newPass = parts[1] || '';
-            if (!newPass) {
-                con.writeStatus('Usage: setpass <newpass>');
-                return false;
-            }
-
-            try {
-                await con.userDb.changeUserPassword(con.state.authUserId, newPass);
-                con.writeStatus('New password set');
-            } catch (err) {
-                l('Error setting new password:', err.message);
-                con.writeStatus('There was an error changing your password');
-            }
-        }
-
-        if (command === 'status') {
-            if (con.upstream && con.upstream.state.connected) {
-                con.writeStatus('Connected to ' + con.upstream.state.host);
-            } else {
-                con.writeStatus('Not connected');
-            }
-
-            if (parts[1] === 'more' && con.upstream) {
-                con.writeStatus('This ID: ' + con.id);
-                con.writeStatus('Upstream ID: ' + con.upstream.id);
-            }
-        }
-
+        await ClientControl.run(msg, con);
         return false;
     }
 
