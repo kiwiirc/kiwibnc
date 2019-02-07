@@ -45,6 +45,80 @@ commands.LISTNETWORKS = async function(input, con, msg) {
     });
 };
 
+commands.CHANGENETWORK = async function(input, con, msg) {
+    // changenetwork host=irc.freenode.net port=6667 tls=1
+
+    let toUpdate = {};
+    let columnMap = {
+        name: 'name',
+        host: 'host',
+        server: 'host',
+        address: 'host',
+        port: {column: 'port', type: 'number'},
+        tls: {column: 'tls', type: 'bool'},
+        ssl: {column: 'tls', type: 'bool'},
+        secure: {column: 'tls', type: 'bool'},
+        nick: 'nick',
+        username: 'username',
+        realname: 'realname',
+        real: 'realname',
+        password: 'password',
+        pass: 'password',
+    };
+
+    input.split(' ').forEach(part => {
+        let pos = part.indexOf('=');
+        if (pos === -1) {
+            pos = part.length;
+        }
+    
+        let field = part.substr(0, pos).toLowerCase();
+        let val = part.substr(pos + 1);
+
+        if (!columnMap[field]) {
+            return;
+        }
+
+        let column = '';
+        let type = 'string';
+
+        if (typeof columnMap[field] === 'string') {
+            column = columnMap[field];
+            type = 'string';
+        } else {
+            column = columnMap[field].column;
+            type = columnMap[field].type || 'string';
+        }
+
+        if (type === 'string') {
+            toUpdate[column] = val;
+        } else if(type === 'bool') {
+            toUpdate[column] = ['0', 'no', 'off', 'false'].indexOf(val.toLowerCase()) > -1 ?
+                false :
+                true;
+        } else if(type === 'number') {
+            let num = parseInt(val, 10);
+            if (isNaN(num)) {
+                num = 0;
+            }
+
+            toUpdate[column] = num;
+        }
+    });
+
+    if (Object.keys(toUpdate).length > 0) {
+        await con.db.db('user_networks')
+            .where('user_id', con.state.authUserId)
+            .where('id', con.state.authNetworkId)
+            .update(toUpdate);
+        
+        con.writeStatus(`Updated network`);
+    } else {
+        con.writeStatus(`Syntax: changenetwork server=irc.example.net port=6667 tls=yes`);
+        con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password`);
+    }
+};
+
 commands.SETPASS = async function(input, con, msg) {
     let parts = input.split(' ');
     let newPass = parts[0] || '';
