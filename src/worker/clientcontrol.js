@@ -48,9 +48,7 @@ commands.LISTCLIENTS = async function(input, con, msg) {
 };
 
 commands.LISTNETWORKS = async function(input, con, msg) {
-    let nets = await con.db.all('SELECT * FROM user_networks WHERE user_id = ?', [
-        con.state.authUserId
-    ]);
+    let nets = await con.userDb.getUserNetworks(con.state.authUserId);
     con.writeStatus(`${nets.length} network(s)`)
     nets.forEach((net) => {
         con.writeStatus(`Network: ${net.name} ${net.nick} ${net.host}:${net.tls?'+':''}${net.port}`);

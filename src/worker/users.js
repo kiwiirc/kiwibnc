@@ -51,6 +51,11 @@ class Users {
         ]);
     };
 
+    async getUserNetworks(userId) {
+        let rows = await this.db.all('SELECT * FROM user_networks WHERE user_id = ?', [userId]);
+        return rows;
+    }
+
     async getNetwork(id) {
         let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id]);
         return row;
