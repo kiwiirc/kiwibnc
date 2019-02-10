@@ -47,22 +47,60 @@ module.exports = class Queue extends EventEmitter {
         this.closing = false;
 
         l('Listening on queue ' + queueName);
+        let nextMsgId = 1;
+        let msgQueue = [];
+        let processing = false;
+
+        let processNext = () => {
+            processing = false;
+            processMsgQueue();
+        };
+
+        let processMsgQueue = () => {
+            if (processing) {
+                return;
+            }
+
+            if (msgQueue.length === 0) {
+                processing = false;
+                return;
+            }
+
+            processing = true;
+
+            let id = 'msg' + ++nextMsgId;
+            let msg = msgQueue.shift();
+            l('Queue recieved:', id, msg.content.toString());
+            let obj = JSON.parse(msg.content.toString());
+            if (obj && obj.length === 2) {
+                let ackMsg = () => {
+                    this.channel.ack(msg);
+                    processNext();
+                };
+
+                // Nothing listening for this event? Ack it right away as there's
+                // nowhere else to ack it
+                if (this.listenerCount(obj[0]) === 0) {
+                    this.channel.ack(msg);
+                    processNext();
+                } else {
+                    this.emit(obj[0], obj[1], ackMsg);
+                }
+            } else {
+                this.channel.ack(msg);
+                processNext();
+            }
+        }
+
         this.channel.consume(queueName, (msg) => {
             if (this.closing) {
                 return;
             }
 
+            
             this.consumerTag = msg.fields.consumerTag;
-            l('Queue recieved:', msg.content.toString());
-            let obj = JSON.parse(msg.content.toString());
-            if (obj && obj.length === 2) {
-                let ackMsg = () => {
-                    this.channel.ack(msg);
-                };
-                this.emit(obj[0], obj[1], ackMsg);
-            }
-
-            this.channel.ack(msg);
+            msgQueue.push(msg);
+            processMsgQueue();
         }, {noAck: false, exclusive: true});
     }
 

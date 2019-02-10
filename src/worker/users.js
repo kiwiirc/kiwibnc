@@ -55,6 +55,14 @@ class Users {
         let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id]);
         return row;
     }
+
+    async getNetworkByName(userId, netName) {
+        let row = await this.db.get(`SELECT * from user_networks WHERE user_id = ? AND name = ?`, [
+            userId,
+            netName,
+        ]);
+        return row;
+    }
 }
 
 module.exports = Users;

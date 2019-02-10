@@ -20,7 +20,7 @@ module.exports.run = async function(msg, con) {
 };
 
 commands.CONNECT = async function(input, con, msg) {
-    if (con.upstream) {
+    if (con.upstream && con.upstream.state.connected) {
         con.writeStatus(`Already connected`);
     } else {
         con.makeUpstream();
@@ -28,7 +28,7 @@ commands.CONNECT = async function(input, con, msg) {
 }
 
 commands.DISCONNECT = async function(input, con, msg) {
-    if (con.upstream) {
+    if (con.upstream && con.upstream.state.connected) {
         con.upstream.close();
     } else {
         con.writeStatus(`Not connected`);

@@ -21,54 +21,64 @@ async function run() {
 
     app.queue.listenForEvents(app.queue.queueToSockets);
 
-    app.queue.on('connection.data', (opts) => {
+    app.queue.on('connection.data', (opts, ack) => {
         l('connection.data', opts);
         let con = cons.get(opts.id);
         if (!con) {
             l('Couldn\'t find connection to send data to.', opts.id);
-            return;
+        } else {
+            con.write(opts.data);
         }
-        con.write(opts.data);
+        ack();
     });
 
-    app.queue.on('connection.open', (opts) => {
+    app.queue.on('connection.open', (opts, ack) => {
         if (cons.has(opts.id)) {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
             l('Connection already open, ignoring');
+            ack();
             return;
         }
 
         if (!opts.host || !opts.port) {
             l('Missing hort or port for connection.open');
+            ack();
+            return;
         }
 
         let con = new SocketConnection(opts.id, app.queue);
         cons.set(opts.id, con);
         throttledConnect(connectThrottler, con, opts.host, opts.port, opts.tls);
+        ack();
     });
 
-    app.queue.on('connection.close', (opts) => {
+    app.queue.on('connection.close', (opts, ack) => {
         let con = cons.get(opts.id);
         if (!con) {
+            ack();
             return;
         }
         con.close();
         cons.delete(opts.id);
+        ack();
     });
 
-    app.queue.on('connection.listen', (opts) => {
+    app.queue.on('connection.listen', (opts, ack) => {
         if (cons.has(opts.id)) {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
             l('Connection already open, ignoring');
+            ack();
             return;
         }
 
         if (!opts.host || !opts.port) {
             l('Missing hort or port for connection.listen');
+            ack();
+            return;
         }
 
         let srv = new SocketServer(opts.id, app.queue);
@@ -86,6 +96,8 @@ async function run() {
                 server: srv.id,
             });
         });
+
+        ack();
     });
 }
 

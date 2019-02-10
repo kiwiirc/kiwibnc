@@ -57,6 +57,10 @@ commands['001'] = async function(msg, con) {
         clientCon.registerClient();
     });
 
+    for (let chanName in con.state.channels) {
+        con.writeLine('JOIN', con.state.channels[chanName].name);
+    }
+
     return false;
 };
 commands['002'] = async function(msg, con) {

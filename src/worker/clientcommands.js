@@ -103,7 +103,10 @@ async function maybeProcessRegistration(con) {
     if (!con.upstream) {
         con.makeUpstream(network);
         con.writeStatus('Connecting to the network..');
-        // The upstream connection will call con.registerClient() when it's ready
+    } else if (!con.upstream.state.connected) {
+        // The upstream connection will call con.registerClient() once it's registered
+        con.writeStatus('Connecting to the network..');
+        con.upstream.open();
     } else {
         con.writeStatus(`Attaching you to the network`);
         if (con.upstream.state.netRegistered) {

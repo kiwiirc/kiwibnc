@@ -12,34 +12,37 @@ function hotReloadUpstreamCommands() {
 hotReloadUpstreamCommands();
 
 class ConnectionOutgoing {
-    constructor(_id, db, messages, queue) {
+    constructor(_id, db, messages, queue, conDict) {
         let id = _id || uuidv4();
         this.state = new ConnectionState(id, db);
         this.state.type = 0;
         this.messages = messages;
         this.queue = queue;
-        this.map = null;
+        this.conDict = conDict;
+
+        this.conDict.set(id, this);
     }
 
     get id() {
         return this.state.conId;
     }
 
-    trackInMap(map) {
-        this.map = map;
-        map.set(this.id, this);
-    }
-
     destroy() {
-        if (this.map) {
-            this.map.delete(this.id);
-        }
-
+        this.conDict.delete(this.id);
         this.state.destroy();
     }
 
     close() {
         this.queue.sendToSockets('connection.close', {
+            id: this.id,
+        });
+    }
+
+    open() {
+        this.queue.sendToSockets('connection.open', {
+            host: this.state.host,
+            port: this.state.port,
+            tls: this.state.tls,
             id: this.id,
         });
     }
@@ -59,7 +62,7 @@ class ConnectionOutgoing {
 
     async forEachClient(fn, excludeCon) {
         this.state.linkedIncomingConIds.forEach(async (conId) => {
-            let clientCon = this.map.get(conId);
+            let clientCon = this.conDict.get(conId);
             if (clientCon && clientCon !== excludeCon) {
                 await fn(clientCon);
             }
@@ -81,6 +84,7 @@ class ConnectionOutgoing {
     onUpstreamConnected() {
         // Reset some state. They will be re-populated when upstream sends its registration burst again
         this.state.connected = true;
+        this.state.netRegistered = false;
         this.state.isupports = [];
         this.state.registrationLines = [];
         this.state.save();
@@ -98,20 +102,18 @@ class ConnectionOutgoing {
         });
     }
 
-    onUpstreamClosed() {
+    async onUpstreamClosed() {
         this.state.connected = false;
-        this.state.netRegistered = false;
+
         for (let chanName in this.state.channels) {
             this.state.channels[chanName].joined = false;
         }
 
+        await this.state.save();
+
         this.forEachClient((client) => {
             client.writeStatus('Network disconnected');
         });
-
-        // TODO: this connection object should be kept around. only destroy
-        // when the user deletes the connection
-        this.destroy();
     }
 }
 

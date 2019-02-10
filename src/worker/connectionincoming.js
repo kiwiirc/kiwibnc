@@ -16,16 +16,18 @@ function hotReloadClientCommands() {
 hotReloadClientCommands();
 
 class ConnectionIncoming {
-    constructor(_id, db, userDb, messages, queue) {
+    constructor(_id, db, userDb, messages, queue, conDict) {
         let id = _id || uuidv4();
         this.state = new ConnectionState(id, db);
         this.state.type = 1;
         this.queue = queue;
-        this.map = null;
+        this.conDict = conDict;
         this.db = db;
         this.userDb = userDb;
         this.messages = messages;
         this.cachedUpstreamId = '';
+
+        this.conDict.set(id, this);
     }
 
     get id() {
@@ -39,53 +41,33 @@ class ConnectionIncoming {
         }
 
         if (this.cachedUpstreamId) {
-            let con = this.map.get(this.cachedUpstreamId);
+            let con = this.conDict.get(this.cachedUpstreamId);
             if (con) {
                 return con;
             }
 
-            // this.map may no longer contain cachedUpstreamId if that con was disconnected
+            // this.conDict may no longer contain cachedUpstreamId if that con was disconnected
             this.cachedUpstreamId = false;
         }
 
-        // Find an outgoing connection instance that matches the user + network info this connection
-        // has authed into
-        let foundCon = null;
-        this.map.forEach((con) => {
-            if (foundCon) return;
-            if (
-                con.state.type === 0 &&
-                con.state.authUserId === this.state.authUserId &&
-                con.state.authNetworkId === this.state.authNetworkId
-            ) {
-                this.cachedUpstreamId = con.id;
-                foundCon = con;
-            }
-        });
+        let upstream = this.conDict.findUsersOutgoingConnection(this.state.authUserId, this.state.authNetworkId);
 
         // If we found an upstream, add this incoming connection to it
-        if (foundCon) {
-            foundCon.state.linkedIncomingConIds.add(this.id);
-            foundCon.state.save();
+        if (upstream) {
+            upstream.state.linkedIncomingConIds.add(this.id);
+            upstream.state.save();
         }
 
-        return foundCon;
-    }
-
-    trackInMap(map) {
-        this.map = map;
-        map.set(this.id, this);
+        return upstream;
     }
 
     destroy() {
-        if (this.map) {
-            this.map.delete(this.id);
-        }
-
         if (this.upstream) {
             this.upstream.state.linkedIncomingConIds.delete(this.id);
+            this.upstream.state.save();
         }
 
+        this.conDict.delete(this.id);
         this.state.destroy();
     }
 
@@ -156,10 +138,15 @@ class ConnectionIncoming {
 
         // Now the client has a channel list, send any messages we have for them
         for (let chanName in upstream.state.channels) {
+            let channel = upstream.state.channels[chanName];
+            if (!channel.joined) {
+                continue;
+            }
+
             let messages = await this.messages.getMessagesFromTime(
                 this.state.authUserId,
                 this.state.authNetworkId,
-                chanName,
+                channel.name,
                 Date.now() - 3600*1000
             );
 
@@ -193,9 +180,9 @@ class ConnectionIncoming {
             network = await this.userDb.getNetwork(this.state.authNetworkId);
         }
 
-        let con = new ConnectionOutgoing(null, this.db, this.messages, this.queue);
-        con.state.authUserId = this.state.authUserId;
-        con.state.authNetworkId = this.state.authNetworkId
+        let con = new ConnectionOutgoing(null, this.db, this.messages, this.queue, this.conDict);
+        con.state.authUserId = thisnetwork.user_id;
+        con.state.authNetworkId = network.id
         con.state.host = network.host;
         con.state.port = network.port;
         con.state.tls = network.tls;
@@ -204,15 +191,9 @@ class ConnectionIncoming {
         con.state.realname = network.realname;
         con.state.password = network.password;
         con.state.linkedIncomingConIds.add(this.id);
-        con.trackInMap(this.map);
         await con.state.save();
 
-        this.queue.sendToSockets('connection.open', {
-            host: con.state.host,
-            port: con.state.port,
-            tls: con.state.tls,
-            id: con.id,
-        });
+        con.open();
 
         return con;
     }
