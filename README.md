@@ -15,7 +15,7 @@
   * account-tag
   * extended-join
   * userhost-in-names, 
-* IRC client <> BNC spec support:* batch
+* IRC client <> BNC spec support:
   * batch
   * server-time
   * away-notify
