@@ -158,21 +158,7 @@ async function loadConnections(app) {
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
     rows.forEach(async (row) => {
         l(` connection ${row.conid} ${types[row.type]} ${row.host}:${row.port}`);
-        /*
-        let con = null;
-        if (row.type === 0) {
-            con = new ConnectionOutgoing(row.conid, app.db, app.messages, app.queue);
-            con.trackInMap(app.cons);
-            await con.state.maybeLoad();
-            con.open();
 
-        } else if (row.type === 1) {
-            con = new ConnectionIncoming(row.conid, app.db, app.userDb, app.messages, app.queue);
-            con.trackInMap(app.cons);
-            await con.state.maybeLoad();
-
-        } else
-        */
         if (row.type === ConnectionDict.TYPE_INCOMING) {
             app.cons.loadFromId(row.conid, row.type);
         } else if (row.type === ConnectionDict.TYPE_OUTGOING) {
@@ -191,26 +177,4 @@ async function loadConnections(app) {
     });
 }
 
-    /*
-    let c = new ConnectionOutgoing(uuidv4(), app.db, app.queue);
-    c.trackInMap(cons);
-    c.state.host = 'irc.freenode.net';
-    c.state.port = 6667;
-    c.state.tls = false;
-    await c.state.save();
-    app.queue.sendToSockets('connection.open', {
-        host: c.state.host,
-        port: c.state.port,
-        tls: c.state.tls,
-        id: c.id,
-    });
-    */
-
-    /*
-    app.queue.sendToSockets('connection.listen', {
-        host: '0.0.0.0',
-        port: 3001,
-        id: uuidv4(),
-    });
-    */
 module.exports = run();
