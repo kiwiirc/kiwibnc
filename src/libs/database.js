@@ -58,6 +58,7 @@ module.exports = class Database {
             admin BOOLEAN
         );
         `);
+        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS users_username_uindex ON users (username);');
 
         sql.push(`
         CREATE TABLE IF NOT EXISTS user_networks (
@@ -73,6 +74,7 @@ module.exports = class Database {
             password TEXT
         );
         `);
+        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_networks_name_user_id_uindex ON user_networks (name, user_id);');
 
         for (let i=0; i<sql.length; i++) {
             await this.run(sql[i]);
