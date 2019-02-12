@@ -32,6 +32,7 @@ module.exports.run = async function(msg, con) {
 commands.HELLO =
 commands.HEY =
 commands.HI = 
+commands.OLA = 
 commands.HOLA = {
     requiresNetworkAuth: false,
     fn: async function(input, con, msg) {
