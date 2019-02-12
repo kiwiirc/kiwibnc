@@ -42,6 +42,7 @@ class ConnectionState {
         this.netRegistered = false;
         this.authUserId = 0;
         this.authNetworkId = 0;
+        this.authAdmin = false;
 
         // When an incoming connection finds its upstream, they add them here
         this.linkedIncomingConIds = new Set([]);
@@ -63,7 +64,7 @@ class ConnectionState {
         let channels = JSON.stringify(this.channels);
         let tempData = JSON.stringify(this.tempData);
 
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, linked_con_ids, temp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, auth_admin, linked_con_ids, temp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await this.db.run(sql, [
             this.conId,
             Date.now(),
@@ -81,6 +82,7 @@ class ConnectionState {
             this.netRegistered,
             this.authUserId,
             this.authNetworkId,
+            this.authAdmin,
             JSON.stringify([...this.linkedIncomingConIds]),
             tempData,
         ]);
@@ -115,6 +117,7 @@ class ConnectionState {
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
+            this.authAdmin = !!row.auth_admin;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
             this.tempData = JSON.parse(row.temp);
         }

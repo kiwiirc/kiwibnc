@@ -96,6 +96,7 @@ async function maybeProcessRegistration(con) {
 
         con.state.authUserId = network.user_id;
         con.state.authNetworkId = network.id;
+        con.state.authAdmin = !!network.user_admin;
     } else {
         // Logging into a user only mode (no attached network)
         let user = await con.userDb.authUser(username, password);
@@ -106,6 +107,7 @@ async function maybeProcessRegistration(con) {
         }
 
         con.state.authUserId = user.id;
+        con.state.authAdmin = !!user.admin;
     }
 
     await con.state.save();

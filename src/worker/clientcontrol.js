@@ -19,6 +19,11 @@ module.exports.run = async function(msg, con) {
             return;
         }
 
+        if (cmd.requiresAdmin && !con.state.authAdmin) {
+            con.writeStatus(`${command}: This is an administrative command`);
+            return;
+        }
+
         await cmd.fn(input, con, msg);
 
     } else if (typeof commands[command] === 'function') {
@@ -305,6 +310,33 @@ commands.SETPASS = async function(input, con, msg) {
         l('Error setting new password:', err.message);
         con.writeStatus('There was an error changing your password');
     }
+};
+
+commands.ADDUSER = {
+    requiresAdmin: true,
+    fn: async function(input, con, msg) {
+        let parts = input.split(' ');
+        let username = parts[0] || '';
+        let password = parts[1] || '';
+        if (!username || !password) {
+            con.writeStatus('Usage: adduwer <username> <password>');
+            return false;
+        }
+
+        let existingUser = await con.userDb.getUser(username);
+        if (existingUser) {
+            con.writeStatus(`User ${username} already exists`);
+            return;
+        }
+
+        try {
+            await con.userDb.addUser(username, password);
+            con.writeStatus(`Added new user, ${username}`);
+        } catch (err) {
+            l('Error adding new user:', err.message);
+            con.writeStatus('There was an error adding the new user');
+        }
+    },
 };
 
 commands.STATUS = async function(input, con, msg) {

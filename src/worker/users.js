@@ -9,7 +9,11 @@ class Users {
         let row = null;
         try {
             row = await this.db.get(`
-                SELECT nets.*, users.password as _pass FROM user_networks nets
+                SELECT
+                    nets.*,
+                    users.password as _pass,
+                    users.admin as user_admin
+                FROM user_networks nets
                 INNER JOIN users ON users.id = nets.user_id
                 WHERE users.username = ? AND nets.name = ?
             `, [username, network]);
@@ -43,6 +47,18 @@ class Users {
         }
         return row;
     }
+
+    async getUser(username) {
+        return await this.db.get(`SELECT * from users WHERE username = ?`, [username]);
+    }
+
+    async addUser(username, password) {
+        await this.db.db('users').insert({
+            username,
+            password: await bcrypt.hash(password, 8),
+            created_at: Date.now()
+        });
+    };
 
     async changeUserPassword(id, password) {
         await this.db.run('UPDATE users SET password = ? WHERE id = ?', [

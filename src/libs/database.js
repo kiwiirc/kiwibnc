@@ -43,6 +43,7 @@ module.exports = class Database {
             net_registered BOOLEAN,
             auth_user_id INTEGER,
             auth_network_id INTEGER,
+            auth_admin BOOLEAN,
             linked_con_ids TEXT,
             temp TEXT
         );
@@ -53,7 +54,8 @@ module.exports = class Database {
             id INTEGER PRIMARY KEY,
             username TEXT,
             password TEXT,
-            created_at INTEGER
+            created_at INTEGER,
+            admin BOOLEAN
         );
         `);
 
