@@ -33,7 +33,8 @@ async function run() {
     });
 
     app.queue.on('connection.open', (opts, ack) => {
-        if (cons.has(opts.id)) {
+        let con = cons.get(opts.id);
+        if (con && con.connected) {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
@@ -48,8 +49,11 @@ async function run() {
             return;
         }
 
-        let con = new SocketConnection(opts.id, app.queue);
-        cons.set(opts.id, con);
+        if (!con) {
+            con = new SocketConnection(opts.id, app.queue);
+            cons.set(opts.id, con);
+        }
+
         throttledConnect(connectThrottler, con, opts.host, opts.port, opts.tls);
         ack();
     });
