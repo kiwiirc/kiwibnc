@@ -40,6 +40,11 @@ class ConnectionIncoming {
             return null;
         }
 
+        // Not authed into a network = user mode only
+        if (!this.state.authNetworkId) {
+            return null;
+        }
+
         if (this.cachedUpstreamId) {
             let con = this.conDict.get(this.cachedUpstreamId);
             if (con) {
@@ -113,6 +118,36 @@ class ConnectionIncoming {
         return this.writeMsg(m);
     }
 
+    async registerLocalClient() {
+        let regLines = [
+            ['001', this.state.nick, 'Welcome to your BNC'],
+            ['002', this.state.nick, 'Your host is *bnc, running version kiwibnc-0.1'],
+            [
+                '005',
+                this.state.nick,
+                'CHANTYPES=#',
+                'CHANMODES=eIbq,k,flj,CFLMPQScgimnprstz',
+                'CHANLIMIT=#:0',
+                'PREFIX=(ov)@+',
+                'MAXLIST=bqeI:100',
+                'MODES=4',
+                'NETWORK=bnc',
+                'CALLERID=g',
+                'CASEMAPPING=rfc1459',
+                'are supported by this server',
+            ],
+            ['375', this.state.nick, '- BNC Message of the Day -'],
+            ['372', this.state.nick, '- Send a message to *bnc to get started -'],
+            ['372', this.state.nick, '- /query *bnc -'],
+            ['376', this.state.nick, 'End of /MOTD command'],
+        ];
+
+        regLines.forEach(line => this.writeFromBnc(...line));
+
+        this.state.netRegistered = true;
+        await this.state.save();
+    }
+
     async registerClient() {
         let upstream = this.upstream;
         this.state.nick = upstream.state.nick;
@@ -176,6 +211,11 @@ class ConnectionIncoming {
     }
 
     async makeUpstream(network) {
+        // May not be logged into a network
+        if (!this.state.authNetworkId) {
+            return null;
+        }
+
         if (!network) {
             network = await this.userDb.getNetwork(this.state.authNetworkId);
         }

@@ -36,10 +36,10 @@ class Users {
             let correctHash = await bcrypt.compare(password, row.password);
             if (!correctHash) {
                 row = null;
+            } else {
+                // We don't need the password hash going anywhere else, get rid of it
+                delete row.password;
             }
-
-            // We don't need the password hash going anywhere else, get rid of it
-            delete row.password;
         }
         return row;
     }

@@ -18,7 +18,7 @@ module.exports.triggerHook = function triggerHook(hookName, event) {
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
     l('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
-    if (command === 'DEB' || command === 'RELOAD') {
+    if (command === 'DEB' || command === 'RELOAD' || command === 'PING') {
         return await commands[command](msg, con);
     }
 
@@ -73,7 +73,7 @@ async function maybeProcessRegistration(con) {
     }
 
     // Matching for user/network:pass or user:pass
-    let m = regState.pass.match(/([^\/:]+)[:\/]([^:]+):?(.*)?/);
+    let m = regState.pass.match(/([^\/:]+)(?:\/([^:]+))?(?::(.*))?/);
     if (!m) {
         con.writeMsg('ERROR', 'Invalid password');
         con.close();
@@ -84,15 +84,29 @@ async function maybeProcessRegistration(con) {
     let networkName = m[2] || '';
     let password = m[3] || '';
 
-    let network = await con.userDb.authUserNetwork(username, password, networkName);
-    if (!network) {
-        con.writeMsg('ERROR', 'Invalid password');
-        con.close();
-        return false;
+    if (networkName) {
+        // Logging into a network
+        let network = await con.userDb.authUserNetwork(username, password, networkName);
+        if (!network) {
+            con.writeMsg('ERROR', 'Invalid password');
+            con.close();
+            return false;
+        }
+
+        con.state.authUserId = network.user_id;
+        con.state.authNetworkId = network.id;
+    } else {
+        // Logging into a user only mode (no attached network)
+        let user = await con.userDb.authUser(username, password);
+        if (!user) {
+            con.writeMsg('ERROR', 'Invalid password');
+            con.close();
+            return false;
+        }
+
+        con.state.authUserId = user.id;
     }
 
-    con.state.authUserId = network.user_id;
-    con.state.authNetworkId = network.id;
     await con.state.save();
 
     // If CAP is in negotiation phase, that will start the upstream when ready
@@ -100,18 +114,23 @@ async function maybeProcessRegistration(con) {
         return;
     }
 
-    if (!con.upstream) {
-        con.makeUpstream(network);
-        con.writeStatus('Connecting to the network..');
-    } else if (!con.upstream.state.connected) {
-        // The upstream connection will call con.registerClient() once it's registered
-        con.writeStatus('Connecting to the network..');
-        con.upstream.open();
-    } else {
-        con.writeStatus(`Attaching you to the network`);
-        if (con.upstream.state.netRegistered) {
-            await con.registerClient();
+    if (networkName) {
+        if (!con.upstream) {
+            con.makeUpstream(network);
+            con.writeStatus('Connecting to the network..');
+        } else if (!con.upstream.state.connected) {
+            // The upstream connection will call con.registerClient() once it's registered
+            con.writeStatus('Connecting to the network..');
+            con.upstream.open();
+        } else {
+            con.writeStatus(`Attaching you to the network`);
+            if (con.upstream.state.netRegistered) {
+                await con.registerClient();
+            }
         }
+    } else {
+        con.writeStatus('Welcome to your BNC!');
+        await con.registerLocalClient();
     }
 
     await con.state.tempSet('reg.state', null);
