@@ -151,7 +151,7 @@ class ConnectionState {
     }
 
     getChannel(name) {
-        return this.channels[name.toString()];
+        return this.channels[name.toLowerCase()];
     }
 
     addChannel(chan) {
@@ -164,6 +164,10 @@ class ConnectionState {
 
         this.channels[channel.name.toLowerCase()] = channel;
         return channel;
+    }
+
+    delChannel(name) {
+        delete this.channels[name.toLowerCase()];
     }
 }
 
