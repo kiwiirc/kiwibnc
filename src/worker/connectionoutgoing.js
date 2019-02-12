@@ -102,8 +102,9 @@ class ConnectionOutgoing {
         });
     }
 
-    async onUpstreamClosed() {
+    async onUpstreamClosed(err) {
         this.state.connected = false;
+        this.state.netRegistered = false;
 
         for (let chanName in this.state.channels) {
             this.state.channels[chanName].joined = false;
@@ -112,7 +113,15 @@ class ConnectionOutgoing {
         await this.state.save();
 
         this.forEachClient((client) => {
-            client.writeStatus('Network disconnected');
+            let msg = 'Network disconnected';
+            if (err && err.code) {
+                msg += ' ' + err.code;
+            }
+            client.writeStatus(msg);
+
+            if (!client.state.netRegistered) {
+                client.registerLocalClient();
+            }
         });
     }
 }

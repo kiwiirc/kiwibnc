@@ -97,9 +97,9 @@ function listenToQueue(app) {
 
         let con = cons.get(opts.id);
         if (con && con instanceof ConnectionOutgoing) {
-            con.onUpstreamClosed();
+            con.onUpstreamClosed(opts.error);
         } else if (con && con instanceof ConnectionIncoming) {
-            con.onClientClosed();
+            con.onClientClosed(opts.error);
         }
         ack();
     });
