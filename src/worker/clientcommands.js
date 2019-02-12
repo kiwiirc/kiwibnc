@@ -84,9 +84,10 @@ async function maybeProcessRegistration(con) {
     let networkName = m[2] || '';
     let password = m[3] || '';
 
+    let network = null;
     if (networkName) {
         // Logging into a network
-        let network = await con.userDb.authUserNetwork(username, password, networkName);
+        network = await con.userDb.authUserNetwork(username, password, networkName);
         if (!network) {
             con.writeMsg('ERROR', 'Invalid password');
             con.close();

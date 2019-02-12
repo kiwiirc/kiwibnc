@@ -156,9 +156,137 @@ commands.CHANGENETWORK = {
             
             con.writeStatus(`Updated network`);
         } else {
-            con.writeStatus(`Syntax: changenetwork server=irc.example.net port=6667 tls=yes`);
+            con.writeStatus(`Usage: changenetwork server=irc.example.net port=6697 tls=yes`);
             con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password`);
         }
+    },
+};
+
+commands.ADDNETWORK = {
+    requiresNetworkAuth: false,
+    fn: async function(input, con, msg) {
+        // addnetwork host=irc.freenode.net port=6667 tls=1
+
+        let toUpdate = {
+            port: 6697,
+            tls: true,
+            nick: 'bncuser',
+        };
+
+        let columnMap = {
+            name: 'name',
+            host: 'host',
+            server: 'host',
+            address: 'host',
+            port: {column: 'port', type: 'number'},
+            tls: {column: 'tls', type: 'bool'},
+            ssl: {column: 'tls', type: 'bool'},
+            secure: {column: 'tls', type: 'bool'},
+            nick: 'nick',
+            username: 'username',
+            realname: 'realname',
+            real: 'realname',
+            password: 'password',
+            pass: 'password',
+        };
+
+        input.split(' ').forEach(part => {
+            let pos = part.indexOf('=');
+            if (pos === -1) {
+                pos = part.length;
+            }
+        
+            let field = part.substr(0, pos).toLowerCase();
+            let val = part.substr(pos + 1);
+
+            if (!columnMap[field]) {
+                return;
+            }
+
+            let column = '';
+            let type = 'string';
+
+            if (typeof columnMap[field] === 'string') {
+                column = columnMap[field];
+                type = 'string';
+            } else {
+                column = columnMap[field].column;
+                type = columnMap[field].type || 'string';
+            }
+
+            if (type === 'string') {
+                toUpdate[column] = val;
+            } else if(type === 'bool') {
+                toUpdate[column] = ['0', 'no', 'off', 'false'].indexOf(val.toLowerCase()) > -1 ?
+                    false :
+                    true;
+            } else if(type === 'number') {
+                let num = parseInt(val, 10);
+                if (isNaN(num)) {
+                    num = 0;
+                }
+
+                toUpdate[column] = num;
+            }
+        });
+
+        let missingFields = [];
+        let requiredFields = ['name', 'host', 'port', 'nick'];
+        requiredFields.forEach(f => {
+            if (typeof toUpdate[f] === 'undefined') {
+                missingFields.push(f);
+            }
+        });
+
+        if (missingFields.length > 0) {
+            con.writeStatus('Missing fields: ' + missingFields.join(', '));
+            con.writeStatus(`Usage: addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick`);
+            con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password`);
+            return;
+        }
+
+        let existingNet = await con.userDb.getNetworkByName(con.state.authUserId, toUpdate.name);
+        if (existingNet) {
+            let existingHost = existingNet.host + ':' + (existingNet.tls ? '+' : '') + existingNet.port;
+            con.writeStatus(`Network ${existingNet.name} already exists (${existingHost})`);
+            return;
+        }
+
+        toUpdate.user_id = con.state.authUserId;
+        await con.db.db('user_networks').insert(toUpdate);
+        con.writeStatus(`New network saved. You can now login using your_username/${toUpdate.name}:your_password`);
+    },
+};
+
+commands.DELNETWORK = {
+    requiresNetworkAuth: false,
+    fn: async function(input, con, msg) {
+        // delnetwork network_name
+
+        let parts = input.split(' ');
+        if (!input || parts.length === 0) {
+            con.writeStatus('Usage: delnetwork <network_name>');
+        }
+
+        let netName = parts[0];
+
+        // Make sure the network exists
+        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        if (!network) {
+            con.writeStatus(`Network ${netName} could not be found`);
+            return;
+        }
+
+        // Close any active upstream connections we have for this network
+        let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
+        if (upstream) {
+            upstream.close();
+            upstream.destroy();
+        }
+
+
+        await con.db.db('user_networks').where('id', network.id).delete();
+        con.writeStatus(`Network ${network.name} deleted`);
     },
 };
 
