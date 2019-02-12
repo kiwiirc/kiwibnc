@@ -35,7 +35,6 @@ commands['CAP'] = async function(msg, con) {
     }
 
     // We only expect one ACK so just CAP END it here
-    //if (mParam(msg, 0) === '*' && mParamU(msg, 1, '') === 'ACK') {
     if (mParamU(msg, 1, '') === 'ACK') {
         let caps = mParam(msg, 2, '').split(' ');
         con.state.caps = con.state.caps.concat(caps);
