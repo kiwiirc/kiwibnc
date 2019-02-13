@@ -57,26 +57,22 @@ function listenToQueue(app) {
 
     // When the socket layer accepts a new incoming connection
     app.queue.on('connection.new', async (opts, ack) => {
-        l('loading from ID...');
+        l.debug('New incoming connection', opts.id);
         let c = await app.cons.loadFromId(opts.id, ConnectionDict.TYPE_INCOMING);
-        l('got con. setting post+port');
         c.state.host = opts.host;
         c.state.port = opts.port;
 
         try {
-            l('saving incoming connection');
             await c.state.save();
         } catch (err) {
-            l('Error saving incoming connection.', err.message);
+            l.error('Error saving incoming connection.', err.message);
             app.queue.sendToSockets('connection.close', {id: c.id});
             c.destroy();
             ack();
             return;
         }
 
-        l('calling onAccepted() incoming connection');
         c.onAccepted();
-        l('onAccepted() completed');
         ack();
     });
 
@@ -90,9 +86,9 @@ function listenToQueue(app) {
     });
     app.queue.on('connection.close', (opts, ack) => {
         if (opts.error) {
-            l(`Connection ${opts.id} closed. Error: ${opts.error.code}`);
+            l.debug(`Connection ${opts.id} closed. Error: ${opts.error.code}`);
         } else {
-            l(`Connection ${opts.id} closed.`);
+            l.debug(`Connection ${opts.id} closed.`);
         }
 
         let con = cons.get(opts.id);
@@ -106,7 +102,7 @@ function listenToQueue(app) {
     app.queue.on('connection.data', (opts, ack) => {
         let con = cons.get(opts.id);
         if (!con) {
-            l('Recieved data for unknown connection ' + opts.id);
+            l.warn('Recieved data for unknown connection ' + opts.id);
             ack();
             return;
         }
@@ -154,7 +150,7 @@ async function startServers(app) {
 
 async function loadConnections(app) {
     let rows = await app.db.all('SELECT conid, type, host, port FROM connections');
-    l(`Loading ${rows.length} connections`);
+    l.info(`Loading ${rows.length} connections`);
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
     rows.forEach(async (row) => {
         l.debug(`connection ${row.conid} ${types[row.type]} ${row.host}:${row.port}`);
