@@ -17,7 +17,7 @@ module.exports.triggerHook = function triggerHook(hookName, event) {
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
-    l('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
+    l.debug('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
     if (command === 'DEB' || command === 'RELOAD' || command === 'PING') {
         return await commands[command](msg, con);
     }
@@ -432,10 +432,10 @@ commands.RELOAD = async function(msg, con) {
 };
 
 commands.DEB = async function(msg, con) {
-    l('upstream id', con.upstream ? con.upstream.id : '<no upstream>');
-    l('clients', con.upstream ? con.upstream.state.linkedIncomingConIds.size : '<no upstream>');
-    l('this client registered?', con.state.netRegistered);
-    l('tmp vars', con.state.tempData);
+    l.info('upstream id', con.upstream ? con.upstream.id : '<no upstream>');
+    l.info('clients', con.upstream ? con.upstream.state.linkedIncomingConIds.size : '<no upstream>');
+    l.info('this client registered?', con.state.netRegistered);
+    l.info('tmp vars', con.state.tempData);
     return false;
 };
 

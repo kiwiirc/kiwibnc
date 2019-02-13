@@ -22,10 +22,10 @@ async function run() {
     app.queue.listenForEvents(app.queue.queueToSockets);
 
     app.queue.on('connection.data', (opts, ack) => {
-        l('connection.data', opts);
+        l.debug('connection.data', opts);
         let con = cons.get(opts.id);
         if (!con) {
-            l('Couldn\'t find connection to send data to.', opts.id);
+            l.warn('Couldn\'t find connection to send data to.', opts.id);
         } else {
             con.write(opts.data);
         }
@@ -38,13 +38,13 @@ async function run() {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
-            l('Connection already open, ignoring');
+            l.notice('Connection already open, ignoring');
             ack();
             return;
         }
 
         if (!opts.host || !opts.port) {
-            l('Missing hort or port for connection.open');
+            l.error('Missing hort or port for connection.open');
             ack();
             return;
         }
@@ -74,13 +74,13 @@ async function run() {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
-            l('Connection already open, ignoring');
+            l.notice('Connection already open, ignoring');
             ack();
             return;
         }
 
         if (!opts.host || !opts.port) {
-            l('Missing hort or port for connection.listen');
+            l.error('Missing hort or port for connection.listen');
             ack();
             return;
         }

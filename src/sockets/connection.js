@@ -55,7 +55,7 @@ module.exports = class SocketConnection {
     }
 
     connect(host, port, tls) {
-        l('connecting ' + this.id);
+        l.info('connecting ' + this.id);
         this.sock.connect(port, host);
     }
 

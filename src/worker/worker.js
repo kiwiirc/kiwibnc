@@ -157,7 +157,7 @@ async function loadConnections(app) {
     l(`Loading ${rows.length} connections`);
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
     rows.forEach(async (row) => {
-        l(` connection ${row.conid} ${types[row.type]} ${row.host}:${row.port}`);
+        l.debug(`connection ${row.conid} ${types[row.type]} ${row.host}:${row.port}`);
 
         if (row.type === ConnectionDict.TYPE_INCOMING) {
             app.cons.loadFromId(row.conid, row.type);

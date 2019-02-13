@@ -25,7 +25,7 @@ module.exports = class Queue extends EventEmitter {
         }
 
         let payload = JSON.stringify([type, data]);
-        l('Queue sending to worker:', payload);
+        l.trace('Queue sending to worker:', payload);
         this.channel.sendToQueue(this.queueToWorker, Buffer.from(payload), {persistent: true});
     }
 
@@ -35,7 +35,7 @@ module.exports = class Queue extends EventEmitter {
         }
 
         let payload = JSON.stringify([type, data]);
-        l('Queue sending to sockets:', payload);
+        l.trace('Queue sending to sockets: ' + payload);
         this.channel.sendToQueue(this.queueToSockets, Buffer.from(payload), {persistent: true});
     }
 
@@ -46,7 +46,7 @@ module.exports = class Queue extends EventEmitter {
 
         this.closing = false;
 
-        l('Listening on queue ' + queueName);
+        l.info('Listening on queue ' + queueName);
         let nextMsgId = 1;
         let msgQueue = [];
         let processing = false;
@@ -70,7 +70,7 @@ module.exports = class Queue extends EventEmitter {
 
             let id = 'msg' + ++nextMsgId;
             let msg = msgQueue.shift();
-            l('Queue recieved:', id, msg.content.toString());
+            l.debug('Queue recieved:', id, msg.content.toString());
             let obj = JSON.parse(msg.content.toString());
             if (obj && obj.length === 2) {
                 let ackMsg = () => {

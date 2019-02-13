@@ -28,7 +28,7 @@ class Users {
                 delete row._pass;
             }
         } catch (err) {
-            l('Error logging user in:', err.message);
+            l.error('Error logging user in:', err.message);
         }
 
         return row;

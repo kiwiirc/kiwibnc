@@ -307,7 +307,7 @@ commands.SETPASS = async function(input, con, msg) {
         await con.userDb.changeUserPassword(con.state.authUserId, newPass);
         con.writeStatus('New password set');
     } catch (err) {
-        l('Error setting new password:', err.message);
+        l.error('Error setting new password:', err.message);
         con.writeStatus('There was an error changing your password');
     }
 };
@@ -333,7 +333,7 @@ commands.ADDUSER = {
             await con.userDb.addUser(username, password);
             con.writeStatus(`Added new user, ${username}`);
         } catch (err) {
-            l('Error adding new user:', err.message);
+            l.error('Error adding new user:', err.message);
             con.writeStatus('There was an error adding the new user');
         }
     },

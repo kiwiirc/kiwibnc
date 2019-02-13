@@ -28,7 +28,7 @@ module.exports = class SocketServer extends EventEmitter {
     }
 
     listen(host, port) {
-        l(`listening on ${host}:${port} ${this.id}`);
+        l.info(`listening on ${host}:${port} ${this.id}`);
         this.server.listen(port, host);
     }
 
