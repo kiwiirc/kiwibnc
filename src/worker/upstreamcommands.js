@@ -1,9 +1,16 @@
 const { Channel } = require('./connectionstate');
 const { mParam, mParamU } = require('../libs/helpers');
+const clientHooks = require('./clienthooks');
 
 let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
+    let eventObj = {halt: false, client: con, message: msg};
+    clientHooks.emit('message_from_upstream', eventObj);
+    if (eventObj.halt) {
+        return;
+    }
+
     let command = msg.command.toUpperCase();
     if (commands[command]) {
         return await commands[command](msg, con);
@@ -149,6 +156,15 @@ commands['332'] = async function(msg, con) {
 
     channel.topic = msg.params[2];
     await con.state.save();
+};
+
+// nick in use
+// TODO: This is niave and way to simplistic to a fault. Improve
+commands['433'] = async function(msg, con) {
+    if (con.state.nick.length < 8) {
+        con.state.nick = con.state.nick + '_';
+        con.writeLine('NICK', con.state.nick);
+    }
 };
 
 commands.NICK = async function(msg, con) {

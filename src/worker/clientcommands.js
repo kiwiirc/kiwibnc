@@ -1,21 +1,21 @@
-const EventEmitter = require('events');
 const { ircLineParser } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
 const ClientControl = require('./clientcontrol');
+const clientHooks = require('./clienthooks');
 
 let commands = Object.create(null);
-let commandHooks = new EventEmitter();
-
-// Attach all the command hooks. Make sure we don't get a cached version so that they
-// can be reloaded when this module is hot reloaded
-delete require.cache[require.resolve('./clienthooks')];
-require('./clienthooks').hooks.forEach(hook => hook(commandHooks));
 
 module.exports.triggerHook = function triggerHook(hookName, event) {
-    commandHooks.emit(hookName, event);
+    clientHooks.emit(hookName, event);
 };
 
 module.exports.run = async function run(msg, con) {
+    let eventObj = {halt: false, client: con, message: msg};
+    this.triggerHook('message_from_client', eventObj);
+    if (eventObj.halt) {
+        return;
+    }
+
     let command = msg.command.toUpperCase();
     l.debug('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
     if (command === 'DEB' || command === 'RELOAD' || command === 'PING') {
@@ -146,7 +146,7 @@ async function maybeProcessRegistration(con) {
 
 commands.CAP = async function(msg, con) {
     let availableCaps = [];
-    commandHooks.emit('available_caps', {client: con, caps: availableCaps});
+    triggerHook('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
         con.writeMsg('CAP', '*', 'LIST', con.state.caps.join(' '));

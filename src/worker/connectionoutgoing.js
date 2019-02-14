@@ -1,4 +1,5 @@
 const uuidv4 = require('uuid/v4');
+const clientHooks = require('./clienthooks');
 const { ConnectionState, Channel } = require('./connectionstate');
 
 // Upstream commands can be hot reloaded as they contain no state
@@ -75,8 +76,21 @@ class ConnectionOutgoing {
         let passDownstream = await UpstreamCommands.run(message, this);
         if (passDownstream !== false) {
             // Send this data down to any linked clients
+            let clients = [];
             this.forEachClient((client) => {
-                client.state.netRegistered && client.writeMsg(message);
+                if (client.state.netRegistered) {
+                    clients.push(client);
+                }
+            });
+
+            let eventObj = {halt: false, clients, message};
+            clientHooks.emit('message_to_clients', eventObj);
+            if (eventObj.halt) {
+                return;
+            }
+
+            eventObj.clients.forEach(client => {
+                client.writeMsg(message);
             });
         }
     }

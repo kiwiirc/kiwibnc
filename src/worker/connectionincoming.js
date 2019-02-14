@@ -2,7 +2,6 @@ const uuidv4 = require('uuid/v4');
 const IrcMessage = require('irc-framework').Message;
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
-const { isoTime } = require('../libs/helpers');
 const strftime = require('strftime');
 
 // Client commands can be hot reloaded as they contain no state
