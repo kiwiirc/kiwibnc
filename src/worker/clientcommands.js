@@ -1,25 +1,15 @@
 const { ircLineParser } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
 const ClientControl = require('./clientcontrol');
-const clientHooks = require('./clienthooks');
+const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.triggerHook = function triggerHook(hookName, event) {
-    clientHooks.emit(hookName, event);
-};
-
 module.exports.run = async function run(msg, con) {
-    let eventObj = {halt: false, client: con, message: msg};
-    this.triggerHook('message_from_client', eventObj);
-    if (eventObj.halt) {
-        return;
-    }
-
     let command = msg.command.toUpperCase();
-    l.debug('state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
+    l.debug('run() state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
     if (command === 'DEB' || command === 'RELOAD' || command === 'PING') {
-        return await commands[command](msg, con);
+        return await runCommand(command, msg, con);
     }
 
     // If we're in the CAP negotiating phase, don't allow any other commands to be processed yet.
@@ -46,19 +36,29 @@ module.exports.run = async function run(msg, con) {
             await con.state.tempSet('reg.state', regState);
         }
 
-        await commands[command](msg, con);
+        await runCommand(command, msg, con);
         await maybeProcessRegistration(con);
 
         return false;
     }
 
+    return await runCommand(command, msg, con);
+};
+
+async function runCommand(command, msg, con) {
+    let eventObj = {halt: false, client: con, message: msg, passthru: true};
+    hooks.emit('message_from_client', eventObj);
+    if (eventObj.halt) {
+        return eventObj.passthru;
+    }
+
     if (commands[command]) {
-        return await commands[command](msg, con);
+        return commands[command](msg, con);
     }
 
     // By default, send any unprocessed lines upstream
     return true;
-};
+}
 
 async function maybeProcessRegistration(con) {
     // We can only register the client once we have all the info and CAP has ended
@@ -146,7 +146,7 @@ async function maybeProcessRegistration(con) {
 
 commands.CAP = async function(msg, con) {
     let availableCaps = [];
-    triggerHook('available_caps', {client: con, caps: availableCaps});
+    hooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
         con.writeMsg('CAP', '*', 'LIST', con.state.caps.join(' '));
@@ -276,147 +276,6 @@ commands.PING = async function(msg, con) {
 commands.QUIT = async function(msg, con) {
     // Some clients send a QUIT when they close, don't send that upstream
     con.close();
-    return false;
-};
-
-commands.BOUNCER = async function(msg, con) {
-    let subCmd = mParamU(msg, 0, '');
-
-    let encodeTags = require('irc-framework/src/messagetags').encode;
-
-    if (subCmd === 'CONNECT') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
-            con.writeMsg('BOUNCER', 'connect', '*', 'ERR_INVALIDARGS');
-            return false;
-        }
-
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
-        if (!network) {
-            con.writeMsg('BOUNCER', 'connect', '*', 'ERR_NETNOTFOUND');
-            return false;
-        }
-
-        let upstream = null;
-        upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-        if (upstream && !upstream.state.connected) {
-            upstream.open();
-        } else if(!upstream) {
-            upstream = await con.makeUpstream(network);
-        }
-    }
-
-    if (subCmd === 'DISCONNECT') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
-            con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_INVALIDARGS');
-            return false;
-        }
-
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
-        if (!network) {
-            con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_NETNOTFOUND');
-            return false;
-        }
-
-        let upstream = null;
-        upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-        if (upstream && upstream.state.connected) {
-            upstream.close();
-        }
-    }
-
-    if (subCmd === 'LISTNETWORKS') {
-        let nets = await con.userDb.getUserNetworks(con.state.authUserId);
-        nets.forEach((net) => {
-            let parts = [];
-            parts.push('network=' + net.name);
-            parts.push('host=' + net.host);
-            parts.push('port=' + net.port);
-            parts.push('tls=' + net.tls ? '1' : '0');
-            parts.push('host=' + net.host);
-
-            let netCon = con.conDict.findUsersOutgoingConnection(con.state.authUserId, net.id);
-            if (netCon) {
-                parts.push('state=' + (netCon.state.connected ? 'connected' : 'disconnected'));
-            } else {
-                parts.push('state=disconnect');
-            }
-
-            con.writeMsg('BOUNCER', 'listnetworks', parts.join(';'));
-        });
-
-        con.writeMsg('BOUNCER', 'listnetwork', 'RPL_OK');
-    }
-
-    if (subCmd === 'LISTBUFFERS') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
-            con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_INVALIDARGS');
-            return false;
-        }
-
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
-        if (!network) {
-            con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_NETNOTFOUND');
-            return false;
-        }
-
-        let upstream = null;
-        upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-        if (upstream) {
-            for (let chanName in upstream.state.channels) {
-                let buffer = upstream.state.channels[chanName];
-                let chan = {
-                    network: network.name,
-                    buffer: buffer.name,
-                    joined: buffer.joined ? '1' : '0',
-                    topic: buffer.topic,
-                };
-                con.writeMsg('BOUNCER', 'listbuffers', network.name, encodeTags(chan));
-            }
-        }
-
-        con.writeMsg('BOUNCER', 'listbuffers', network.name, 'RPL_OK');
-    }
-
-    if (subCmd === 'DELBUFFER') {
-        let netName = mParam(msg, 1, '');
-        let bufferName = mParam(msg, 2, '');
-        if (!netName || !bufferName) {
-            con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_INVALIDARGS');
-            return false;
-        }
-
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
-        if (!network) {
-            con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_NETNOTFOUND');
-            return false;
-        }
-
-        let upstream = null;
-        upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-        if (!upstream) {
-            // TODO: If no upstream loaded, check if its in the db (network) and remove it from there
-            con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
-            return false;
-        }
-
-        
-        let buffer = upstream.state.getChannel(bufferName);
-        if (!buffer) {
-            // No buffer? No need to delete anything
-            con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
-        }
-
-        upstream.state.delChannel(buffer.name);
-        if (buffer.joined) {
-            upstream.writeLine('PART', buffer.name);
-        }
-
-        con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
-    }
-
     return false;
 };
 

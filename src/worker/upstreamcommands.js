@@ -1,12 +1,12 @@
 const { Channel } = require('./connectionstate');
 const { mParam, mParamU } = require('../libs/helpers');
-const clientHooks = require('./clienthooks');
+const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
     let eventObj = {halt: false, client: con, message: msg};
-    clientHooks.emit('message_from_upstream', eventObj);
+    hooks.emit('message_from_upstream', eventObj);
     if (eventObj.halt) {
         return;
     }
@@ -21,7 +21,7 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
-    // :irc.example.net CAP 1TCAA1SXP LS :invite-notify ...
+    // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
         let offeredCaps = mParam(msg, 2, '').split(' ');
         let wantedCaps = [

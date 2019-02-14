@@ -1,5 +1,5 @@
 const uuidv4 = require('uuid/v4');
-const clientHooks = require('./clienthooks');
+const hooks = require('./hooks');
 const { ConnectionState, Channel } = require('./connectionstate');
 
 // Upstream commands can be hot reloaded as they contain no state
@@ -84,7 +84,7 @@ class ConnectionOutgoing {
             });
 
             let eventObj = {halt: false, clients, message};
-            clientHooks.emit('message_to_clients', eventObj);
+            hooks.emit('message_to_clients', eventObj);
             if (eventObj.halt) {
                 return;
             }

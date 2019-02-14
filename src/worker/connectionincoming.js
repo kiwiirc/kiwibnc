@@ -2,6 +2,7 @@ const uuidv4 = require('uuid/v4');
 const IrcMessage = require('irc-framework').Message;
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
+const hooks = require('./hooks');
 const strftime = require('strftime');
 
 // Client commands can be hot reloaded as they contain no state
@@ -103,7 +104,7 @@ class ConnectionIncoming {
         }
 
         let eventObj = {halt: false, client: this, message: msgObj};
-        ClientCommands.triggerHook('message_to_client', eventObj);
+        hooks.emit('message_to_client', eventObj);
         if (eventObj.halt) {
             return;
         }
