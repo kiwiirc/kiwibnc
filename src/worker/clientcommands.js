@@ -82,9 +82,24 @@ async function maybeProcessRegistration(con) {
     let username = m[1] || '';
     let networkName = m[2] || '';
     let password = m[3] || '';
-
     let network = null;
-    if (networkName) {
+
+    let hook = await hooks.emit('auth', {username, networkName, password, client: con, userId: null, network: null, isAdmin: false});
+    if (hook.prevent) {
+        return false;
+    }
+
+    if (hook.event.userId) {
+        // An extension has authed the user
+        con.state.authUserId = hook.event.userId;
+        con.state.authAdmin = !!hook.event.isAdmin;
+
+        if (hook.event.network) {
+            con.state.authNetworkId = hook.event.network.id;
+            network = hook.event.network;
+        }
+
+    } else if (networkName) {
         // Logging into a network
         network = await con.userDb.authUserNetwork(username, password, networkName);
         if (!network) {
@@ -116,7 +131,7 @@ async function maybeProcessRegistration(con) {
         return;
     }
 
-    if (networkName) {
+    if (network) {
         if (!con.upstream) {
             con.makeUpstream(network);
             con.writeStatus('Connecting to the network..');

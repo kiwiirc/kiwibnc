@@ -58,6 +58,8 @@ class Users {
             password: await bcrypt.hash(password, 8),
             created_at: Date.now()
         });
+
+        return await this.getUser(username);
     };
 
     async changeUserPassword(id, password) {
