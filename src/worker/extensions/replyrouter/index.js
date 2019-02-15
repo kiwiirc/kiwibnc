@@ -1,4 +1,4 @@
-const ReplyRouter = require('../replyrouter');
+const ReplyRouter = require('./routes');
 
 module.exports.init = function init(hooks) {
     hooks.on('message_to_clients', event => {

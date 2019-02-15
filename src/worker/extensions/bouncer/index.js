@@ -1,4 +1,4 @@
-const { mParam, mParamU } = require('../../libs/helpers');
+const { mParam, mParamU } = require('../../../libs/helpers');
 
 module.exports.init = function init(hooks) {
     hooks.on('message_from_client', event => {

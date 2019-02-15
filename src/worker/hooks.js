@@ -8,8 +8,8 @@ const { isoTime } = require('../libs/helpers');
 let commandHooks = new EventEmitter();
 module.exports = commandHooks;
 
-require('./extensions/bouncer').init(commandHooks);
-require('./extensions/replyrouter').init(commandHooks);
+require('./extensions/bouncer/').init(commandHooks);
+require('./extensions/replyrouter/').init(commandHooks);
 
 // Some caps to always request
 commandHooks.on('available_caps', event => {
@@ -190,7 +190,7 @@ function splitPrefixAndNick(prefixes, input) {
         if (prefixes.indexOf(input[i]) > -1) {
             itemPrefixes += input[i];
         } else {
-            nick = input.substr(i + 1);
+            nick = input.substr(i);
             break;
         }
     }
