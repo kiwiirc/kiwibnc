@@ -3,14 +3,14 @@ const { mParam, mParamU } = require('../../../libs/helpers');
 module.exports.init = function init(hooks) {
     hooks.on('message_from_client', event => {
         if (event.message.command.toUpperCase() === 'BOUNCER') {
-            handleBouncerCommand(event);
+            return handleBouncerCommand(event);
         }
     });
 };
 
 async function handleBouncerCommand(event) {
+    event.preventDefault();
     event.passthru = false;
-    event.halt = true;
 
     let msg = event.message;
     let con = event.client;

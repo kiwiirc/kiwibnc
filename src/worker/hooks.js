@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+const EventEmitter = require('../libs/eventemitter');
 const { isoTime } = require('../libs/helpers');
 
 /**
@@ -35,7 +35,7 @@ commandHooks.on('available_caps', event => {
 // away-notify support
 commandHooks.on('message_to_client', event => {
     if (!event.client.state.caps.includes('away-notify') && event.message.command === 'AWAY') {
-        event.halt = true;
+        event.preventDefault();
     }
 });
 commandHooks.on('available_caps', event => {
@@ -45,7 +45,7 @@ commandHooks.on('available_caps', event => {
 // account-notify support
 commandHooks.on('message_to_client', event => {
     if (!event.client.state.caps.includes('account-notify') && event.message.command === 'ACCOUNT') {
-        event.halt = true;
+        event.preventDefault();
     }
 });
 commandHooks.on('available_caps', event => {

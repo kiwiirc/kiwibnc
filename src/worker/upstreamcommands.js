@@ -5,9 +5,8 @@ const hooks = require('./hooks');
 let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
-    let eventObj = {halt: false, client: con, message: msg};
-    hooks.emit('message_from_upstream', eventObj);
-    if (eventObj.halt) {
+    let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
+    if (hook.prevent) {
         return;
     }
 

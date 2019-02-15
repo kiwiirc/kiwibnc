@@ -46,10 +46,9 @@ module.exports.run = async function run(msg, con) {
 };
 
 async function runCommand(command, msg, con) {
-    let eventObj = {halt: false, client: con, message: msg, passthru: true};
-    hooks.emit('message_from_client', eventObj);
-    if (eventObj.halt) {
-        return eventObj.passthru;
+    let hook = await hooks.emit('message_from_client', {client: con, message: msg, passthru: true});
+    if (hook.prevent) {
+        return hook.event.passthru;
     }
 
     if (commands[command]) {
@@ -146,7 +145,7 @@ async function maybeProcessRegistration(con) {
 
 commands.CAP = async function(msg, con) {
     let availableCaps = [];
-    hooks.emit('available_caps', {client: con, caps: availableCaps});
+    await hooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
         con.writeMsg('CAP', '*', 'LIST', con.state.caps.join(' '));

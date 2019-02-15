@@ -83,13 +83,12 @@ class ConnectionOutgoing {
                 }
             });
 
-            let eventObj = {halt: false, clients, message};
-            hooks.emit('message_to_clients', eventObj);
-            if (eventObj.halt) {
+            let hook = await hooks.emit('message_to_clients', {clients, message});
+            if (hook.prevent) {
                 return;
             }
 
-            eventObj.clients.forEach(client => {
+            hook.event.clients.forEach(client => {
                 client.writeMsg(message);
             });
         }

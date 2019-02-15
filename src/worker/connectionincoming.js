@@ -103,13 +103,11 @@ class ConnectionIncoming {
             msgObj = msg;
         }
 
-        let eventObj = {halt: false, client: this, message: msgObj};
-        hooks.emit('message_to_client', eventObj);
-        if (eventObj.halt) {
-            return;
-        }
-
-        this.write(msgObj.to1459() + '\r\n');
+        hooks.emit('message_to_client', {client: this, message: msgObj}).then(hook => {
+            if (!hook.prevent) {
+                this.write(msgObj.to1459() + '\r\n');
+            }
+        });
     }
 
     writeMsgFrom(fromMask, command, ...args) {
