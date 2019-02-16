@@ -72,7 +72,7 @@ function listenToQueue(app) {
             return;
         }
 
-        c.onAccepted();
+        await c.onAccepted();
         ack();
     });
 

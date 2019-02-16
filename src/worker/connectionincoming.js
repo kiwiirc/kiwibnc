@@ -237,6 +237,7 @@ class ConnectionIncoming {
     }
 
     onAccepted() {
+        return hooks.emit('new_client', {client: this});
     }
 
     onClientClosed() {

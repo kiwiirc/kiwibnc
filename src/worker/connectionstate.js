@@ -47,6 +47,9 @@ class ConnectionState {
         // When an incoming connection finds its upstream, they add them here
         this.linkedIncomingConIds = new Set([]);
 
+        // Message logging may be disabled. Only used on the upstream connection
+        this.logging = true;
+
         // Temporary misc data such as CAP negotiation status
         this.tempData = {};
     }
@@ -58,34 +61,30 @@ class ConnectionState {
     }
 
     async save() {
-        let registrationLines = JSON.stringify(this.registrationLines);
-        let isupports = JSON.stringify(this.isupports);
-        let caps = JSON.stringify(this.caps);
-        let channels = JSON.stringify(this.channels);
-        let tempData = JSON.stringify(this.tempData);
-
-        let sql = `INSERT OR REPLACE INTO connections (conid, last_statesave, host, port, tls, type, connected, server_prefix, registration_lines, isupports, caps, channels, nick, net_registered, auth_user_id, auth_network_id, auth_admin, linked_con_ids, temp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        await this.db.run(sql, [
-            this.conId,
-            Date.now(),
-            this.host,
-            this.port,
-            this.tls,
-            this.type,
-            this.connected,
-            this.serverPrefix,
-            registrationLines,
-            isupports,
-            caps,
-            channels,
-            this.nick,
-            this.netRegistered,
-            this.authUserId,
-            this.authNetworkId,
-            this.authAdmin,
-            JSON.stringify([...this.linkedIncomingConIds]),
-            tempData,
-        ]);
+        let query = this.db.db('connections').insert({
+            conid: this.conId,
+            last_statesave: Date.now(),
+            host: this.host,
+            port: this.port,
+            tls: this.tls,
+            type: this.type,
+            connected: this.connected,
+            server_prefix: this.serverPrefix,
+            registration_lines: JSON.stringify(this.registrationLines),
+            isupports: JSON.stringify(this.isupports),
+            caps: JSON.stringify(this.caps),
+            channels: JSON.stringify(this.channels),
+            nick: this.nick,
+            net_registered: this.netRegistered,
+            auth_user_id: this.authUserId,
+            auth_network_id: this.authNetworkId,
+            auth_admin: this.authAdmin,
+            linked_con_ids: JSON.stringify([...this.linkedIncomingConIds]),
+            logging: this.logging,
+            temp: JSON.stringify(this.tempData),
+        });
+        let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
+        await this.db.run(sql);
     }
 
     async load() {
@@ -98,6 +97,7 @@ class ConnectionState {
             this.caps = [];
             this.channels = [];
             this.tempData = {};
+            this.logging = true;
         } else {
             this.host = row.host;
             this.port = row.port;
@@ -119,6 +119,7 @@ class ConnectionState {
             this.authNetworkId = row.auth_network_id;
             this.authAdmin = !!row.auth_admin;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
+            this.logging = !!row.logging;
             this.tempData = JSON.parse(row.temp);
         }
 

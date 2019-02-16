@@ -218,7 +218,7 @@ commands.NOTICE = async function(msg, con) {
         client.writeMsgFrom(con.upstream.state.nick, 'NOTICE', msg.params[0], msg.params[1]);
     }, con);
 
-    if (con.upstream) {
+    if (con.upstream && con.upstream.state.logging) {
         await con.messages.storeMessage(
             con.upstream.state.authUserId,
             con.upstream.state.authNetworkId,
@@ -240,7 +240,7 @@ commands.PRIVMSG = async function(msg, con) {
         return false;
     }
 
-    if (con.upstream) {
+    if (con.upstream && con.upstream.state.logging) {
         await con.messages.storeMessage(
             con.upstream.state.authUserId,
             con.upstream.state.authNetworkId,

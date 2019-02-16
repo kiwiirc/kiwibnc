@@ -45,6 +45,7 @@ module.exports = class Database {
             auth_network_id INTEGER,
             auth_admin BOOLEAN,
             linked_con_ids TEXT,
+            logging BOOL,
             temp TEXT
         );
         `);

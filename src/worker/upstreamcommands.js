@@ -176,9 +176,13 @@ commands.NICK = async function(msg, con) {
 };
 
 commands.PRIVMSG = async function(msg, con) {
-    await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+    if (con.state.logging) {
+        await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+    }
 };
 
 commands.NOTICE = async function(msg, con) {
-    await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+    if (con.state.logging) {
+        await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+    }
 };
