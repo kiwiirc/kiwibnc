@@ -22,13 +22,13 @@ class Users {
                 let correctHash = await bcrypt.compare(password, row._pass);
                 if (!correctHash) {
                     row = null;
+                } else {
+                    // We don't need the password hash going anywhere else, get rid of it
+                    delete row._pass;
                 }
-
-                // We don't need the password hash going anywhere else, get rid of it
-                delete row._pass;
             }
         } catch (err) {
-            l.error('Error logging user in:', err.message);
+            l.error('Error logging user in:', err.stack);
         }
 
         return row;
