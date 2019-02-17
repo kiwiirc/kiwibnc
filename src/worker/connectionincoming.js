@@ -103,7 +103,7 @@ class ConnectionIncoming {
             msgObj = msg;
         }
 
-        hooks.emit('message_to_client', {client: this, message: msgObj}).then(hook => {
+        return hooks.emit('message_to_client', {client: this, message: msgObj}).then(hook => {
             if (!hook.prevent) {
                 this.write(msgObj.to1459() + '\r\n');
             }
@@ -163,8 +163,8 @@ class ConnectionIncoming {
         for (let chanName in upstream.state.channels) {
             let channel = upstream.state.channels[chanName];
             if (channel.joined) {
-                this.writeMsgFrom(nick, 'JOIN', channel.name);
-                channel.topic && this.writeMsg('TOPIC', channel.name, channel.topic);
+                await this.writeMsgFrom(nick, 'JOIN', channel.name);
+                channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
                 upstream.write(`NAMES ${channel.name}\n`);
             }
         }
@@ -188,7 +188,7 @@ class ConnectionIncoming {
                 if (!supportsTime) {
                     msg.params[1] = `[${strftime('%H:%M:%S')}] ${msg.params[1]}`;
                 }
-                this.writeMsg(msg);
+                await this.writeMsg(msg);
             });
         }
 

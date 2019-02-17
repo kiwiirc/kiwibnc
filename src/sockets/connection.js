@@ -27,10 +27,11 @@ module.exports = class SocketConnection {
             this.connected = true;
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
-                this.sock.write(data);
+                this.forceWrite(data);
             });
         });
         this.sock.on('close', (withError) => {
+            l.debug(`[end ${this.id}]`);
             this.connected = false;
             this.queue.sendToWorker('connection.close', {id: this.id, error: withError ? lastError : null});
         });
@@ -49,6 +50,7 @@ module.exports = class SocketConnection {
             }
     
             lines.forEach((line) => {
+                l.debug(`[in  ${this.id}]`, [line.trimEnd()]);
                 this.queue.sendToWorker('connection.data', {id: this.id, data: line.trimEnd()});
             });            
         });
@@ -67,7 +69,12 @@ module.exports = class SocketConnection {
         if (!this.connected) {
             this.buffer.push(data);
         } else {
-            this.sock.write(data);
+            this.forceWrite(data);
         }
+    }
+
+    forceWrite(data) {
+        l.debug(`[out ${this.id}]`, [data.trimEnd()]);
+        this.sock.write(data);
     }
 }

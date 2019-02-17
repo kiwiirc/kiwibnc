@@ -88,8 +88,8 @@ class ConnectionOutgoing {
                 return;
             }
 
-            hook.event.clients.forEach(client => {
-                client.writeMsg(message);
+            hook.event.clients.forEach(async client => {
+                await client.writeMsg(message);
             });
         }
     }

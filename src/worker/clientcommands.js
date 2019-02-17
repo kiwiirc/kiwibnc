@@ -74,7 +74,7 @@ async function maybeProcessRegistration(con) {
     // Matching for user/network:pass or user:pass
     let m = regState.pass.match(/([^\/:]+)(?:\/([^:]+))?(?::(.*))?/);
     if (!m) {
-        con.writeMsg('ERROR', 'Invalid password');
+        await con.writeMsg('ERROR', 'Invalid password');
         con.close();
         return false;
     }
@@ -103,7 +103,7 @@ async function maybeProcessRegistration(con) {
         // Logging into a network
         network = await con.userDb.authUserNetwork(username, password, networkName);
         if (!network) {
-            con.writeMsg('ERROR', 'Invalid password');
+            await con.writeMsg('ERROR', 'Invalid password');
             con.close();
             return false;
         }
