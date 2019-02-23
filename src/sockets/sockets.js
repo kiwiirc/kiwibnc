@@ -21,72 +21,64 @@ async function run() {
 
     app.queue.listenForEvents(app.queue.queueToSockets);
 
-    app.queue.on('connection.data', (opts, ack) => {
-        let con = cons.get(opts.id);
+    app.queue.on('connection.data', async (event) => {
+        let con = cons.get(event.id);
         if (!con) {
-            l.warn('Couldn\'t find connection to send data to.', opts.id);
+            l.warn('Couldn\'t find connection to send data to.', event.id);
         } else {
-            con.write(opts.data);
+            con.write(event.data);
         }
-        ack();
     });
 
-    app.queue.on('connection.open', (opts, ack) => {
-        let con = cons.get(opts.id);
+    app.queue.on('connection.open', async (event) => {
+        let con = cons.get(event.id);
         if (con && con.connected) {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
             l.notice('Connection already open, ignoring');
-            ack();
             return;
         }
 
-        if (!opts.host || !opts.port) {
+        if (!event.host || !event.port) {
             l.error('Missing hort or port for connection.open');
-            ack();
             return;
         }
 
         if (!con) {
-            con = new SocketConnection(opts.id, app.queue);
-            cons.set(opts.id, con);
+            con = new SocketConnection(event.id, app.queue);
+            cons.set(event.id, con);
         }
 
-        throttledConnect(connectThrottler, con, opts.host, opts.port, opts.tls);
-        ack();
+        throttledConnect(connectThrottler, con, event.host, event.port, event.tls);
     });
 
-    app.queue.on('connection.close', (opts, ack) => {
-        let con = cons.get(opts.id);
+    app.queue.on('connection.close', async (event) => {
+        let con = cons.get(event.id);
         if (!con) {
-            ack();
             return;
         }
         con.close();
-        cons.delete(opts.id);
-        ack();
+        cons.delete(event.id);
     });
 
-    app.queue.on('connection.listen', (opts, ack) => {
-        if (cons.has(opts.id)) {
+    app.queue.on('connection.listen', (event) => {
+        if (cons.has(event.id)) {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
             l.notice('Connection already open, ignoring');
-            ack();
             return;
         }
 
-        if (!opts.host || !opts.port) {
+        if (!event.host || !event.port) {
             l.error('Missing hort or port for connection.listen');
-            ack();
             return;
         }
 
-        let srv = new SocketServer(opts.id, app.queue);
-        cons.set(opts.id, srv);
-        srv.listen(opts.host, opts.port || 0);
+        let srv = new SocketServer(event.id, app.queue);
+        cons.set(event.id, srv);
+        srv.listen(event.host, event.port || 0);
 
         srv.on('connection.new', (socket) => {
             let con = new SocketConnection(null, app.queue, socket);
@@ -99,8 +91,6 @@ async function run() {
                 server: srv.id,
             });
         });
-
-        ack();
     });
 }
 

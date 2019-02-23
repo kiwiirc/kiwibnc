@@ -77,6 +77,8 @@ function createLogger(label) {
 }
 
 module.exports = async function bootstrap(label) {
+    process.title = 'kiwibnc-' + label;
+
     // Helper global logger
     global.l = createLogger(label);
     global.l.level = global.l.levels.debug;

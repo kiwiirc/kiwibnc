@@ -34,33 +34,32 @@ function listenToQueue(app) {
     let cons = app.cons;
     app.queue.listenForEvents(app.queue.queueToWorker);
 
-    app.queue.on('reset', async (opts, ack) => {
+    app.queue.on('reset', async (event) => {
+        // Wipe out all incoming connection states. Incoming connections need to manually reconnect
+        await app.db.run('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
+        await app.db.run('UPDATE connections SET linked_con_ids = "[]"');
+
         // If we don't have any connections then we don't need to clear anything out. We do
         // need to start our servers again though
         if (cons.size === 0) {
             startServers(app);
-            ack();
             return;
         }
 
         // Give some time for the queue to process some internal stuff
         app.queue.stopListening().then(async () => {
-            // Wipe out all incoming connection states. Incoming connections need to manually reconnect
-            await app.db.run('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
             setTimeout(() => {
                 process.exit();
             }, 2000);
         });
-
-        ack();
     });
 
     // When the socket layer accepts a new incoming connection
-    app.queue.on('connection.new', async (opts, ack) => {
-        l.debug('New incoming connection', opts.id);
-        let c = await app.cons.loadFromId(opts.id, ConnectionDict.TYPE_INCOMING);
-        c.state.host = opts.host;
-        c.state.port = opts.port;
+    app.queue.on('connection.new', async (event) => {
+        l.debug('New incoming connection', event.id);
+        let c = await app.cons.loadFromId(event.id, ConnectionDict.TYPE_INCOMING);
+        c.state.host = event.host;
+        c.state.port = event.port;
 
         try {
             await c.state.save();
@@ -68,58 +67,51 @@ function listenToQueue(app) {
             l.error('Error saving incoming connection.', err.message);
             app.queue.sendToSockets('connection.close', {id: c.id});
             c.destroy();
-            ack();
             return;
         }
 
         await c.onAccepted();
-        ack();
     });
 
     // When the socket layer has opened a new outgoing connection
-    app.queue.on('connection.open', (opts, ack) => {
-        let con = cons.get(opts.id);
+    app.queue.on('connection.open', async (event) => {
+        let con = cons.get(event.id);
         if (con) {
             con.onUpstreamConnected();
         }
-        ack();
     });
-    app.queue.on('connection.close', (opts, ack) => {
-        if (opts.error) {
-            l.debug(`Connection ${opts.id} closed. Error: ${opts.error.code}`);
+    app.queue.on('connection.close', async (event) => {
+        if (event.error) {
+            l.debug(`Connection ${event.id} closed. Error: ${event.error.code}`);
         } else {
-            l.debug(`Connection ${opts.id} closed.`);
+            l.debug(`Connection ${event.id} closed.`);
         }
 
-        let con = cons.get(opts.id);
+        let con = cons.get(event.id);
         if (con && con instanceof ConnectionOutgoing) {
-            con.onUpstreamClosed(opts.error);
+            con.onUpstreamClosed(event.error);
         } else if (con && con instanceof ConnectionIncoming) {
-            con.onClientClosed(opts.error);
+            con.onClientClosed(event.error);
         }
-        ack();
     });
-    app.queue.on('connection.data', (opts, ack) => {
-        let con = cons.get(opts.id);
+    app.queue.on('connection.data', async (event) => {
+        let con = cons.get(event.id);
         if (!con) {
-            l.warn('Recieved data for unknown connection ' + opts.id);
-            ack();
+            l.warn('Recieved data for unknown connection ' + event.id);
             return;
         }
 
-        let line = opts.data.trim('\n\r');
+        let line = event.data.trim('\n\r');
         let msg = ircLineParser(line);
         if (!msg) {
-            ack();
             return;
         }
 
         if (con instanceof ConnectionIncoming) {
-            con.messageFromClient(msg, line);
+            await con.messageFromClient(msg, line);
         } else {
-            con.messageFromUpstream(msg, line);
+            await con.messageFromUpstream(msg, line);
         }
-        ack();
     });
 }
 

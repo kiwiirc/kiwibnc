@@ -118,7 +118,7 @@ class ConnectionState {
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
             this.authAdmin = !!row.auth_admin;
-            this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids));
+            this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids || '[]'));
             this.logging = !!row.logging;
             this.tempData = JSON.parse(row.temp);
         }
@@ -172,6 +172,16 @@ class ConnectionState {
 
     delChannel(name) {
         delete this.channels[name.toLowerCase()];
+    }
+
+    linkIncomingConnection(id) {
+        this.linkedIncomingConIds.add(id);
+        this.save();
+    }
+
+    unlinkIncomingConnection(id) {
+        this.linkedIncomingConIds.delete(id);
+        this.save();
     }
 }
 

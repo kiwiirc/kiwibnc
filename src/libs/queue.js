@@ -1,4 +1,4 @@
-const EventEmitter = require('events');
+const EventEmitter = require('./eventemitter');
 const amqp = require('amqplib/callback_api');
 
 module.exports = class Queue extends EventEmitter {
@@ -56,7 +56,7 @@ module.exports = class Queue extends EventEmitter {
             processMsgQueue();
         };
 
-        let processMsgQueue = () => {
+        let processMsgQueue = async () => {
             if (processing) {
                 return;
             }
@@ -72,24 +72,25 @@ module.exports = class Queue extends EventEmitter {
             let msg = msgQueue.shift();
             l.debug('Queue recieved:', id, msg.content.toString());
             let obj = JSON.parse(msg.content.toString());
-            if (obj && obj.length === 2) {
-                let ackMsg = () => {
-                    this.channel.ack(msg);
-                    processNext();
-                };
 
-                // Nothing listening for this event? Ack it right away as there's
-                // nowhere else to ack it
-                if (this.listenerCount(obj[0]) === 0) {
-                    this.channel.ack(msg);
-                    processNext();
-                } else {
-                    this.emit(obj[0], obj[1], ackMsg);
-                }
-            } else {
+            if (!obj || obj.length !== 2) {
                 this.channel.ack(msg);
                 processNext();
+                return;
             }
+
+            // Don't bother emitting if we have no events for it
+            if (this.listenerCount(obj[0]) > 0) {
+                try {
+                    await this.emit(obj[0], obj[1]);
+                } catch (error) {
+                    l.error(error.stack);
+                }
+            }
+
+
+            this.channel.ack(msg);
+            processNext();
         }
 
         this.channel.consume(queueName, (msg) => {

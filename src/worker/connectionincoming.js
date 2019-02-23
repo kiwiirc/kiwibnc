@@ -59,8 +59,7 @@ class ConnectionIncoming {
 
         // If we found an upstream, add this incoming connection to it
         if (upstream) {
-            upstream.state.linkedIncomingConIds.add(this.id);
-            upstream.state.save();
+            upstream.state.linkIncomingConnection(this.id);
         }
 
         return upstream;
@@ -68,8 +67,7 @@ class ConnectionIncoming {
 
     destroy() {
         if (this.upstream) {
-            this.upstream.state.linkedIncomingConIds.delete(this.id);
-            this.upstream.state.save();
+            this.upstream.state.unlinkIncomingConnection(this.id);
         }
 
         this.conDict.delete(this.id);
@@ -87,11 +85,11 @@ class ConnectionIncoming {
     }
 
     writeStatus(data) {
-        this.writeMsgFrom('*bnc', 'PRIVMSG', this.state.nick, data);
+        return this.writeMsgFrom('*bnc', 'PRIVMSG', this.state.nick, data);
     }
 
     writeFromBnc(command, ...params) {
-        this.writeMsgFrom('*bnc', command, ...params);
+        return this.writeMsgFrom('*bnc', command, ...params);
     }
 
     writeMsg(msg, ...args) {
@@ -228,7 +226,7 @@ class ConnectionIncoming {
         con.state.username = network.username;
         con.state.realname = network.realname;
         con.state.password = network.password;
-        con.state.linkedIncomingConIds.add(this.id);
+        con.state.linkIncomingConnection(this.id);
         await con.state.save();
 
         con.open();
