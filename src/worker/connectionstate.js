@@ -1,10 +1,12 @@
 class IrcBuffer {
-    constructor(name, isChannel=true) {
+    constructor(name, upstreamCon) {
         this.name = name;
         this.key = '';
         this.joined = false;
         this.topic = '';
-        this.isChannel = isChannel;
+        this.isChannel = upstreamCon ?
+            upstreamCon.isChannelName(name) :
+            true;
     }
 
     static fromObj(obj) {
@@ -12,6 +14,7 @@ class IrcBuffer {
         c.key = obj.key || '';
         c.joined = obj.joined || false;
         c.topic = obj.topic || '';
+        c.isChannel = !!obj.isChannel;
         return c;
     }
 }
@@ -155,20 +158,32 @@ class ConnectionState {
         await this.save();
     }
 
+    getOrAddBuffer(name, upstreamCon) {
+        let buffer = this.getBuffer(name);
+        if (buffer) {
+            return buffer;
+        }
+
+        buffer = this.addBuffer(name, upstreamCon);
+        this.save();
+
+        return buffer;
+    }
+
     getBuffer(name) {
         return this.buffers[name.toLowerCase()];
     }
 
-    addBuffer(chan) {
+    addBuffer(chan, upstreamCon) {
         let buffer = null;
         if (typeof chan === 'string') {
-            buffer = new IrcBuffer(chan);
+            buffer = new IrcBuffer(chan, upstreamCon);
         } else {
             buffer = IrcBuffer.fromObj(chan);
         }
 
         this.buffers[buffer.name.toLowerCase()] = buffer;
-        return channel;
+        return buffer;
     }
 
     delBuffer(name) {

@@ -137,6 +137,20 @@ class ConnectionOutgoing {
             }
         });
     }
+
+    iSupportToken(tokenName) {
+        let token = this.state.isupports.find((tok) => tok.indexOf(`${tokenName}=`) === 0);
+        if (!token) {
+            return false;
+        }
+
+        return token.replace(`${tokenName}=`, '');
+    }
+
+    isChannelName(inp) {
+        let types = this.iSupportToken('CHANTYPES') || '#&';
+        return types.indexOf(inp[0]) > -1;
+    }
 }
 
 module.exports = ConnectionOutgoing;

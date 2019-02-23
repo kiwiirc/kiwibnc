@@ -61,8 +61,11 @@ commands['001'] = async function(msg, con) {
         clientCon.registerClient();
     });
 
-    for (let chanName in con.state.buffers) {
-        con.writeLine('JOIN', con.state.buffers[chanName].name);
+    for (let buffName in con.state.buffers) {
+        let b = con.state.buffers[buffName];
+        if (b.isChannel && b.joined) {
+            con.writeLine('JOIN', b.name);
+        }
     }
 
     return false;
@@ -108,7 +111,7 @@ commands.JOIN = async function(msg, con) {
     let chanName = msg.params[0];
     let chan = con.state.getBuffer(chanName);
     if (!chan) {
-        chan = con.state.addBuffer(chanName);
+        chan = con.state.addBuffer(chanName, con);
     }
 
     chan.joined = true;
@@ -149,7 +152,7 @@ commands.KICK = async function(msg, con) {
 commands['332'] = async function(msg, con) {
     let channel = con.state.getBuffer(msg.params[1]);
     if (!channel) {
-        channel = con.state.addBuffer(msg.params[1]);
+        channel = con.state.addBuffer(msg.params[1], con);
     }
 
     channel.topic = msg.params[2];
@@ -178,10 +181,25 @@ commands.PRIVMSG = async function(msg, con) {
     if (con.state.logging) {
         await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
     }
+
+    // Make sure we have this buffer
+    con.state.getOrAddBuffer(bufferNameIfPm(msg, con.state.nick, 0), con);
 };
 
 commands.NOTICE = async function(msg, con) {
     if (con.state.logging) {
         await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
     }
+
+    // Make sure we have this buffer
+    con.state.getOrAddBuffer(bufferNameIfPm(msg, con.state.nick, 0), con);
 };
+
+function bufferNameIfPm(message, nick, messageNickIdx) {
+    if (nick.toLowerCase() === message.params[messageNickIdx]) {
+        // It's a PM
+        return message.nick;
+    } else {
+        return message.params[messageNickIdx];
+    }
+}
