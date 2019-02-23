@@ -38,7 +38,7 @@ module.exports = class Database {
             registration_lines TEXT,
             isupports TEXT,
             caps TEXT,
-            channels TEXT,
+            buffers TEXT,
             nick TEXT,
             net_registered BOOLEAN,
             auth_user_id INTEGER,

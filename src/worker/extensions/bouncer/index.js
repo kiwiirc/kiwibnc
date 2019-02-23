@@ -100,8 +100,8 @@ async function handleBouncerCommand(event) {
         let upstream = null;
         upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
         if (upstream) {
-            for (let chanName in upstream.state.channels) {
-                let buffer = upstream.state.channels[chanName];
+            for (let chanName in upstream.state.buffers) {
+                let buffer = upstream.state.buffers[chanName];
                 let chan = {
                     network: network.name,
                     buffer: buffer.name,
@@ -138,13 +138,13 @@ async function handleBouncerCommand(event) {
         }
 
         
-        let buffer = upstream.state.getChannel(bufferName);
+        let buffer = upstream.state.getBuffer(bufferName);
         if (!buffer) {
             // No buffer? No need to delete anything
             con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
         }
 
-        upstream.state.delChannel(buffer.name);
+        upstream.state.delBuffer(buffer.name);
         if (buffer.joined) {
             upstream.writeLine('PART', buffer.name);
         }

@@ -1,4 +1,3 @@
-const { Channel } = require('./connectionstate');
 const { mParam, mParamU } = require('../libs/helpers');
 const hooks = require('./hooks');
 
@@ -62,8 +61,8 @@ commands['001'] = async function(msg, con) {
         clientCon.registerClient();
     });
 
-    for (let chanName in con.state.channels) {
-        con.writeLine('JOIN', con.state.channels[chanName].name);
+    for (let chanName in con.state.buffers) {
+        con.writeLine('JOIN', con.state.buffers[chanName].name);
     }
 
     return false;
@@ -107,9 +106,9 @@ commands.JOIN = async function(msg, con) {
     }
 
     let chanName = msg.params[0];
-    let chan = con.state.getChannel(chanName);
+    let chan = con.state.getBuffer(chanName);
     if (!chan) {
-        chan = con.state.addChannel(chanName);
+        chan = con.state.addBuffer(chanName);
     }
 
     chan.joined = true;
@@ -122,7 +121,7 @@ commands.PART = async function(msg, con) {
     }
 
     let chanName = msg.params[0];
-    let chan = con.state.getChannel(chanName);
+    let chan = con.state.getBuffer(chanName);
     if (!chan) {
         return;
     }
@@ -137,7 +136,7 @@ commands.KICK = async function(msg, con) {
     }
 
     let chanName = msg.params[0];
-    let chan = con.state.getChannel(chanName);
+    let chan = con.state.getBuffer(chanName);
     if (!chan) {
         return;
     }
@@ -148,9 +147,9 @@ commands.KICK = async function(msg, con) {
 
 // RPL_TOPIC
 commands['332'] = async function(msg, con) {
-    let channel = con.state.getChannel(msg.params[1]);
+    let channel = con.state.getBuffer(msg.params[1]);
     if (!channel) {
-        channel = con.state.addChannel(msg.params[1]);
+        channel = con.state.addBuffer(msg.params[1]);
     }
 
     channel.topic = msg.params[2];

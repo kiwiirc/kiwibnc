@@ -1,13 +1,14 @@
-class Channel {
-    constructor(name) {
+class IrcBuffer {
+    constructor(name, isChannel=true) {
         this.name = name;
         this.key = '';
         this.joined = false;
         this.topic = '';
+        this.isChannel = isChannel;
     }
 
     static fromObj(obj) {
-        let c = new Channel(obj.name);
+        let c = new IrcBuffer(obj.name);
         c.key = obj.key || '';
         c.joined = obj.joined || false;
         c.topic = obj.topic || '';
@@ -15,7 +16,7 @@ class Channel {
     }
 }
 
-module.exports.Channel = Channel;
+module.exports.IrcBuffer = IrcBuffer;
 
 class ConnectionState {
     constructor(id, db) {
@@ -28,7 +29,7 @@ class ConnectionState {
         this.registrationLines = [];
         this.isupports = [];
         this.caps = [];
-        this.channels = Object.create(null);
+        this.buffers = Object.create(null);
         this.nick = 'unknown-user';
         this.username = 'user';
         this.realname = 'BNC user';
@@ -73,7 +74,7 @@ class ConnectionState {
             registration_lines: JSON.stringify(this.registrationLines),
             isupports: JSON.stringify(this.isupports),
             caps: JSON.stringify(this.caps),
-            channels: JSON.stringify(this.channels),
+            buffers: JSON.stringify(this.buffers),
             nick: this.nick,
             net_registered: this.netRegistered,
             auth_user_id: this.authUserId,
@@ -95,7 +96,7 @@ class ConnectionState {
             this.registrationLines = [];
             this.isupports = [];
             this.caps = [];
-            this.channels = [];
+            this.buffers = [];
             this.tempData = {};
             this.logging = true;
         } else {
@@ -108,10 +109,10 @@ class ConnectionState {
             this.registrationLines = JSON.parse(row.registration_lines);
             this.isupports = JSON.parse(row.isupports);
             this.caps = JSON.parse(row.caps);
-            this.channels = Object.create(null);
-            let rowChans = JSON.parse(row.channels);
+            this.buffers = Object.create(null);
+            let rowChans = JSON.parse(row.buffers);
             for (let chanName in rowChans) {
-                this.addChannel(rowChans[chanName]);
+                this.addBuffer(rowChans[chanName]);
             }
             this.nick = row.nick;
             this.netRegistered = row.net_registered;
@@ -154,24 +155,24 @@ class ConnectionState {
         await this.save();
     }
 
-    getChannel(name) {
-        return this.channels[name.toLowerCase()];
+    getBuffer(name) {
+        return this.buffers[name.toLowerCase()];
     }
 
-    addChannel(chan) {
-        let channel = null;
+    addBuffer(chan) {
+        let buffer = null;
         if (typeof chan === 'string') {
-            channel = new Channel(chan);
+            buffer = new IrcBuffer(chan);
         } else {
-            channel = Channel.fromObj(chan);
+            buffer = IrcBuffer.fromObj(chan);
         }
 
-        this.channels[channel.name.toLowerCase()] = channel;
+        this.buffers[buffer.name.toLowerCase()] = buffer;
         return channel;
     }
 
-    delChannel(name) {
-        delete this.channels[name.toLowerCase()];
+    delBuffer(name) {
+        delete this.buffers[name.toLowerCase()];
     }
 
     linkIncomingConnection(id) {

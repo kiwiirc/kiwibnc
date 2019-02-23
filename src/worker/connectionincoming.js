@@ -158,8 +158,8 @@ class ConnectionIncoming {
         this.state.netRegistered = true;
 
         // Dump all our joined channels..
-        for (let chanName in upstream.state.channels) {
-            let channel = upstream.state.channels[chanName];
+        for (let chanName in upstream.state.buffers) {
+            let channel = upstream.state.buffers[chanName];
             if (channel.joined) {
                 await this.writeMsgFrom(nick, 'JOIN', channel.name);
                 channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
@@ -168,8 +168,8 @@ class ConnectionIncoming {
         }
 
         // Now the client has a channel list, send any messages we have for them
-        for (let chanName in upstream.state.channels) {
-            let channel = upstream.state.channels[chanName];
+        for (let chanName in upstream.state.buffers) {
+            let channel = upstream.state.buffers[chanName];
             if (!channel.joined) {
                 continue;
             }

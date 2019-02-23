@@ -1,6 +1,6 @@
 const uuidv4 = require('uuid/v4');
 const hooks = require('./hooks');
-const { ConnectionState, Channel } = require('./connectionstate');
+const { ConnectionState, IrcBuffer } = require('./connectionstate');
 
 // Upstream commands can be hot reloaded as they contain no state
 let UpstreamCommands = null;
@@ -119,8 +119,8 @@ class ConnectionOutgoing {
         this.state.connected = false;
         this.state.netRegistered = false;
 
-        for (let chanName in this.state.channels) {
-            this.state.channels[chanName].joined = false;
+        for (let chanName in this.state.buffers) {
+            this.state.buffers[chanName].joined = false;
         }
 
         await this.state.save();
