@@ -190,6 +190,24 @@ class ConnectionState {
         delete this.buffers[name.toLowerCase()];
     }
 
+    renameBuffer(oldName, newName) {
+        let oldBuffer = this.getBuffer(oldName);
+        if (!oldBuffer){
+            return;
+        }
+
+        let newBuffer = this.getBuffer(newName);
+        if (newBuffer) {
+            return newBuffer;
+        }
+
+        delete this.buffers[oldName.toLowerCase()];
+        oldBuffer.name = newName;
+        this.buffers[newName.toLowerCase()] = oldBuffer;
+
+        return oldBuffer;
+    }
+
     linkIncomingConnection(id) {
         this.linkedIncomingConIds.add(id);
         this.save();

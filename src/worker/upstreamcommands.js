@@ -170,6 +170,14 @@ commands['433'] = async function(msg, con) {
 
 commands.NICK = async function(msg, con) {
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        let buffer = con.state.getBuffer(msg.nick);
+        if (!buffer) {
+            return;
+        }
+
+        // Try to track nick changes so that they stay in the same buffer instance
+        con.state.renameBuffer(buffer.name, msg.params[0]);
+        con.state.save();
         return;
     }
 
