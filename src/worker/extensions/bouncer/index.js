@@ -105,9 +105,14 @@ async function handleBouncerCommand(event) {
                 let chan = {
                     network: network.name,
                     buffer: buffer.name,
-                    joined: buffer.joined ? '1' : '0',
-                    topic: buffer.topic,
                 };
+                if (buffer.isChannel) {
+                    chan = {
+                        ...chan,
+                        joined: buffer.joined ? '1' : '0',
+                        topic: buffer.topic,
+                    };
+                }
                 con.writeMsg('BOUNCER', 'listbuffers', network.name, encodeTags(chan));
             }
         }
