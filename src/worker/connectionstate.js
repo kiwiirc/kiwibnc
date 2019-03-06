@@ -42,6 +42,10 @@ class ConnectionState {
         this.tls = false;
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
         this.connected = false;
+        this.sasl = {
+            account: '',
+            password: '',
+        };
         // netRegistered - incomingcon = client authed+registered, outgoingcon = regged to the upstream irc network
         this.netRegistered = false;
         this.authUserId = 0;
@@ -73,6 +77,7 @@ class ConnectionState {
             tls: this.tls,
             type: this.type,
             connected: this.connected,
+            sasl: JSON.stringify(this.sasl),
             server_prefix: this.serverPrefix,
             registration_lines: JSON.stringify(this.registrationLines),
             isupports: JSON.stringify(this.isupports),
@@ -107,6 +112,7 @@ class ConnectionState {
             this.port = row.port;
             this.tls = row.tls;
             this.type = row.type;
+            this.sasl = JSON.parse(row.sasl || '{"account":"","password":""}');
             this.connected = row.connected;
             this.serverPrefix = row.server_prefix;
             this.registrationLines = JSON.parse(row.registration_lines);

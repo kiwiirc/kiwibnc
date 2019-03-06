@@ -226,6 +226,8 @@ class ConnectionIncoming {
         con.state.username = network.username;
         con.state.realname = network.realname;
         con.state.password = network.password;
+        con.state.sasl.account = network.sasl_account || '';
+        con.state.sasl.password = network.sasl_pass || '';
         con.state.linkIncomingConnection(this.id);
         await con.state.save();
 

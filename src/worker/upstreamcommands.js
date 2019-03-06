@@ -30,6 +30,7 @@ commands['CAP'] = async function(msg, con) {
             'account-tag',
             'extended-join',
             'userhost-in-names',
+            'sasl',
         ];
         let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
         if (requestingCaps.length === 0) {
@@ -44,10 +45,48 @@ commands['CAP'] = async function(msg, con) {
         let caps = mParam(msg, 2, '').split(' ');
         con.state.caps = con.state.caps.concat(caps);
         await con.state.save();
-        con.writeLine('CAP', 'END');
+
+        if (con.state.sasl.account) {
+            con.writeLine('AUTHENTICATE PLAIN')
+        } else {
+            con.writeLine('CAP', 'END');
+        }
     }
 
     return false;
+};
+
+commands['AUTHENTICATE'] = async function(msg, con) {
+    if (mParamU(msg, 0, '') === '+') {
+        let sasl = con.state.sasl;
+        let authStr = `${sasl.account}\0${sasl.account}\0${sasl.password}`;
+        let b = new Buffer(authStr, 'utf8');
+        let b64 = b.toString('base64');
+
+        while (b64.length >= 400) {
+            con.writeLine('AUTHENTICATE ' + b64.slice(0, 399));
+            b64 = b64.slice(399);
+        }
+        if (b64.length > 0) {
+            con.writeLine('AUTHENTICATE ' + b64);
+        } else {
+            con.writeLine('AUTHENTICATE +');
+        }
+    }
+};
+
+// :jaguar.test 903 jilles :SASL authentication successful
+commands['903'] = async function(msg, con) {
+    if (!con.state.netRegistered) {
+        con.writeLine('CAP END');
+    }
+};
+
+// :server 904 <nick> :SASL authentication failed
+commands['904'] = async function(msg, con) {
+    if (!con.state.netRegistered) {
+        con.close();
+    }
 };
 
 commands['001'] = async function(msg, con) {
@@ -160,12 +199,22 @@ commands['332'] = async function(msg, con) {
 };
 
 // nick in use
-// TODO: This is niave and way to simplistic to a fault. Improve
 commands['433'] = async function(msg, con) {
     if (con.state.nick.length < 8) {
         con.state.nick = con.state.nick + '_';
-        con.writeLine('NICK', con.state.nick);
+    } else {
+        // Switch the last character to an incrimenting digit
+        let lastChar = con.state.nick[con.state.nick.length - 1];
+        let digit = parseInt(lastChar, 10);
+        if (isNaN(digit)) {
+            digit = 0;
+        }
+        let nick = con.state.nick;
+        let len = nick.length;
+        con.state.nick = nick.substr(0, len - 1) + (digit + 1)
     }
+
+    con.writeLine('NICK', con.state.nick);
 };
 
 commands.NICK = async function(msg, con) {

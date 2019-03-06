@@ -34,6 +34,7 @@ module.exports = class Database {
             tls BOOLEAN,
             type INTEGER,
             connected BOOLEAN,
+            sasl TEXT,
             server_prefix TEXT,
             registration_lines TEXT,
             isupports TEXT,
@@ -72,7 +73,9 @@ module.exports = class Database {
             nick TEXT,
             username TEXT,
             realname TEXT,
-            password TEXT
+            password TEXT,
+            sasl_account TEXT,
+            sasl_pass TEXT
         );
         `);
         sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_networks_name_user_id_uindex ON user_networks (name, user_id);');
