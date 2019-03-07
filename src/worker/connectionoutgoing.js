@@ -102,6 +102,8 @@ class ConnectionOutgoing {
         this.state.registrationLines = [];
         this.state.save();
 
+        hooks.emit('connection_open', {upstream: this});
+
         this.writeLine('CAP LS');
 
         if (this.state.password) {
@@ -124,6 +126,8 @@ class ConnectionOutgoing {
         }
 
         await this.state.save();
+
+        hooks.emit('connection_close', {upstream: this});
 
         this.forEachClient((client) => {
             let msg = 'Network disconnected';

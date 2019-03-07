@@ -273,8 +273,10 @@ commands.NICK = async function(msg, con) {
         }
 
         // A quick reminder for the client that they need to send a password
-        con.writeMsgFrom('bnc', 464, con.state.nick, 'Password required');
-        con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
+        if (!regState.pass) {
+            con.writeMsgFrom('bnc', 464, con.state.nick, 'Password required');
+            con.writeFromBnc('NOTICE', con.state.nick, 'You must send your password first. /quote PASS <username>/<network>:<password>');
+        }
 
         return false;
     }
@@ -309,6 +311,16 @@ commands.DEB = async function(msg, con) {
     l.info('clients', con.upstream ? con.upstream.state.linkedIncomingConIds.size : '<no upstream>');
     l.info('this client registered?', con.state.netRegistered);
     l.info('tmp vars', con.state.tempData);
+
+    if (Object.keys(con.state.buffers).length === 0) {
+        l.info('No buffers');
+    }
+
+    for (let buffName in con.state.buffers) {
+        let b = con.state.buffers[buffName];
+        l.info('Buffer: ' + b.name + ' joined: ' + (b.joined ? 'yes' : 'no'));
+    }
+
     return false;
 };
 
