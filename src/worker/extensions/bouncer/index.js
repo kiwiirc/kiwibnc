@@ -3,18 +3,19 @@ const { mParam, mParamU } = require('../../../libs/helpers');
 
 module.exports.init = async function init(hooks) {
     let sendConnectionState = async (upstream, state) => {
-        let network = await event.upstream.db('user_networks')
-            .where('id', event.upstream.state.authNetworkId)
-            .where('user_id', event.upstream.state.authUserId);
+        let network = await upstream.state.db.db('user_networks')
+            .where('id', upstream.state.authNetworkId)
+            .where('user_id', upstream.state.authUserId)
+            .first();
 
         if (!network) {
             return;
         }
 
-        event.upstream.forEachClient(client => {
-            if (client.state.caps.includes('BOUNCER')) {
-                client.writeLine('BOUNCER', 'state', network.name, state);
-            }
+        upstream.forEachClient(client => {
+            // TODO: When moved to a CAP, enable this check below
+            // if (client.state.caps.includes('BOUNCER')) {
+            client.writeMsg('BOUNCER', 'state', network.name, state);
         });
     };
 
