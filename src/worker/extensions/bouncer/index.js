@@ -111,6 +111,7 @@ async function handleBouncerCommand(event) {
 
             let netCon = con.conDict.findUsersOutgoingConnection(con.state.authUserId, net.id);
             if (netCon) {
+                parts.push('nick=' + netCon.state.nick);
                 parts.push('state=' + (netCon.state.connected ? 'connected' : 'disconnected'));
             } else {
                 parts.push('state=disconnect');
@@ -321,7 +322,7 @@ async function handleBouncerCommand(event) {
 
         try {
             await con.db.db('user_networks')
-                .where(id, network.id)
+                .where('id', network.id)
                 .update(netUpdates);
         } catch (err) {
             l.error('[BOUNCER] Error adding network to user', err.stack);
