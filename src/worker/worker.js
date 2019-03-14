@@ -6,6 +6,7 @@ const MessageStore = require('./messagestores/sqlite');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
+const hooks = require('./hooks');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
@@ -21,6 +22,7 @@ async function run() {
     // Container for all connection instances
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
+    initExtensions(app);
     listenToQueue(app);
 
     // Give some time for the queue to connect + sync up
@@ -29,6 +31,22 @@ async function run() {
         loadConnections(app);
     }, 1000);
 }
+
+async function initExtensions(app) {
+    let extensions = app.conf.get('extensions.loaded') || [];
+    extensions.forEach(async extName => {
+        try {
+            let ext = require(`./extensions/${extName}/`);
+            await ext.init(hooks, app);
+        } catch (err) {
+            l.error('Error loading extension ' + extName + ': ', err.stack);
+        }
+    });
+
+    // Extensions can add their hooks before the builtin hooks so that they have
+    // a chance to override any if they need
+    hooks.addBuiltInHooks();
+};
 
 function listenToQueue(app) {
     let cons = app.cons;
