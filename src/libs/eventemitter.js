@@ -9,9 +9,6 @@ class EventEmitter {
     on(eventName, fn) {
         this.events[eventName] = this.events[eventName] || [];
         this.events[eventName].push(fn);
-        return () => {
-            this.off(eventName, fn);
-        };
 
         return this;
     }
