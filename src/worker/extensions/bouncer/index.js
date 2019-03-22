@@ -320,6 +320,10 @@ async function handleBouncerCommand(event) {
             netUpdates.username = tags.user;
         }
 
+        if (Object.keys(a).length === 0) {
+            return;
+        }
+        
         try {
             await con.db.db('user_networks')
                 .where('id', network.id)
