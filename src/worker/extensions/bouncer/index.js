@@ -320,18 +320,16 @@ async function handleBouncerCommand(event) {
             netUpdates.username = tags.user;
         }
 
-        if (Object.keys(netUpdates).length === 0) {
-            return;
-        }
-
-        try {
-            await con.db.db('user_networks')
-                .where('id', network.id)
-                .update(netUpdates);
-        } catch (err) {
-            l.error('[BOUNCER] Error adding network to user', err.stack);
-            con.writeMsg('BOUNCER', 'changenetwork', netName, 'ERR_UNKNOWN', 'Error saving the network');
-            return;
+        if (Object.keys(netUpdates).length > 0) {
+            try {
+                await con.db.db('user_networks')
+                    .where('id', network.id)
+                    .update(netUpdates);
+            } catch (err) {
+                l.error('[BOUNCER] Error adding network to user', err.stack);
+                con.writeMsg('BOUNCER', 'changenetwork', netName, 'ERR_UNKNOWN', 'Error saving the network');
+                return;
+            }
         }
 
         let upstream = null;
