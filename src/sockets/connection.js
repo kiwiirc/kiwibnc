@@ -1,4 +1,5 @@
 const net = require('net');
+const tls = require('tls');
 const uuidv4 = require('uuid/v4');
 
 module.exports = class SocketConnection {
@@ -7,23 +8,19 @@ module.exports = class SocketConnection {
         this.id = conId || uuidv4();
         this.buffer = [];
         this.readBuffer = '';
+        this.connectedEvent = 'connect';
 
         if (sock) {
             this.sock = sock;
             this.connected = true;
-        } else {
-            this.sock = new net.Socket({allowHalfOpen: false});
-            this.sock.setEncoding('utf8');
-            this.connected = false;
+            this.bindSocketEvents();
         }
-
-        this.bindSocketEvents();
     }
 
     bindSocketEvents() {
         let lastError;
 
-        this.sock.on('connect', () => {
+        this.sock.on(this.connectedEvent, () => {
             this.connected = true;
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
@@ -56,9 +53,23 @@ module.exports = class SocketConnection {
         });
     }
 
-    connect(host, port, tls) {
+    connect(host, port, useTls) {
         l.info('connecting ' + this.id);
-        this.sock.connect(port, host);
+        let sock;
+
+        if (!useTls) {
+            sock = this.sock = new net.Socket({allowHalfOpen: false});
+            sock.connect(port, host);
+            this.connectedEvent = 'connect';
+        } else {
+            sock = this.sock = tls.connect(port, host);
+            this.connectedEvent = 'secureConnect';
+        }
+
+        sock.setEncoding('utf8');
+        this.connected = false;
+
+        this.bindSocketEvents();
     }
 
     close() {
