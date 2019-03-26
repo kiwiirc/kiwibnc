@@ -190,6 +190,12 @@ class ConnectionIncoming {
             });
         }
 
+        // If we previously set them away, now bring them back
+        if (await upstream.state.tempGet('set_away')) {
+            upstream.writeLine('AWAY');
+            await upstream.state.tempSet('set_away', null);
+        }
+
         await this.state.save();
     }
 
@@ -236,11 +242,22 @@ class ConnectionIncoming {
         return con;
     }
 
-    onAccepted() {
-        return hooks.emit('new_client', {client: this});
+    async onAccepted() {
+        await hooks.emit('new_client', {client: this});
     }
 
-    onClientClosed() {
+    async onClientClosed() {
+        let upstream = this.upstream;
+        if (upstream && upstream.state.netRegistered) {
+            // If there are no other clients connected, mark this user as away
+            let otherClients = [];
+            upstream.forEachClient(c => otherClients.push(c), this);
+            if (otherClients.length === 0) {
+                upstream.writeLine('AWAY', 'away');
+                await upstream.state.tempSet('set_away', true);
+            }
+        }
+
         this.destroy();
     }
 }

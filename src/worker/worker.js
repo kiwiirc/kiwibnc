@@ -107,9 +107,9 @@ function listenToQueue(app) {
 
         let con = cons.get(event.id);
         if (con && con instanceof ConnectionOutgoing) {
-            con.onUpstreamClosed(event.error);
+            await con.onUpstreamClosed(event.error);
         } else if (con && con instanceof ConnectionIncoming) {
-            con.onClientClosed(event.error);
+            await con.onClientClosed(event.error);
         }
     });
     app.queue.on('connection.data', async (event) => {
