@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const uuidv4 = require('uuid/v4');
 
 class Users {
     constructor(db) {
@@ -46,6 +47,32 @@ class Users {
             }
         }
         return row;
+    }
+
+    async authUserToken(token) {
+        let row = await this.db.get(`SELECT * from user_tokens WHERE token = ?`, [token]);
+        if (!row) {
+            return;
+        }
+
+        let user = await this.db.get(`SELECT * from users WHERE id = ?`, [row.user_id]);
+        if (!user) {
+            return;
+        }
+
+        // We don't need the password hash going anywhere else, get rid of it
+        delete user.password;
+        return user;
+    }
+
+    async generateUserToken(id) {
+        let token = uuidv4().replace(/\-/g, '');
+        await this.db.db('user_tokens').insert({
+            user_id: id,
+            token: token,
+            created_at: Date.now(),
+        });
+        return token;
     }
 
     async getUser(username) {

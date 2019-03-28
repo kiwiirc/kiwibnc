@@ -80,8 +80,22 @@ module.exports = class Database {
         `);
         sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_networks_name_user_id_uindex ON user_networks (name, user_id);');
 
+        sql.push(`
+        CREATE TABLE IF NOT EXISTS user_tokens (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER,
+            created_at INTEGER
+        );
+        `);
+        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_tokens_token_uindex ON user_tokens (token);');
+
         for (let i=0; i<sql.length; i++) {
-            await this.run(sql[i]);
+            try {
+                await this.run(sql[i]);
+            } catch (err) {
+                console.error(err.stack);
+                process.exit(1);
+            }
         }
     }
 }
