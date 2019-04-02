@@ -1,4 +1,4 @@
-const strftime = require('strftime');
+const strftime = require('strftime').timezone('+0');
 
 module.exports.isoTime = isoTime;
 function isoTime(date) {
