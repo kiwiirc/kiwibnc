@@ -27,8 +27,27 @@ class SqliteMessageStore {
 
     async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) { }
     async getMessagesFromTime(userId, networkId, buffer, fromTime, length) {
-        let sql = 'SELECT * FROM messages WHERE user_id = ? AND network_id = ? AND buffer = ? AND ts  > ? ORDER BY ts LIMIT ?';
+        let sql = 'SELECT * FROM messages WHERE user_id = ? AND network_id = ? AND buffer = ? AND ts > ? ORDER BY ts LIMIT ?';
         let rows = await dbAll(this.db, sql, [userId, networkId, buffer, fromTime, length || 50]);
+
+        let messages = rows.map((row) => {
+            let data = JSON.parse(row.message);
+            // [message.prefix, message.tags, message.command, message.params]
+            let m = new IrcMessage(data[2], ...data[3]);
+            m.prefix = data[0];
+            m.tags = data[1];
+            m.tags.time = isoTime(new Date(row.ts));
+            return m;
+        });
+
+        return messages;
+    }
+    async getMessagesBeforeTime(userId, networkId, buffer, fromTime, length) {
+        let sql = 'SELECT * FROM messages WHERE user_id = ? AND network_id = ? AND buffer = ? AND ts <= ? ORDER BY ts DESC LIMIT ?';
+        let rows = await dbAll(this.db, sql, [userId, networkId, buffer, fromTime, length || 50]);
+
+        // We ordered the messages DESC in the query, so reverse them back into the correct order
+        rows.reverse();
 
         let messages = rows.map((row) => {
             let data = JSON.parse(row.message);
