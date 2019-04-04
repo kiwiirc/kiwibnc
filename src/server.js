@@ -1,3 +1,4 @@
+const readline = require('readline');
 const commander = require('commander');
 const { spawn } = require('child_process');
 const nodeCleanup = require('node-cleanup');
@@ -29,6 +30,20 @@ const nodeCleanup = require('node-cleanup');
             workerProc = spawn(nodeBin, nodeArgs, {stdio: [process.stdin, process.stdout, process.stderr]});
             workerProc.on('exit', spawnWorker);
         };
+
+        readline.emitKeypressEvents(process.stdin);
+        process.stdin.setRawMode(true);
+        process.stdin.on('keypress', (str, key) => {
+            if (key.ctrl && key.name === 'c') {
+                process.exit();
+                return;
+            }
+
+            if (key.name === 'r' && workerProc) {
+                l('Reloading worker process...');
+                workerProc.kill();
+            }
+        });
 
         spawnWorker();
 
