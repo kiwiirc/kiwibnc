@@ -104,7 +104,7 @@ class ConnectionOutgoing {
 
         hooks.emit('connection_open', {upstream: this});
 
-        this.writeLine('CAP LS');
+        this.writeLine('CAP LS 302');
 
         if (this.state.password) {
             this.writeLine(`PASS ${this.state.password}`);

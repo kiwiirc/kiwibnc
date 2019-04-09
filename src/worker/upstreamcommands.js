@@ -21,7 +21,20 @@ module.exports.run = async function run(msg, con) {
 commands['CAP'] = async function(msg, con) {
     // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
+        let storedCaps = await con.state.tempGet('caps_receiving') || [];
         let offeredCaps = mParam(msg, 2, '').split(' ');
+        offeredCaps = storedCaps.concat(offeredCaps);
+
+        if (mParamU(msg, 0, '') === '*') {
+            // More CAPs to follow so store it and come back later
+            await con.state.tempSet('caps_receiving', offeredCaps);
+            return false;
+        }
+
+        if (storedCaps.length > 0) {
+            await con.state.tempSet('caps_receiving', null);
+        }
+
         let wantedCaps = [
             'server-time',
             'multi-prefix',
@@ -32,6 +45,14 @@ commands['CAP'] = async function(msg, con) {
             'userhost-in-names',
             'sasl',
         ];
+
+        await hooks.emit('cap_to_upstream', {
+            client: con,
+            message: msg,
+            requesting: wantedCaps,
+            offered: offeredCaps,
+        });
+
         let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
@@ -40,10 +61,23 @@ commands['CAP'] = async function(msg, con) {
         }
     }
 
-    // We only expect one ACK so just CAP END it here
     if (mParamU(msg, 1, '') === 'ACK') {
-        let caps = mParam(msg, 2, '').split(' ');
-        con.state.caps = con.state.caps.concat(caps);
+        // CAP * ACK :multi-prefix sasl
+        let storedAcks = await con.state.tempGet('capack_receiving') || [];
+        let acks = mParam(msg, 2, '').split(' ');
+        acks = storedAcks.concat(acks);
+
+        if (mParamU(msg, 0, '') === '*') {
+            // More ACKs to follow so store it and come back later
+            await con.state.tempSet('capack_receiving', acks);
+            return false;
+        }
+
+        if (storedAcks.length > 0) {
+            await con.state.tempSet('capack_receiving', null);
+        }
+
+        con.state.caps = acks;
         await con.state.save();
 
         if (con.state.sasl.account) {
