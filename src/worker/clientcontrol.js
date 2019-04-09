@@ -30,7 +30,7 @@ module.exports.run = async function(msg, con) {
         await commands[command](input, con, msg);
 
     } else {
-        con.writeStatus('Invalid command');
+        con.writeStatus(`Invalid command (${command})`);
     }
 };
 
