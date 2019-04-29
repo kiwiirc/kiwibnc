@@ -14,8 +14,8 @@ const nodeCleanup = require('node-cleanup');
     commander
         .command('adduser')
         .description('Add a user')
-        .action(function(env, options) {
-            console.log('adding a new user');
+        .action(async function(env, options) {
+            await require('./adduser/adduser');
         });
 
     commander
