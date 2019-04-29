@@ -171,6 +171,21 @@ commands['005'] = async function(msg, con) {
     return false;
 };
 
+// keep track of login/logout to forward lines to new clients
+commands['900'] = async function(msg, con) {
+    let account = msg.params[2];
+
+    con.state.account = account;
+    con.state.save();
+    return false;
+}
+
+commands['901'] = async function(msg, con) {
+    con.state.account = null;
+    con.state.save();
+    return false;
+}
+
 commands.PING = async function(msg, con) {
     con.write('PONG :' + msg.params[0] + '\n');
     return false;
