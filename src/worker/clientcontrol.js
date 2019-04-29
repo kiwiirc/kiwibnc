@@ -319,7 +319,7 @@ commands.ADDUSER = {
         let username = parts[0] || '';
         let password = parts[1] || '';
         if (!username || !password) {
-            con.writeStatus('Usage: adduwer <username> <password>');
+            con.writeStatus('Usage: adduser <username> <password>');
             return false;
         }
 
