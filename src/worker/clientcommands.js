@@ -71,18 +71,31 @@ async function maybeProcessRegistration(con) {
         return;
     }
 
-    // Matching for user/network:pass or user:pass
+    // get bnc username and password
+    var username = '';
+    var networkName = '';
+    var password = '';
+    var network = null;
+
     let m = regState.pass.match(/([^\/:]+)(?:\/([^:]+))?(?::(.*))?/);
-    if (!m) {
+    let mu = m = regState.user.match(/([^\/]+)(?:\/(.+))?/);
+    if (m && regState.pass.includes(':')) {
+        // PASS user/network:pass or user:pass
+        username = m[1] || '';
+        networkName = m[2] || '';
+        password = m[3] || '';
+    } else if (mu && regState.pass) {
+        // PASS pass
+        // USER user/network or user
+        username = mu[1] || '';
+        networkName = mu[2] || '';
+        password = regState.pass || '';
+    } else {
+        console.log('3');
         await con.writeMsg('ERROR', 'Invalid password');
         con.close();
         return false;
     }
-
-    let username = m[1] || '';
-    let networkName = m[2] || '';
-    let password = m[3] || '';
-    let network = null;
 
     let hook = await hooks.emit('auth', {username, networkName, password, client: con, userId: null, network: null, isAdmin: false});
     if (hook.prevent) {
