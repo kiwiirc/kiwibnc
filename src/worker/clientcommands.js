@@ -91,7 +91,6 @@ async function maybeProcessRegistration(con) {
         networkName = mu[2] || '';
         password = regState.pass || '';
     } else {
-        console.log('3');
         await con.writeMsg('ERROR', 'Invalid password');
         con.close();
         return false;
