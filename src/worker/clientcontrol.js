@@ -12,6 +12,10 @@ module.exports.run = async function(msg, con) {
     let command = input.substr(0, pos).toUpperCase();
     input = input.substr(pos + 1);
 
+    if (command === '') {
+        command = 'HELP';
+    }
+
     if (typeof commands[command] === 'object') {
         let cmd = commands[command];
         if (cmd.requiresNetworkAuth && !con.state.authNetworkId) {
@@ -32,6 +36,14 @@ module.exports.run = async function(msg, con) {
     } else {
         con.writeStatus(`Invalid command (${command})`);
     }
+};
+
+commands.HELP = {
+    requiresNetworkAuth: false,
+    fn: async function(input, con, msg) {
+        con.writeStatus(`Here are the supported commands:`);
+        con.writeStatus(Object.keys(commands).sort().join(' '));
+    },
 };
 
 commands.HELLO =
