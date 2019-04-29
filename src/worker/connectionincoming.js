@@ -156,7 +156,7 @@ class ConnectionIncoming {
         });
 
         let account = upstream.state.account;
-        if (account) {
+        if (account !== '') {
             this.writeMsgFrom(upstream.state.serverPrefix, '900', nick, `${nick}!${this.state.username}@bnc`, account, `:You are now logged in as ${account}`);
         }
 

@@ -181,7 +181,7 @@ commands['900'] = async function(msg, con) {
 }
 
 commands['901'] = async function(msg, con) {
-    con.state.account = null;
+    con.state.account = '';
     con.state.save();
     return false;
 }

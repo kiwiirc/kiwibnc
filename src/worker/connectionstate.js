@@ -34,6 +34,7 @@ class ConnectionState {
         this.caps = [];
         this.buffers = Object.create(null);
         this.nick = 'unknown-user';
+        this.account = '';
         this.username = 'user';
         this.realname = 'BNC user';
         this.password = '';
@@ -76,6 +77,7 @@ class ConnectionState {
             port: this.port,
             tls: this.tls,
             type: this.type,
+            account: this.account,
             connected: this.connected,
             sasl: JSON.stringify(this.sasl),
             server_prefix: this.serverPrefix,
@@ -124,6 +126,7 @@ class ConnectionState {
                 this.addBuffer(rowChans[chanName]);
             }
             this.nick = row.nick;
+            this.account = row.account;
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
