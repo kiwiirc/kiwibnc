@@ -1,57 +1,54 @@
-const readline = require('readline');
 const commander = require('commander');
-const { spawn } = require('child_process');
-const nodeCleanup = require('node-cleanup');
+const actionRun = require('./actions/run');
+const actionAddUser = require('./actions/adduser');
 
 (async function() {
-    commander
-        .version('0.0.1')
-        .option('-c, --config <path>', 'Config file path', './config.ini')
-        .option('--worker', 'Launch a worker')
-        .option('--sockets', 'Launch a socket layer')
-        .parse(process.argv);
-
     // Make the args available globally
     process.args = commander;
 
-    if (commander.sockets) {
-        await require('./sockets/sockets');
-    } else if (commander.worker) {
-        await require('./worker/worker');
-    } else {
-        // Start the socket layer first so that it's ready for the worker to connect to
-        await require('./sockets/sockets');
+    commander
+        .version('0.0.1')
+        .option('-c, --config <path>', 'Config file path', './config.ini');
 
-        // The worker should restart itself if it crashes
-        let workerProc;
-        let spawnWorker = () => {
-            let nodeBin = process.argv[0];
-            let nodeArgs = [...process.argv.slice(1), '--worker'];
-            workerProc = spawn(nodeBin, nodeArgs, {stdio: [process.stdin, process.stdout, process.stderr]});
-            workerProc.on('exit', spawnWorker);
-        };
+    commander
+        .command('adduser')
+        .description('Add a user')
+        .action(actionAddUser);
 
-        readline.emitKeypressEvents(process.stdin);
-        process.stdin.setRawMode(true);
-        process.stdin.on('keypress', (str, key) => {
-            if (key.ctrl && key.name === 'c') {
-                process.exit();
-                return;
-            }
+    commander
+        .command('run')
+        .description('Start the bouncer')
+        .action(actionRun);
 
-            if (key.name === 'r' && workerProc) {
-                l('Reloading worker process...');
-                workerProc.kill();
-            }
+    commander
+        .command('sockets')
+        .description('Launch a socket layer')
+        .action(async function(env, options) {
+            await require('./sockets/sockets');
         });
 
-        spawnWorker();
-
-        // Make sure the worker process also gets killed when we die
-        nodeCleanup((exitCode, signal) => {
-            if (workerProc) {
-                workerProc.kill();
-            }
+    commander
+        .command('worker')
+        .description('Launch a worker')
+        .action(async function(env, options) {
+            await require('./worker/worker');
         });
+
+    // return help on unknown subcommands
+    commander
+        .on('command:*', function (command) {
+            console.error('Invalid command: %s\nSee --help for a list of available commands.', command[0]);
+            process.exit(1);
+        });
+
+    // run everything by default
+    if (process.argv.length === 2 && process.argv[1].match(/\.js/)) {
+        // $ node src/server.js
+        process.argv.push('run');
+    } else if (process.argv.length === 1) {
+        // $ kiwibnc
+        process.argv.push('run');
     }
+
+    commander.parse(process.argv);
 })();
