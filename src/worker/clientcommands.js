@@ -72,10 +72,10 @@ async function maybeProcessRegistration(con) {
     }
 
     // get bnc username and password
-    var username = '';
-    var networkName = '';
-    var password = '';
-    var network = null;
+    let username = '';
+    let networkName = '';
+    let password = '';
+    let network = null;
 
     let m = regState.pass.match(/([^\/:]+)(?:\/([^:]+))?(?::(.*))?/);
     let mu = m = regState.user.match(/([^\/]+)(?:\/(.+))?/);
