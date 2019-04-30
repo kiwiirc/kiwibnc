@@ -2,7 +2,7 @@ const Database = require('../libs/database');
 const Users = require('../worker/users');
 var readlineSync = require('readline-sync');
 
-async function run() {
+module.exports = async function(env, options) {
     let app = await require('../libs/bootstrap')('adduser');
 
     app.db = new Database(app.conf.get('database.path', './connections.db'));
@@ -45,7 +45,7 @@ async function run() {
     }
 
     process.exit(0);
-}
+};
 
 async function syncQuestion(question, opts, validator) {
     let input = '';
@@ -62,5 +62,3 @@ async function syncQuestion(question, opts, validator) {
 
     return input;
 }
-
-module.exports = run();

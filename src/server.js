@@ -1,7 +1,6 @@
-const readline = require('readline');
 const commander = require('commander');
-const { spawn } = require('child_process');
-const nodeCleanup = require('node-cleanup');
+const actionRun = require('./actions/run');
+const actionAddUser = require('./actions/adduser');
 
 (async function() {
     // Make the args available globally
@@ -14,9 +13,12 @@ const nodeCleanup = require('node-cleanup');
     commander
         .command('adduser')
         .description('Add a user')
-        .action(async function(env, options) {
-            await require('./adduser/adduser');
-        });
+        .action(actionAddUser);
+
+    commander
+        .command('run')
+        .description('Start the bouncer')
+        .action(actionRun);
 
     commander
         .command('sockets')
@@ -32,57 +34,19 @@ const nodeCleanup = require('node-cleanup');
             await require('./worker/worker');
         });
 
-    commander
-        .command('run')
-        .description('Launch everything')
-        .action(async function(env, options) {
-            // Start the socket layer first so that it's ready for the worker to connect to
-            await require('./sockets/sockets');
-    
-            // The worker should restart itself if it crashes
-            let workerProc;
-            let spawnWorker = () => {
-                let nodeBin = process.argv[0];
-                let nodeArgs = [...process.argv.slice(1), 'worker'];
-                nodeArgs.splice(nodeArgs.indexOf('run'), 1);
-                console.log('starting:', nodeBin, nodeArgs);
-                workerProc = spawn(nodeBin, nodeArgs, {stdio: [process.stdin, process.stdout, process.stderr]});
-                workerProc.on('exit', spawnWorker);
-            };
-    
-            readline.emitKeypressEvents(process.stdin);
-            process.stdin.setRawMode(true);
-            process.stdin.on('keypress', (str, key) => {
-                if (key.ctrl && key.name === 'c') {
-                    process.exit();
-                    return;
-                }
-    
-                if (key.name === 'r' && workerProc) {
-                    l('Reloading worker process...');
-                    workerProc.kill();
-                }
-            });
-    
-            spawnWorker();
-    
-            // Make sure the worker process also gets killed when we die
-            nodeCleanup((exitCode, signal) => {
-                if (workerProc) {
-                    workerProc.kill();
-                }
-            });
-        });
-
     // return help on unknown subcommands
     commander
-        .on('command:*', function () {
-            console.error('Invalid command: %s\nSee --help for a list of available commands.', commander.args.join(' '));
+        .on('command:*', function (command) {
+            console.error('Invalid command: %s\nSee --help for a list of available commands.', command[0]);
             process.exit(1);
         });
 
     // run everything by default
-    if (process.argv.length === 2) {
+    if (process.argv.length === 2 && process.argv[1].match(/\.js/)) {
+        // $ node src/server.js
+        process.argv.push('run');
+    } else if (process.argv.length === 1) {
+        // $ kiwibnc
         process.argv.push('run');
     }
 
