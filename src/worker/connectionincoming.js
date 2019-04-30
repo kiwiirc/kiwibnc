@@ -156,8 +156,10 @@ class ConnectionIncoming {
         });
 
         let account = upstream.state.account;
+        let username = this.state.username;
+        let host = this.state.host;
         if (account !== '') {
-            this.writeMsgFrom(upstream.state.serverPrefix, '900', nick, `${nick}!${this.state.username}@bnc`, account, `:You are now logged in as ${account}`);
+            this.writeMsgFrom(upstream.state.serverPrefix, '900', nick, `${nick}!${username}@${host}`, account, `You are now logged in as ${account}`);
         }
 
         this.state.netRegistered = true;

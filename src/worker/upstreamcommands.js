@@ -177,13 +177,13 @@ commands['900'] = async function(msg, con) {
 
     con.state.account = account;
     con.state.save();
-    return false;
+    return true;
 }
 
 commands['901'] = async function(msg, con) {
     con.state.account = '';
     con.state.save();
-    return false;
+    return true;
 }
 
 commands.PING = async function(msg, con) {
