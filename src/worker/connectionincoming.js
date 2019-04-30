@@ -155,6 +155,13 @@ class ConnectionIncoming {
             this.writeMsgFrom(upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
         });
 
+        let account = upstream.state.account;
+        let username = this.state.username;
+        let host = this.state.host;
+        if (account !== '') {
+            this.writeMsgFrom(upstream.state.serverPrefix, '900', nick, `${nick}!${username}@${host}`, account, `You are now logged in as ${account}`);
+        }
+
         this.state.netRegistered = true;
 
         // Dump all our joined channels..
