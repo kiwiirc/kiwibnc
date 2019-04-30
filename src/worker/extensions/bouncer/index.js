@@ -13,11 +13,15 @@ module.exports.init = async function init(hooks) {
         }
 
         upstream.forEachClient(client => {
-            // TODO: When moved to a CAP, enable this check below
-            // if (client.state.caps.includes('BOUNCER')) {
-            client.writeMsg('BOUNCER', 'state', network.name, state);
+            if (client.state.caps.includes('BOUNCER')) {
+                client.writeMsg('BOUNCER', 'state', network.name, state);
+            }
         });
     };
+
+    hooks.on('available_caps', event => {
+        event.caps.push('bouncer');
+    });
 
     hooks.on('connection_open', event => {
         if (event.upstream) {
@@ -36,12 +40,20 @@ module.exports.init = async function init(hooks) {
         }
     });
 
-    hooks.on('message_to_client', event => {
+    hooks.on('message_to_client', async event => {
         if (event.message.command === '001') {
-            setTimeout(() => {
+            setTimeout(async () => {
                 // TODO: This timeout is ugly. Find a way to only send this once when it detects
                 //       a 005 message
-                event.client.writeFromBnc('005', event.client.state.nick, 'BOUNCER');
+                let token = 'BOUNCER';
+                let upstream = event.client.upstream;
+                if (upstream) {
+                    let network = await event.client.userDb.getNetwork(upstream.state.authNetworkId);
+                    if (network) {
+                        token += `=network=${network.name};`;
+                    }
+                }
+                event.client.writeFromBnc('005', event.client.state.nick, token);
             }, 1);
         }
     });
@@ -95,6 +107,11 @@ async function handleBouncerCommand(event) {
         let upstream = null;
         upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
         if (upstream && upstream.state.connected) {
+            let quitMessage = mParam(msg, 2, '');
+            if (quitMessage) {
+                upstream.writeLine('QUIT', quitMessage);
+            }
+
             upstream.close();
         }
     }
@@ -186,6 +203,7 @@ async function handleBouncerCommand(event) {
         if (!buffer) {
             // No buffer? No need to delete anything
             con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
+            return;
         }
 
         upstream.state.delBuffer(buffer.name);
