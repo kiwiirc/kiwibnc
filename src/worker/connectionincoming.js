@@ -157,6 +157,24 @@ class ConnectionIncoming {
 
         this.state.netRegistered = true;
 
+        // If the client supports BOUNCER commands, it will request a buffer list
+        // itself and then request messages as needed
+        if (!this.state.caps.includes('bouncer')) {
+            await this.dumpChannels();
+        }
+
+        // If we previously set them away, now bring them back
+        if (await upstream.state.tempGet('set_away')) {
+            upstream.writeLine('AWAY');
+            await upstream.state.tempSet('set_away', null);
+        }
+
+        await this.state.save();
+    }
+
+    async dumpChannels() {
+        let upstream = this.upstream;
+
         // Dump all our joined channels..
         for (let chanName in upstream.state.buffers) {
             let channel = upstream.state.buffers[chanName];
@@ -189,14 +207,6 @@ class ConnectionIncoming {
                 await this.writeMsg(msg);
             });
         }
-
-        // If we previously set them away, now bring them back
-        if (await upstream.state.tempGet('set_away')) {
-            upstream.writeLine('AWAY');
-            await upstream.state.tempSet('set_away', null);
-        }
-
-        await this.state.save();
     }
 
     // Handy helper to reach the hotReloadClientCommands() function
