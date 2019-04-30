@@ -78,7 +78,7 @@ async function maybeProcessRegistration(con) {
     let network = null;
 
     let m = regState.pass.match(/([^\/:]+)(?:\/([^:]+))?(?::(.*))?/);
-    let mu = m = regState.user.match(/([^\/]+)(?:\/(.+))?/);
+    let mu = regState.user.match(/([^\/]+)(?:\/(.+))?/);
     if (m && regState.pass.includes(':')) {
         // PASS user/network:pass or user:pass
         username = m[1] || '';
