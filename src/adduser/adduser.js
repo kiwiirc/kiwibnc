@@ -11,33 +11,23 @@ async function run() {
     app.userDb = new Users(app.db);
 
     // username
-    var username = '';
-    while (true) {
-        username = String(readlineSync.question('Username: ')).trim();
-
-        if (0 < username.length) {
-            // username is ok, break
-            break;
-        }
-    }
+    let username = await syncQuestion('Username: ', {}, input => {
+        return input.trim().length > 0;
+    });
 
     // password
-    var password = '';
-    while (true) {
-        password = String(readlineSync.question('Password: ', {hideEchoBack: true})).trim();
-
-        if (0 < password.length) {
-            // password is ok, break
-            break;
-        }
-    }
+    let password = await syncQuestion('Password: ', {hideEchoBack: true}, input => {
+        return input.trim().length > 0;
+    });
 
     // whether new user is an admin
-    var userIsAdmin = false;
-    var answer = readlineSync.question('Admin account? ', {limit: ['true', 't', 'yes', 'y', '1', 'false', 'f', 'no', 'n', '0']}).toLowerCase()
-    if (answer == 'true' || answer == 't' || answer == 'yes' || answer == 'y' || answer == '1') {
-        userIsAdmin = true;
-    }
+    let userIsAdmin = false;
+    let adminRepliesYes = ['true', 't', 'yes', 'y', '1'];
+    let adminRepliesNo = ['false', 'f', 'no', 'n', '0'];
+    let answer = readlineSync.question('Admin account? ', {
+        limit: adminRepliesYes.concat(adminRepliesNo)
+    });
+    userIsAdmin = adminRepliesYes.indexOf(answer.toLowerCase()) > -1;
 
     let existingUser = await app.userDb.getUser(username);
     if (existingUser) {
@@ -48,7 +38,6 @@ async function run() {
     try {
         await app.userDb.addUser(username, password);
         console.log(`Added new user ${username}`);
-        process.exit(0);
     } catch (err) {
         l.error('Error adding new user:', err.message);
         console.log('There was an error adding the new user');
@@ -56,6 +45,22 @@ async function run() {
     }
 
     process.exit(0);
+}
+
+async function syncQuestion(question, opts, validator) {
+    let input = '';
+
+    while (true) {
+        input = readlineSync.question(question, opts);
+
+        if (typeof validator === 'function') {
+            if (validator(input)) {
+                break;
+            }
+        }
+    }
+
+    return input;
 }
 
 module.exports = run();
