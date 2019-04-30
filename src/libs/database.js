@@ -41,6 +41,7 @@ module.exports = class Database {
             caps TEXT,
             buffers TEXT,
             nick TEXT,
+            account TEXT,
             net_registered BOOLEAN,
             auth_user_id INTEGER,
             auth_network_id INTEGER,

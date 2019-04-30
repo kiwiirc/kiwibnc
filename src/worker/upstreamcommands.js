@@ -3,7 +3,7 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.run = async function run(msg, con) {
+module.exports.run = async function run(msg, con) {   
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
         return;
@@ -25,7 +25,7 @@ commands['CAP'] = async function(msg, con) {
         let offeredCaps = mParam(msg, 2, '').split(' ');
         offeredCaps = storedCaps.concat(offeredCaps);
 
-        if (mParamU(msg, 0, '') === '*') {
+        if (mParamU(msg, 2, '') === '*') {
             // More CAPs to follow so store it and come back later
             await con.state.tempSet('caps_receiving', offeredCaps);
             return false;
@@ -67,7 +67,7 @@ commands['CAP'] = async function(msg, con) {
         let acks = mParam(msg, 2, '').split(' ');
         acks = storedAcks.concat(acks);
 
-        if (mParamU(msg, 0, '') === '*') {
+        if (mParamU(msg, 2, '') === '*') {
             // More ACKs to follow so store it and come back later
             await con.state.tempSet('capack_receiving', acks);
             return false;
@@ -170,6 +170,21 @@ commands['005'] = async function(msg, con) {
     con.state.save();
     return false;
 };
+
+// keep track of login/logout to forward lines to new clients
+commands['900'] = async function(msg, con) {
+    let account = msg.params[2];
+
+    con.state.account = account;
+    con.state.save();
+    return true;
+}
+
+commands['901'] = async function(msg, con) {
+    con.state.account = '';
+    con.state.save();
+    return true;
+}
 
 commands.PING = async function(msg, con) {
     con.write('PONG :' + msg.params[0] + '\n');
