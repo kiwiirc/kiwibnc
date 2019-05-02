@@ -376,4 +376,26 @@ async function handleBouncerCommand(event) {
 
         con.writeMsg('BOUNCER', 'changenetwork', netName, 'RPL_OK');
     }
+
+    if (subCmd === 'DELNETWORK') {
+        let netName = mParam(msg, 1);
+
+        // Make sure the network exists
+        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        if (!network) {
+            con.writeMsg('BOUNCER', 'delnetwork', netName, 'ERR_NETNOTFOUND');
+            return;
+        }
+
+        // Close any active upstream connections we have for this network
+        let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
+        if (upstream) {
+            upstream.close();
+            upstream.destroy();
+        }
+
+
+        await con.db.db('user_networks').where('id', network.id).delete();
+        con.writeMsg('BOUNCER', 'delnetwork', netName, 'RPL_OK');
+    }
 };
