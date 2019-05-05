@@ -276,8 +276,13 @@ commands.ADDNETWORK = {
             return;
         }
 
-        toUpdate.user_id = con.state.authUserId;
-        await con.db.db('user_networks').insert(toUpdate);
+        let network = await con.userDb.modelFactories.Network();
+        network.user_id = con.state.authUserId;
+        for (let prop in toUpdate) {
+            network[prop] = toUpdate[prop];
+        }
+        await network.save();
+
         con.writeStatus(`New network saved. You can now login using your_username/${toUpdate.name}:your_password`);
     },
 };
