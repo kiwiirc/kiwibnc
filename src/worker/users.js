@@ -2,14 +2,15 @@ const bcrypt = require('bcrypt');
 const uuidv4 = require('uuid/v4');
 
 class Users {
-    constructor(db) {
+    constructor(db, modelFactories) {
         this.db = db;
+        this.modelFactories = modelFactories;
     }
 
     async authUserNetwork(username, password, network) {
-        let row = null;
+        let ret = { network: null, user: null };
         try {
-            row = await this.db.get(`
+            let row = await this.db.get(`
                 SELECT
                     nets.*,
                     users.password as _pass,
@@ -21,18 +22,19 @@ class Users {
             
             if (row) {
                 let correctHash = await bcrypt.compare(password, row._pass);
-                if (!correctHash) {
-                    row = null;
-                } else {
-                    // We don't need the password hash going anywhere else, get rid of it
+                if (correctHash) {
+                    ret.user = { admin: row.user_admin };
                     delete row._pass;
+                    delete row.user_admin;
+
+                    ret.network = this.modelFactories.Network.fromDbResult(row);
                 }
             }
         } catch (err) {
             l.error('Error logging user in:', err.stack);
         }
 
-        return row;
+        return ret;
     }
 
     async authUser(username, password) {
@@ -97,12 +99,14 @@ class Users {
     };
 
     async getUserNetworks(userId) {
-        let rows = await this.db.all('SELECT * FROM user_networks WHERE user_id = ?', [userId]);
+        let rows = await this.db.all('SELECT * FROM user_networks WHERE user_id = ?', [userId])
+            .then(this.modelFactories.Network.fromDbResult);
         return rows;
     }
 
     async getNetwork(id) {
-        let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id]);
+        let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id])
+            .then(this.modelFactories.Network.fromDbResult);
         return row;
     }
 
@@ -110,7 +114,8 @@ class Users {
         let row = await this.db.get(`SELECT * from user_networks WHERE user_id = ? AND name = ?`, [
             userId,
             netName,
-        ]);
+        ])
+            .then(this.modelFactories.Network.fromDbResult);
         return row;
     }
 }

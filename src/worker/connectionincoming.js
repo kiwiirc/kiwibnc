@@ -186,7 +186,7 @@ class ConnectionIncoming {
         for (let chanName in upstream.state.buffers) {
             let channel = upstream.state.buffers[chanName];
             if (channel.isChannel && channel.joined) {
-                await this.writeMsgFrom(nick, 'JOIN', channel.name);
+                await this.writeMsgFrom(this.state.nick, 'JOIN', channel.name);
                 channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
                 upstream.write(`NAMES ${channel.name}\n`);
             }
@@ -245,9 +245,9 @@ class ConnectionIncoming {
         con.state.host = network.host;
         con.state.port = network.port;
         con.state.tls = network.tls;
-        con.state.nick = network.nick;
-        con.state.username = network.username;
-        con.state.realname = network.realname;
+        con.state.nick = network.nick || 'kiwibnc';
+        con.state.username = network.username || 'kiwibnc';
+        con.state.realname = network.realname || 'kiwibnc';
         con.state.password = network.password;
         con.state.sasl.account = network.sasl_account || '';
         con.state.sasl.password = network.sasl_pass || '';

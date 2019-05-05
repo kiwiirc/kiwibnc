@@ -123,6 +123,9 @@ commands.CHANGENETWORK = {
             real: 'realname',
             password: 'password',
             pass: 'password',
+            account: 'sasl_account',
+            account_pass: 'sasl_pass',
+            account_password: 'sasl_pass',
         };
 
         input.split(' ').forEach(part => {
@@ -166,15 +169,16 @@ commands.CHANGENETWORK = {
         });
 
         if (Object.keys(toUpdate).length > 0) {
-            await con.db.db('user_networks')
-                .where('user_id', con.state.authUserId)
-                .where('id', con.state.authNetworkId)
-                .update(toUpdate);
+            let network = await con.userDb.getNetwork(con.state.authNetworkId);
+            for (let prop in toUpdate) {
+                network[prop] = toUpdate[prop];
+            }
+            await network.save();
             
             con.writeStatus(`Updated network`);
         } else {
             con.writeStatus(`Usage: changenetwork server=irc.example.net port=6697 tls=yes`);
-            con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password`);
+            con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password, account, account_password`);
         }
     },
 };
@@ -205,6 +209,9 @@ commands.ADDNETWORK = {
             real: 'realname',
             password: 'password',
             pass: 'password',
+            account: 'sasl_account',
+            account_pass: 'sasl_pass',
+            account_password: 'sasl_pass',
         };
 
         input.split(' ').forEach(part => {

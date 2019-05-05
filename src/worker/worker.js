@@ -1,6 +1,7 @@
 const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
 const Database = require('../libs/database');
+const Crypt = require('../libs/crypt');
 const Users = require('./users');
 const MessageStore = require('./messagestores/sqlite');
 const ConnectionOutgoing = require('./connectionoutgoing');
@@ -11,10 +12,19 @@ const hooks = require('./hooks');
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
 
+    let cryptKey = app.conf.get('database.crypt_key', '');
+    if (cryptKey.length !== 32) {
+        console.error('Cannot start: config option database.crypt_key must be 32 characters long');
+        process.exit();
+    }
+    app.crypt = new Crypt(cryptKey);
+
     app.db = new Database(app.conf.get('database.path', './connections.db'));
     await app.db.init();
 
-    app.userDb = new Users(app.db);
+    initModelFactories(app);
+
+    app.userDb = new Users(app.db, app.modelFactories);
 
     app.messages = new MessageStore(app.conf.get('messages', {}));
     await app.messages.init();
@@ -47,6 +57,11 @@ async function initExtensions(app) {
     // a chance to override any if they need
     hooks.addBuiltInHooks();
 };
+
+function initModelFactories(app) {
+    app.modelFactories = Object.create(null);
+    app.modelFactories.Network = require('./data/network').factory(app.db, app.crypt);
+}
 
 function listenToQueue(app) {
     let cons = app.cons;

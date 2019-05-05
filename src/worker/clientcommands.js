@@ -113,16 +113,17 @@ async function maybeProcessRegistration(con) {
 
     } else if (networkName) {
         // Logging into a network
-        network = await con.userDb.authUserNetwork(username, password, networkName);
-        if (!network) {
+        let auth = await con.userDb.authUserNetwork(username, password, networkName);
+        if (!auth.network) {
             await con.writeMsg('ERROR', 'Invalid password');
             con.close();
             return false;
         }
 
+        network = auth.network;
         con.state.authUserId = network.user_id;
         con.state.authNetworkId = network.id;
-        con.state.authAdmin = !!network.user_admin;
+        con.state.authAdmin = auth.user && !!auth.user.user_admin;
     } else {
         // Logging into a user only mode (no attached network)
         let user = await con.userDb.authUser(username, password);
