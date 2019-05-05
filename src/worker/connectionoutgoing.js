@@ -15,6 +15,7 @@ hotReloadUpstreamCommands();
 class ConnectionOutgoing {
     constructor(_id, db, messages, queue, conDict) {
         let id = _id || uuidv4();
+        this.db = db;
         this.state = new ConnectionState(id, db);
         this.state.type = 0;
         this.messages = messages;

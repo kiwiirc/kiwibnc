@@ -24,7 +24,7 @@ async function run() {
 
     initModelFactories(app);
 
-    app.userDb = new Users(app.db, app.modelFactories);
+    app.userDb = new Users(app.db);
 
     app.messages = new MessageStore(app.conf.get('messages', {}));
     await app.messages.init();
@@ -59,8 +59,7 @@ async function initExtensions(app) {
 };
 
 function initModelFactories(app) {
-    app.modelFactories = Object.create(null);
-    app.modelFactories.Network = require('./data/network').factory(app.db, app.crypt);
+    app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
 }
 
 function listenToQueue(app) {

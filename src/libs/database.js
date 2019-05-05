@@ -9,6 +9,8 @@ module.exports = class Database {
 			},
 			useNullAsDefault: true,
         });
+
+        this.factories = Object.create(null);
     }
 
     get(sql, params) {

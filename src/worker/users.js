@@ -2,9 +2,8 @@ const bcrypt = require('bcrypt');
 const uuidv4 = require('uuid/v4');
 
 class Users {
-    constructor(db, modelFactories) {
+    constructor(db) {
         this.db = db;
-        this.modelFactories = modelFactories;
     }
 
     async authUserNetwork(username, password, network) {
@@ -27,7 +26,7 @@ class Users {
                     delete row._pass;
                     delete row.user_admin;
 
-                    ret.network = this.modelFactories.Network.fromDbResult(row);
+                    ret.network = this.db.factories.Network.fromDbResult(row);
                 }
             }
         } catch (err) {
@@ -100,13 +99,13 @@ class Users {
 
     async getUserNetworks(userId) {
         let rows = await this.db.all('SELECT * FROM user_networks WHERE user_id = ?', [userId])
-            .then(this.modelFactories.Network.fromDbResult);
+            .then(this.db.factories.Network.fromDbResult);
         return rows;
     }
 
     async getNetwork(id) {
         let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id])
-            .then(this.modelFactories.Network.fromDbResult);
+            .then(this.db.factories.Network.fromDbResult);
         return row;
     }
 
@@ -115,7 +114,7 @@ class Users {
             userId,
             netName,
         ])
-            .then(this.modelFactories.Network.fromDbResult);
+            .then(this.db.factories.Network.fromDbResult);
         return row;
     }
 }

@@ -276,7 +276,7 @@ commands.ADDNETWORK = {
             return;
         }
 
-        let network = await con.userDb.modelFactories.Network();
+        let network = await con.db.factories.Network();
         network.user_id = con.state.authUserId;
         for (let prop in toUpdate) {
             network[prop] = toUpdate[prop];
