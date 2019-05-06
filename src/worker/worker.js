@@ -60,6 +60,7 @@ async function initExtensions(app) {
 
 function initModelFactories(app) {
     app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
+    app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
 }
 
 function listenToQueue(app) {

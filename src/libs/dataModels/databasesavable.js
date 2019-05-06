@@ -1,7 +1,7 @@
 class DatabaseSavable {
-    constructor(db, table) {
+    constructor(db) {
         this._db = db;
-        this._table = table;
+        this._table = this.constructor.table;
         this._data = Object.create(null);
         this._dirty = false;
     }
@@ -58,7 +58,7 @@ class DatabaseSavable {
         if (!this.getData('id')) {
             let id = await this._db.db(this._table).insert(cols);
             if (id) {
-                this.setData('id', id);
+                this._data.id = { col: 'id', val: id, dirty: false };
             }
             this._dirty = false;
         } else {
@@ -71,8 +71,22 @@ class DatabaseSavable {
     }
 
     static createFactory(Ctor, ...ctorArgs) {
+        // The first argument to a model will always be the Database instance
+        let db = ctorArgs[0];
+        let table = Ctor.table;
+
         let factory = function(...args) {
             return new Ctor(...ctorArgs.concat(args));
+        };
+
+        factory.query = function query() {
+            let query = db.db(table);
+            // Wrap the queries .then() with our own so that we can return a model
+            let originalThen = query.then;
+            query.then = (...args) => {
+                return originalThen.call(query, factory.fromDbResult).then(...args);
+            };
+            return query;
         };
 
         factory.fromDbResult = function fromDbResult(rs) {
@@ -85,7 +99,7 @@ class DatabaseSavable {
             }
 
             return ret;
-        }
+        };
 
         return factory;
     }

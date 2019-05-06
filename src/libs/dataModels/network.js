@@ -2,10 +2,11 @@ const DatabaseSavable = require('./databasesavable');
 
 class Network extends DatabaseSavable {
     constructor(db, crypt) {
-        super(db, 'user_networks');
+        super(db);
         this.crypt = crypt;
     }
 
+    static get table() { return 'user_networks'; }
     static factory(...ctorArgs) {
         return DatabaseSavable.createFactory(Network, ...ctorArgs)
     }

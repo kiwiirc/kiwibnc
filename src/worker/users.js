@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
 const uuidv4 = require('uuid/v4');
+const bcrypt = require('bcrypt');
 
 class Users {
     constructor(db) {
@@ -37,33 +37,32 @@ class Users {
     }
 
     async authUser(username, password) {
-        let row = await this.db.get(`SELECT * from users WHERE username = ?`, [username]);
-        if (row) {
-            let correctHash = await bcrypt.compare(password, row.password);
-            if (!correctHash) {
-                row = null;
-            } else {
-                // We don't need the password hash going anywhere else, get rid of it
-                delete row.password;
-            }
+        let user = await this.db.get(`SELECT * from users WHERE username = ?`, [username])
+            .then(this.db.factories.User.fromDbResult);
+
+        if (user && await user.checkPassword(password)) {
+            return user;
         }
-        return row;
+
+        return null;
     }
 
     async authUserToken(token) {
-        let row = await this.db.get(`SELECT * from user_tokens WHERE token = ?`, [token]);
-        if (!row) {
-            return;
+        let sql = `
+            SELECT
+                users.*
+            FROM users
+            INNER JOIN user_tokens ON users.id = user_tokens.user_id
+            WHERE user_tokens.token = ?
+        `;
+        let user = await this.db.get(sql, [token])
+            .then(this.db.factories.User.fromDbResult);
+
+        if (user) {
+            return user;
         }
 
-        let user = await this.db.get(`SELECT * from users WHERE id = ?`, [row.user_id]);
-        if (!user) {
-            return;
-        }
-
-        // We don't need the password hash going anywhere else, get rid of it
-        delete user.password;
-        return user;
+        return null;
     }
 
     async generateUserToken(id) {
@@ -77,45 +76,45 @@ class Users {
     }
 
     async getUser(username) {
-        return await this.db.get(`SELECT * from users WHERE username = ?`, [username]);
+        return this.db.factories.User.query().where('username', username);
     }
 
     async addUser(username, password) {
-        await this.db.db('users').insert({
-            username,
-            password: await bcrypt.hash(password, 8),
-            created_at: Date.now()
-        });
+        let user = this.db.factories.User();
+        user.username = username;
+        user.password = password;
+        user.created_at = Date.now();
+        await user.save();
 
-        return await this.getUser(username);
+        return user;
     };
 
     async changeUserPassword(id, password) {
-        await this.db.run('UPDATE users SET password = ? WHERE id = ?', [
-            await bcrypt.hash(password, 8),
-            id,
-        ]);
+        let user = await this.db.factories.User.query().where('id', id);
+        if (!user) {
+            return;
+        }
+
+        user.password = password;
+        return user.save();
     };
 
     async getUserNetworks(userId) {
-        let rows = await this.db.all('SELECT * FROM user_networks WHERE user_id = ?', [userId])
-            .then(this.db.factories.Network.fromDbResult);
-        return rows;
+        return this.db.factories.Network.query()
+            .where('user_id', userId);
     }
 
     async getNetwork(id) {
-        let row = await this.db.get(`SELECT * from user_networks WHERE id = ?`, [id])
-            .then(this.db.factories.Network.fromDbResult);
-        return row;
+        return this.db.factories.Network.query()
+            .where('id', id)
+            .first();
     }
 
     async getNetworkByName(userId, netName) {
-        let row = await this.db.get(`SELECT * from user_networks WHERE user_id = ? AND name = ?`, [
-            userId,
-            netName,
-        ])
-            .then(this.db.factories.Network.fromDbResult);
-        return row;
+        return this.db.factories.Network.query()
+            .where('user_id', userId)
+            .where('name', netName)
+            .first();
     }
 }
 
