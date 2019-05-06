@@ -1,13 +1,9 @@
 const messageTags = require('irc-framework/src/messagetags');
 const { mParam, mParamU } = require('../../../libs/helpers');
 
-module.exports.init = async function init(hooks) {
+module.exports.init = async function init(hooks, app) {
     let sendConnectionState = async (upstream, state) => {
-        let network = await upstream.state.db.db('user_networks')
-            .where('id', upstream.state.authNetworkId)
-            .where('user_id', upstream.state.authUserId)
-            .first();
-
+        let network = await app.userDb.getNetwork(upstream.state.authNetworkId);
         if (!network) {
             return;
         }
