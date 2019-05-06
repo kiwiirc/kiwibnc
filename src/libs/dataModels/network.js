@@ -45,7 +45,9 @@ class Network extends DatabaseSavable {
     
     get sasl_pass() {
         let pass = this.getData('sasl_pass');
-        if (pass) {
+        // Passwords not containing the : character will have been put in as plaintext
+        // by some other means. Don't try to decrypt those.
+        if (pass && pass.indexOf(':') > -1) {
             pass = this.crypt.decrypt(pass);
         }
         return pass;
