@@ -98,7 +98,22 @@ commands.LISTNETWORKS = async function(input, con, msg) {
     let nets = await con.userDb.getUserNetworks(con.state.authUserId);
     con.writeStatus(`${nets.length} network(s)`)
     nets.forEach((net) => {
-        con.writeStatus(`Network: ${net.name} ${net.nick} ${net.host}:${net.tls?'+':''}${net.port}`);
+        let netCon = con.conDict.findUsersOutgoingConnection(
+            con.state.authUserId,
+            con.state.authNetworkId,
+        );
+        let activeNick = netCon ?
+            netCon.state.nick :
+            net.nick;
+        let connected = netCon && netCon.state.connected ?
+            'Yes' :
+            'No';
+        let info = [
+            `Network: ${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
+            `Active nick: ${activeNick}`,
+            `Connected? ${connected}`,
+        ];
+        con.writeStatus(info.join('. '));
     });
 };
 
