@@ -76,7 +76,7 @@ class Users {
     }
 
     async getUser(username) {
-        return this.db.factories.User.query().where('username', username);
+        return this.db.factories.User.query().where('username', username).first();
     }
 
     async addUser(username, password) {
