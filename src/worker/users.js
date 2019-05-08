@@ -90,7 +90,7 @@ class Users {
             return null;
         }
 
-        return this.db.factories.User.query().where('username', username).first();
+        return this.db.factories.User.query().where('username', 'LIKE', username).first();
     }
 
     async addUser(username, password) {
