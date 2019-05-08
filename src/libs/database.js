@@ -57,7 +57,7 @@ module.exports = class Database {
         sql.push(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
-            username TEXT,
+            username TEXT COLLATE NOCASE,
             password TEXT,
             created_at INTEGER,
             admin BOOLEAN
@@ -68,7 +68,7 @@ module.exports = class Database {
         sql.push(`
         CREATE TABLE IF NOT EXISTS user_networks (
             id INTEGER PRIMARY KEY,
-            name TEXT,
+            name TEXT COLLATE NOCASE,
             user_id INTEGER,
             host TEXT,
             port INTEGER,
