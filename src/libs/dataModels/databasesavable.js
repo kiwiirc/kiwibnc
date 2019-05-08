@@ -57,6 +57,8 @@ class DatabaseSavable {
 
         if (!this.getData('id')) {
             let id = await this._db.db(this._table).insert(cols);
+            // knexjs returns the inserted ID within an array
+            id = id[0];
             if (id) {
                 this._data.id = { col: 'id', val: id, dirty: false };
             }
