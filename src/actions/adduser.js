@@ -1,12 +1,22 @@
 const Database = require('../libs/database');
+const Crypt = require('../libs/crypt');
 const Users = require('../worker/users');
 var readlineSync = require('readline-sync');
 
 module.exports = async function(env, options) {
     let app = await require('../libs/bootstrap')('adduser');
 
+    let cryptKey = app.conf.get('database.crypt_key', '');
+    if (cryptKey.length !== 32) {
+        console.error('Cannot start: config option database.crypt_key must be 32 characters long');
+        process.exit();
+    }
+    app.crypt = new Crypt(cryptKey);
+
     app.db = new Database(app.conf.get('database.path', './connections.db'));
     await app.db.init();
+
+    initModelFactories(app);
 
     app.userDb = new Users(app.db);
 
@@ -61,4 +71,9 @@ async function syncQuestion(question, opts, validator) {
     }
 
     return input;
+}
+
+function initModelFactories(app) {
+    app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
+    app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
 }
