@@ -1,5 +1,6 @@
 const uuidv4 = require('uuid/v4');
 const bcrypt = require('bcrypt');
+const Helpers = require('../libs/helpers');
 
 class Users {
     constructor(db) {
@@ -8,6 +9,11 @@ class Users {
 
     async authUserNetwork(username, password, network) {
         let ret = { network: null, user: null };
+
+        if (!Helpers.validUsername(username)) {
+            return ret;
+        }
+
         try {
             let row = await this.db.get(`
                 SELECT
@@ -16,7 +22,7 @@ class Users {
                     users.admin as user_admin
                 FROM user_networks nets
                 INNER JOIN users ON users.id = nets.user_id
-                WHERE users.username = ? AND nets.name = ?
+                WHERE users.username LIKE ? AND nets.name = ?
             `, [username, network]);
             
             if (row) {
@@ -37,7 +43,11 @@ class Users {
     }
 
     async authUser(username, password) {
-        let user = await this.db.get(`SELECT * from users WHERE username = ?`, [username])
+        if (!Helpers.validUsername(username)) {
+            return null;
+        }
+
+        let user = await this.db.get(`SELECT * from users WHERE username LIKE ?`, [username])
             .then(this.db.factories.User.fromDbResult);
 
         if (user && await user.checkPassword(password)) {
@@ -76,10 +86,18 @@ class Users {
     }
 
     async getUser(username) {
+        if (!Helpers.validUsername(username)) {
+            return null;
+        }
+
         return this.db.factories.User.query().where('username', username).first();
     }
 
     async addUser(username, password) {
+        if (!Helpers.validUsername(username)) {
+            return null;
+        }
+
         let user = this.db.factories.User();
         user.username = username;
         user.password = password;

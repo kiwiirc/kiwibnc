@@ -18,3 +18,9 @@ module.exports.mParamU = mParamU;
 function mParamU(msg, idx, def) {
     return (mParam(msg, idx, def) || '').toUpperCase();
 }
+
+// Validate a username
+module.exports.validUsername = validUsername;
+function validUsername(username) {
+    return (/^[^0-9\-][0-9a-z[\]^_`{|}\-]+$/i).test(username);
+}
