@@ -34,13 +34,28 @@ module.exports.init = async function init(hooks, app) {
         if (event.message.command.toUpperCase() === 'BOUNCER') {
             return handleBouncerCommand(event);
         }
+
+        // upon 001 or VERSION, the server will send the client 005 again
+        if (event.message.command.toUpperCase() === 'VERSION') {
+            event.client.alreadySent005 = false;
+        }
     });
 
     hooks.on('message_to_client', async event => {
+        // whenever (re)joining a network properly, send 005 again
         if (event.message.command === '001') {
-            setTimeout(async () => {
-                // TODO: This timeout is ugly. Find a way to only send this once when it detects
-                //       a 005 message
+            event.client.alreadySent005 = false;
+        }
+
+        // prevent looping (when we writeFromBnc it'll trigger this fn again)
+        if (event.client.inside005) {
+            return
+        }
+        event.client.inside005 = true
+
+        // send 005 BOUNCER
+        if (event.message.command === '005') {
+            if (!event.client.alreadySent005) {
                 let token = 'BOUNCER';
                 let upstream = event.client.upstream;
                 if (upstream) {
@@ -50,8 +65,12 @@ module.exports.init = async function init(hooks, app) {
                     }
                 }
                 event.client.writeFromBnc('005', event.client.state.nick, token);
-            }, 1);
+
+                event.client.alreadySent005 = true;
+            }
         }
+
+        event.client.inside005 = false;
     });
 };
 
