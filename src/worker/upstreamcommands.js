@@ -130,17 +130,6 @@ commands['001'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     con.state.save();
 
-    con.forEachClient((clientCon) => {
-        clientCon.registerClient();
-    });
-
-    for (let buffName in con.state.buffers) {
-        let b = con.state.buffers[buffName];
-        if (b.isChannel && b.joined) {
-            con.writeLine('JOIN', b.name);
-        }
-    }
-
     return false;
 };
 commands['002'] = async function(msg, con) {
@@ -170,6 +159,33 @@ commands['005'] = async function(msg, con) {
     con.state.save();
     return false;
 };
+
+// RPL_ENDOFMOTD
+commands['376'] = async function(msg, con) {
+    // If this is the first time recieving the MOTD, consider us ready to start using the network
+    if (!con.state.receivedMotd) {
+        con.state.receivedMotd = true;
+        await con.state.save();
+
+        con.forEachClient((clientCon) => {
+            clientCon.registerClient();
+        });
+    
+        for (let buffName in con.state.buffers) {
+            let b = con.state.buffers[buffName];
+            if (b.isChannel && b.joined) {
+                con.writeLine('JOIN', b.name);
+            }
+        }
+
+        return false;
+    }
+
+    return true;
+};
+
+// ERR_NOMOTD
+commands['422'] = commands['376'];
 
 // keep track of login/logout to forward lines to new clients
 commands['900'] = async function(msg, con) {

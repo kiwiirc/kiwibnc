@@ -154,7 +154,7 @@ async function maybeProcessRegistration(con) {
             con.upstream.open();
         } else {
             con.writeStatus(`Attaching you to the network`);
-            if (con.upstream.state.netRegistered) {
+            if (con.upstream.state.receivedMotd) {
                 await con.registerClient();
             }
         }
