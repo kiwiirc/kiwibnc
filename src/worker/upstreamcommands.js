@@ -53,7 +53,8 @@ commands['CAP'] = async function(msg, con) {
             offered: offeredCaps,
         });
 
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
+                                        .map((cap) => cap.split('=')[0]);
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
         } else {
@@ -106,6 +107,9 @@ commands['AUTHENTICATE'] = async function(msg, con) {
         } else {
             con.writeLine('AUTHENTICATE +');
         }
+    }
+    if (!con.state.netRegistered) {
+        return false;
     }
 };
 
