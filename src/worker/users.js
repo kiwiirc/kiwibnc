@@ -95,7 +95,7 @@ class Users {
 
     async addUser(username, password) {
         if (!Helpers.validUsername(username)) {
-            return null;
+            throw new Error('Invalid username');
         }
 
         let user = this.db.factories.User();
