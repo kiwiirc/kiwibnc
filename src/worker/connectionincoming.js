@@ -151,8 +151,40 @@ class ConnectionIncoming {
         this.state.realname = upstream.state.realname;
 
         let nick = this.state.nick;
+
+        // Let plugins modify/add isupport tokens
+        let isupports = upstream.state.registrationLines.filter((regLine) => regLine[0] === '005');
+        let isupportTokens = isupports.reduce((prev, cur) => {
+            // Remove the last token if it contains a space. Usually 'is supported by this server'.
+            let tokens = [...cur[1]];
+            if (tokens[tokens.length - 1].indexOf(' ') > -1) {
+                tokens.pop();
+            }
+            return prev.concat(tokens);
+        }, []);
+        await hooks.emit('available_isupports', {client: this, tokens: isupportTokens});
+
+        // Convert all the isupport tokens into 005 lines making sure not to go over 512 in length
+        let tokenLines = batchIsupportTokensToMaxLenth(
+            isupportTokens,
+            `:${upstream.state.serverPrefix} 005 ${nick} `,
+            'is supported by this server',
+            512
+        );
+
+        let sent005 = false;
         upstream.state.registrationLines.forEach((regLine) => {
-            this.writeMsgFrom(upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
+            if (regLine[0] === '005' && !sent005) {
+                sent005 = true;
+                tokenLines.forEach((tokenParams) => {
+                    let params = [...tokenParams, 'is supported by this server'];
+                    this.writeMsgFrom(upstream.state.serverPrefix, '005', nick, ...params);
+                });
+            } else if (regLine[0] === '005' && sent005) {
+                return;
+            } else {
+                this.writeMsgFrom(upstream.state.serverPrefix, regLine[0], nick, ...regLine[1]);
+            }
         });
 
         let account = upstream.state.account;
@@ -277,6 +309,29 @@ class ConnectionIncoming {
 
         this.destroy();
     }
+}
+
+function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by this server', maxLen=512) {
+    // 1 = the extra space after the prefix
+    let l = prefix.length + 1;
+    // 1 = the : before the suffix
+    l += suffix.length + 1; 
+
+    let tokenLines = [];
+    let currentLen = 0;
+
+    for (let i = 0; i < tokens.length; i++) {
+        let token = tokens[i];
+        // If this token goes over maxLen, start a new line. (Or if we don't have a line yet)
+        if (l + currentLen + token.length + 1 > maxLen || tokenLines.length === 0) {
+            tokenLines.push([]);
+            currentLen = 0;
+        }
+        tokenLines[tokenLines.length - 1].push(token);
+        currentLen += token.length + 1;
+    }
+
+    return tokenLines;
 }
 
 module.exports = ConnectionIncoming;
