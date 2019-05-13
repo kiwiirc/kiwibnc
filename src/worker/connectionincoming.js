@@ -311,6 +311,8 @@ class ConnectionIncoming {
     }
 }
 
+// Split []tokens into batches that when joined with prefix and suffix, its length does not exceed maxLen
+// eg. ['one', 'two', ...100 more tokens] = [['one', 'two'], [...more tokens]]
 function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by this server', maxLen=512) {
     // 1 = the extra space after the prefix
     let l = prefix.length + 1;
