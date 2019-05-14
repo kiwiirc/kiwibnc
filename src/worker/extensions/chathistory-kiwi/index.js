@@ -10,14 +10,8 @@ module.exports.init = async function init(hooks) {
         }
     });
 
-    hooks.on('message_to_client', event => {
-        if (event.message.command === '001') {
-            setTimeout(() => {
-                // TODO: This timeout is ugly. Find a way to only send this once when it detects
-                //       a 005 message
-                event.client.writeFromBnc('005', event.client.state.nick, 'CHATHISTORY=' + MAX_MESSAGES);
-            }, 1);
-        }
+    hooks.on('available_isupports', async event => {
+        event.tokens.push('CHATHISTORY=' + MAX_MESSAGES);
     });
 };
 
