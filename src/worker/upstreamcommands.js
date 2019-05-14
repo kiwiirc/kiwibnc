@@ -128,23 +128,23 @@ commands['001'] = async function(msg, con) {
     con.state.serverPrefix = msg.prefix || '';
     con.state.netRegistered = true;
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    con.state.save();
+    await con.state.save();
 
     return false;
 };
 commands['002'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    con.state.save();
+    await con.state.save();
     return false;
 };
 commands['004'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    con.state.save();
+    await con.state.save();
     return false;
 };
 commands['004'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    con.state.save();
+    await con.state.save();
     return false;
 };
 
@@ -156,7 +156,7 @@ commands['005'] = async function(msg, con) {
     con.state.isupports = [...con.state.isupports, ...tokens];
 
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    con.state.save();
+    await con.state.save();
     return false;
 };
 
@@ -192,13 +192,13 @@ commands['900'] = async function(msg, con) {
     let account = msg.params[2];
 
     con.state.account = account;
-    con.state.save();
+    await con.state.save();
     return true;
 }
 
 commands['901'] = async function(msg, con) {
     con.state.account = '';
-    con.state.save();
+    await con.state.save();
     return true;
 }
 
