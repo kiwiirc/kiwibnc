@@ -118,25 +118,40 @@ class ConnectionIncoming {
         let regLines = [
             ['001', this.state.nick, 'Welcome to your BNC'],
             ['002', this.state.nick, 'Your host is *bnc, running version kiwibnc-0.1'],
-            [
-                '005',
-                this.state.nick,
-                'CHANTYPES=#',
-                'CHANMODES=eIbq,k,flj,CFLMPQScgimnprstz',
-                'CHANLIMIT=#:0',
-                'PREFIX=(ov)@+',
-                'MAXLIST=bqeI:100',
-                'MODES=4',
-                'NETWORK=bnc',
-                'CALLERID=g',
-                'CASEMAPPING=rfc1459',
-                'are supported by this server',
-            ],
+        ];
+
+        let isupportTokens = [
+            'CHANTYPES=#',
+            'CHANMODES=eIbq,k,flj,CFLMPQScgimnprstz',
+            'CHANLIMIT=#:0',
+            'PREFIX=(ov)@+',
+            'MAXLIST=bqeI:100',
+            'MODES=4',
+            'NETWORK=bnc',
+            'CALLERID=g',
+            'CASEMAPPING=rfc1459',
+        ];
+        await hooks.emit('available_isupports', {client: this, tokens: isupportTokens});
+
+        // Convert all the isupport tokens into 005 lines making sure not to go over 512 in length
+        let tokenLines = batchIsupportTokensToMaxLenth(
+            isupportTokens,
+            `:*bnc 005 ${this.state.nick}`,
+            'is supported by this server',
+            512
+        );
+
+        tokenLines.forEach((tokenParams) => {
+            let params = [...tokenParams, 'is supported by this server'];
+            regLines.push(['005', this.state.nick, ...params]);
+        });
+
+        regLines = regLines.concat([
             ['375', this.state.nick, '- BNC Message of the Day -'],
             ['372', this.state.nick, '- Send a message to *bnc to get started -'],
             ['372', this.state.nick, '- /query *bnc -'],
             ['376', this.state.nick, 'End of /MOTD command'],
-        ];
+        ]);
 
         regLines.forEach(line => this.writeFromBnc(...line));
 
@@ -155,19 +170,15 @@ class ConnectionIncoming {
         // Let plugins modify/add isupport tokens
         let isupports = upstream.state.registrationLines.filter((regLine) => regLine[0] === '005');
         let isupportTokens = isupports.reduce((prev, cur) => {
-            // Remove the last token if it contains a space. Usually 'is supported by this server'.
-            let tokens = [...cur[1]];
-            if (tokens[tokens.length - 1].indexOf(' ') > -1) {
-                tokens.pop();
-            }
-            return prev.concat(tokens);
+            // Remove the last token as it's usually 'is supported by this server'.
+            return prev.concat(tokens.slice(0, tokens.length - 1));
         }, []);
         await hooks.emit('available_isupports', {client: this, tokens: isupportTokens});
 
         // Convert all the isupport tokens into 005 lines making sure not to go over 512 in length
         let tokenLines = batchIsupportTokensToMaxLenth(
             isupportTokens,
-            `:${upstream.state.serverPrefix} 005 ${nick} `,
+            `:${upstream.state.serverPrefix} 005 ${nick}`,
             'is supported by this server',
             512
         );
@@ -317,7 +328,9 @@ function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by t
     // 1 = the extra space after the prefix
     let l = prefix.length + 1;
     // 1 = the : before the suffix
-    l += suffix.length + 1; 
+    l += suffix.length + 1;
+    // 2 = the \r\n at the end of the line
+    l += 2;
 
     let tokenLines = [];
     let currentLen = 0;
@@ -330,6 +343,7 @@ function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by t
             currentLen = 0;
         }
         tokenLines[tokenLines.length - 1].push(token);
+        // + 1 for the space after the token
         currentLen += token.length + 1;
     }
 
