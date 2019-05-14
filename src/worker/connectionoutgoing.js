@@ -121,6 +121,7 @@ class ConnectionOutgoing {
     async onUpstreamClosed(err) {
         this.state.connected = false;
         this.state.netRegistered = false;
+        this.state.receivedMotd = false;
 
         for (let chanName in this.state.buffers) {
             this.state.buffers[chanName].joined = false;

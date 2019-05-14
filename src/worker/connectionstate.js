@@ -49,6 +49,8 @@ class ConnectionState {
         };
         // netRegistered - incomingcon = client authed+registered, outgoingcon = regged to the upstream irc network
         this.netRegistered = false;
+        // receivedMotd - outgoingcon = received MOTD end or error from upstream
+        this.receivedMotd = false;
         this.authUserId = 0;
         this.authNetworkId = 0;
         this.authAdmin = false;
@@ -86,6 +88,7 @@ class ConnectionState {
             caps: JSON.stringify(this.caps),
             buffers: JSON.stringify(this.buffers),
             nick: this.nick,
+            received_motd: this.receivedMotd,
             net_registered: this.netRegistered,
             auth_user_id: this.authUserId,
             auth_network_id: this.authNetworkId,
@@ -127,6 +130,7 @@ class ConnectionState {
             }
             this.nick = row.nick;
             this.account = row.account;
+            this.receivedMotd = row.received_motd;
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;

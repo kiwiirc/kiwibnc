@@ -36,22 +36,17 @@ module.exports.init = async function init(hooks, app) {
         }
     });
 
-    hooks.on('message_to_client', async event => {
-        if (event.message.command === '001') {
-            setTimeout(async () => {
-                // TODO: This timeout is ugly. Find a way to only send this once when it detects
-                //       a 005 message
-                let token = 'BOUNCER';
-                let upstream = event.client.upstream;
-                if (upstream) {
-                    let network = await event.client.userDb.getNetwork(upstream.state.authNetworkId);
-                    if (network) {
-                        token += `=network=${network.name};`;
-                    }
-                }
-                event.client.writeFromBnc('005', event.client.state.nick, token);
-            }, 1);
+    hooks.on('available_isupports', async event => {
+        let token = 'BOUNCER';
+        let upstream = event.client.upstream;
+        if (upstream) {
+            let network = await event.client.userDb.getNetwork(upstream.state.authNetworkId);
+            if (network) {
+                token += `=network=${network.name};`;
+            }
         }
+
+        event.tokens.push(token);
     });
 };
 
