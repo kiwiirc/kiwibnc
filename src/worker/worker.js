@@ -1,3 +1,4 @@
+const path = require('path');
 const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
 const Database = require('../libs/database');
@@ -46,7 +47,12 @@ async function initExtensions(app) {
     let extensions = app.conf.get('extensions.loaded') || [];
     extensions.forEach(async extName => {
         try {
-            let ext = require(`./extensions/${extName}/`);
+            let extPath = (extName[0] === '.' || extName[0] === '/') ?
+                path.join(app.conf.baseDir, extName) :
+                `./extensions/${extName}/`;
+
+            l.info('Loading extension ' + extPath);
+            let ext = require(extPath);
             await ext.init(hooks, app);
         } catch (err) {
             l.error('Error loading extension ' + extName + ': ', err.stack);

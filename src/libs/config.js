@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const fs = require('fs');
+const path = require('path');
 const toml = require('toml');
 const _ = require('lodash');
 
@@ -9,6 +10,7 @@ module.exports = class Config extends EventEmitter {
     constructor(filePath) {
         super();
         this.filePath = filePath;
+        this.baseDir = path.resolve(path.dirname(filePath));
         this.c = {};
     }
 
