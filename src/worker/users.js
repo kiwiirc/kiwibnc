@@ -93,7 +93,7 @@ class Users {
         return this.db.factories.User.query().where('username', 'LIKE', username).first();
     }
 
-    async addUser(username, password) {
+    async addUser(username, password, isAdmin) {
         if (!Helpers.validUsername(username)) {
             return null;
         }
@@ -102,6 +102,9 @@ class Users {
         user.username = username;
         user.password = password;
         user.created_at = Date.now();
+        if (isAdmin === true) {
+            user.admin = true;
+        }
         await user.save();
 
         return user;
