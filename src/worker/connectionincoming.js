@@ -171,6 +171,7 @@ class ConnectionIncoming {
         let isupports = upstream.state.registrationLines.filter((regLine) => regLine[0] === '005');
         let isupportTokens = isupports.reduce((prev, cur) => {
             // Remove the last token as it's usually 'is supported by this server'.
+            let tokens = cur[1];
             return prev.concat(tokens.slice(0, tokens.length - 1));
         }, []);
         await hooks.emit('available_isupports', {client: this, tokens: isupportTokens});
