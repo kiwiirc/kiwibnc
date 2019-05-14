@@ -46,7 +46,7 @@ module.exports = async function(env, options) {
     }
 
     try {
-        await app.userDb.addUser(username, password);
+        await app.userDb.addUser(username, password, userIsAdmin);
         console.log(`Added new user ${username}`);
     } catch (err) {
         l.error('Error adding new user:', err.message);
