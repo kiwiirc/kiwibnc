@@ -393,3 +393,19 @@ commands.STATUS = async function(input, con, msg) {
         con.writeStatus('Upstream ID: ' + con.upstream.id);
     }
 };
+
+commands.KILL = {
+    requiresAdmin: true,
+    fn: async function(input, con, msg) {
+        con.queue.stopListening().then(process.exit);
+        return false;
+    },
+};
+
+commands.RELOAD = {
+    requiresAdmin: true,
+    fn: async function(input, con, msg) {
+        con.reloadClientCommands();
+        return false;
+    },
+};

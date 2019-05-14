@@ -123,7 +123,7 @@ async function maybeProcessRegistration(con) {
         network = auth.network;
         con.state.authUserId = network.user_id;
         con.state.authNetworkId = network.id;
-        con.state.authAdmin = auth.user && !!auth.user.user_admin;
+        con.state.authAdmin = auth.user && !!auth.user.admin;
     } else {
         // Logging into a user only mode (no attached network)
         let user = await con.userDb.authUser(username, password);
@@ -305,17 +305,6 @@ commands.PING = async function(msg, con) {
 commands.QUIT = async function(msg, con) {
     // Some clients send a QUIT when they close, don't send that upstream
     con.close();
-    return false;
-};
-
-// TODO: Put these below commands behind a login or something
-commands.KILL = async function(msg, con) {
-    con.queue.stopListening().then(process.exit);
-    return false;
-};
-
-commands.RELOAD = async function(msg, con) {
-    con.reloadClientCommands();
     return false;
 };
 
