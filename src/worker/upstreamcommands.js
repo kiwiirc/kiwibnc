@@ -14,11 +14,11 @@ module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
     if (commands[command]) {
         let ret = await commands[command](msg, con);
-        return con.state.netRegistered && ret;
+        return con.state.receivedMotd && ret;
     }
 
     // By default, send any unprocessed lines to clients if registered on the server
-    return con.state.netRegistered;
+    return con.state.receivedMotd;
 };
 
 commands['CAP'] = async function(msg, con) {
