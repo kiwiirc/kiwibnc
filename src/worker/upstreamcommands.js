@@ -11,11 +11,12 @@ module.exports.run = async function run(msg, con) {
 
     let command = msg.command.toUpperCase();
     if (commands[command]) {
-        return await commands[command](msg, con);
+        let ret = await commands[command](msg, con);
+        return con.state.receivedMotd && ret;
     }
 
-    // By default, send any unprocessed lines to clients
-    return true;
+    // By default, send any unprocessed lines to clients if registered on the server
+    return con.state.receivedMotd;
 };
 
 commands['CAP'] = async function(msg, con) {
@@ -53,7 +54,8 @@ commands['CAP'] = async function(msg, con) {
             offered: offeredCaps,
         });
 
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap));
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
+                                        .map((cap) => cap.split('=')[0]);
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
         } else {
@@ -106,6 +108,9 @@ commands['AUTHENTICATE'] = async function(msg, con) {
         } else {
             con.writeLine('AUTHENTICATE +');
         }
+    }
+    if (!con.state.netRegistered) {
+        return false;
     }
 };
 
