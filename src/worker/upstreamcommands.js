@@ -11,11 +11,12 @@ module.exports.run = async function run(msg, con) {
 
     let command = msg.command.toUpperCase();
     if (commands[command]) {
-        return await commands[command](msg, con);
+        let ret = await commands[command](msg, con);
+        return con.state.receivedMotd && ret;
     }
 
-    // By default, send any unprocessed lines to clients
-    return true;
+    // By default, send any unprocessed lines to clients if registered on the server
+    return con.state.receivedMotd;
 };
 
 commands['CAP'] = async function(msg, con) {
