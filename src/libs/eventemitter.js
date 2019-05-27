@@ -14,18 +14,22 @@ class EventEmitter {
     }
 
     once(eventName, fn) {
-        let onceOff = this.on(eventName, (...args) => {
-            onceOff();
+        let onceFn = (...args) => {
+            this.off(eventName, onceFn);
             fn(...args);
-        });
+        };
 
-        return this;
+        return this.on(eventName, onceFn);
     }
 
     removeListener(...args) {
         return this.off(...args);
     }
     off(eventName, fn) {
+        if (!this.events[eventName]) {
+            return;
+        }
+
         if (!fn) {
             delete this.events[eventName];
             return;
@@ -34,6 +38,9 @@ class EventEmitter {
         let pos = this.events[eventName].lastIndexOf(fn);
         if (pos > -1) {
             this.events[eventName].splice(pos, 1);
+            if (this.events[eventName].length === 0) {
+                delete this.events[eventName];
+            }
         }
 
         return this;
