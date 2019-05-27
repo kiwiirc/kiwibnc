@@ -54,7 +54,6 @@ class ConnectionDictionary {
                 con.state.authUserId === userId &&
                 con.state.authNetworkId === networkId
             ) {
-                this.cachedUpstreamId = con.id;
                 foundCon = con;
             }
         });

@@ -128,7 +128,7 @@ async function maybeProcessRegistration(con) {
         // Logging into a user only mode (no attached network)
         let user = await con.userDb.authUser(username, password);
         if (!user) {
-            con.writeMsg('ERROR', 'Invalid password');
+            await con.writeMsg('ERROR', 'Invalid password');
             con.close();
             return false;
         }

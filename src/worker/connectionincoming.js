@@ -59,6 +59,7 @@ class ConnectionIncoming {
 
         // If we found an upstream, add this incoming connection to it
         if (upstream) {
+            this.cachedUpstreamId = upstream.id;
             upstream.state.linkIncomingConnection(this.id);
         }
 
