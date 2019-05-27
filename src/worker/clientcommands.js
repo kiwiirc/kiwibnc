@@ -111,6 +111,10 @@ async function maybeProcessRegistration(con) {
             network = hook.event.network;
         }
 
+    } else if (con.state.authUserId && con.state.authNetworkId) {
+        // User has already logged in to a network
+        network = await con.userDb.getNetwork(con.state.authNetworkId);
+
     } else if (networkName) {
         // Logging into a network
         let auth = await con.userDb.authUserNetwork(username, password, networkName);

@@ -117,6 +117,49 @@ commands.LISTNETWORKS = async function(input, con, msg) {
     });
 };
 
+commands.ATTACH = async function(input, con, msg) {
+    // attach network_name
+
+    let parts = input.split(' ');
+    if (!input || parts.length === 0) {
+        con.writeStatus('Usage: attach <network_name>');
+        return;
+    }
+
+    if (con.state.authNetworkId) {
+        con.writeStatus('Already attached to a netork');
+        return;
+    }
+
+    let netName = parts[0];
+
+    // Make sure the network exists
+    let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+    if (!network) {
+        con.writeStatus(`Network ${netName} could not be found`);
+        return;
+    }
+
+    con.state.authNetworkId = network.id;
+    con.cachedUpstreamId = false;
+
+    // Close any active upstream connections we have for this network
+    let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
+    if (upstream && !upstream.state.connected) {
+        // The upstream connection will call con.registerClient() once it's registered
+        con.writeStatus('Connecting to the network..');
+        upstream.open();
+    } else if (upstream) {
+        con.writeStatus(`Attaching you to the network`);
+        if (upstream.state.receivedMotd) {
+            await con.registerClient();
+        }
+    } else {
+        con.makeUpstream(network);
+        con.writeStatus('Connecting to the network..');
+    }
+};
+
 commands.CHANGENETWORK = {
     requiresNetworkAuth: true,
     fn: async function(input, con, msg) {
