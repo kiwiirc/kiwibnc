@@ -125,7 +125,7 @@ class ConnectionIncoming {
             'CHANTYPES=#',
             'CHANMODES=eIbq,k,flj,CFLMPQScgimnprstz',
             'CHANLIMIT=#:0',
-            'PREFIX=(ov)@+',
+            'PREFIX=(o)@',
             'MAXLIST=bqeI:100',
             'MODES=4',
             'NETWORK=bnc',
