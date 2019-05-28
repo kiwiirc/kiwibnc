@@ -63,8 +63,9 @@ commands['CAP'] = async function(msg, con) {
         }
     }
 
+    // CAP * ACK :multi-prefix sasl
     if (mParamU(msg, 1, '') === 'ACK') {
-        // CAP * ACK :multi-prefix sasl
+        // 'capack_receiving' just caches CAP ACK responses that go across multiple lines
         let storedAcks = await con.state.tempGet('capack_receiving') || [];
         let acks = mParam(msg, 2, '').split(' ');
         acks = storedAcks.concat(acks);
@@ -79,12 +80,17 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('capack_receiving', null);
         }
 
-        con.state.caps = acks;
+        // dedupe incoming caps
+        let caps = con.state.caps || [];
+        caps = caps.concat(acks.filter((cap) => caps.includes(cap)));
+        con.state.caps = caps;
         await con.state.save();
 
-        if (con.state.sasl.account) {
-            con.writeLine('AUTHENTICATE PLAIN')
-        } else {
+        //TODO: Handle case of sasl defined but no ack given for it.
+        // probably an option to either continue on no/bad sasl auth or abort connection.
+        if (acks.includes('sasl') && con.state.sasl.account) {
+            con.writeLine('AUTHENTICATE PLAIN');
+        } else if (!con.state.receivedMotd) {
             con.writeLine('CAP', 'END');
         }
     }
