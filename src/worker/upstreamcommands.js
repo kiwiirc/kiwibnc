@@ -3,6 +3,17 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
+let wantedCaps = [
+    'server-time',
+    'multi-prefix',
+    'away-notify',
+    'account-notify',
+    'account-tag',
+    'extended-join',
+    'userhost-in-names',
+    'sasl',
+];
+
 module.exports.run = async function run(msg, con) {   
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
@@ -39,17 +50,6 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('caps_receiving', null);
         }
 
-        let wantedCaps = [
-            'server-time',
-            'multi-prefix',
-            'away-notify',
-            'account-notify',
-            'account-tag',
-            'extended-join',
-            'userhost-in-names',
-            'sasl',
-        ];
-
         await hooks.emit('cap_to_upstream', {
             client: con,
             message: msg,
@@ -63,6 +63,43 @@ commands['CAP'] = async function(msg, con) {
             con.writeLine('CAP', 'END');
         } else {
             con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+    }
+
+    // :irc.example.net CAP * NEW :invite-notify ...
+    if (mParamU(msg, 1, '') === 'NEW') {
+        let offeredCaps = mParam(msg, 2, '').split(' ');
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
+                                        .map((cap) => cap.split('=')[0]);
+
+        await hooks.emit('cap_to_upstream', {
+            client: con,
+            message: msg,
+            requesting: requestingCaps,
+            offered: offeredCaps,
+        });
+
+        if (0 < requestingCaps.length) {
+            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+    }
+
+    // :irc.example.net CAP * DEL :invite-notify ...
+    if (mParamU(msg, 1, '') === 'DEL') {
+        let removedCaps = mParam(msg, 2, '').split(' ');
+
+        let caps = con.state.caps || [];
+        removedCaps = caps.filter((cap) => removedCaps.includes(cap.split('=')[0]));
+        caps = caps.filter((cap) => !removedCaps.includes(cap.split('=')[0]));
+        con.state.caps = caps;
+        await con.state.save();
+        
+        if (0 < removedCaps.length) {
+            await hooks.emit('cap_del_upstream', {
+                client: con,
+                message: msg,
+                removed: removedCaps,
+            });
         }
     }
 
