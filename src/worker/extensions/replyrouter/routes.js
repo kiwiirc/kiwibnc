@@ -62,7 +62,7 @@ let routes = [
         { cmd: numerics.RPL_WHOISCHANNELS, ending: false },
         { cmd: numerics.RPL_AWAY, ending: false },
         { cmd: numerics.RPL_WHOISIDLE, ending: false },
-        { cmd: numerics.RPL_ENDOFWHOIS, ending: false },
+        { cmd: numerics.RPL_ENDOFWHOIS, ending: true },
         { cmd: numerics.ERR_NONICKNAMEGIVEN, ending: true },
         { cmd: numerics.RPL_WHOISCHANNELS, ending: false },
         { cmd: numerics.RPL_WHOISSERVER, ending: false },
