@@ -27,7 +27,8 @@ from the socket process.
 Run recover.js in the background, then start recover_worker.js. recover_worker.js will read
 the messages sent from the sockets process and record its value.
 When recover_worker.js is started and a previous value has been recorded, it will check
-that the next value read is as expected.
+that the next value read is as expected. Kill the recover_worker.js process at will
+to be sure it continues reading the expected message back on startup.
 
 ~~~
 $ node src/tools/recover.js
