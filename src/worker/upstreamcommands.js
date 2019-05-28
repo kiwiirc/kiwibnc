@@ -28,6 +28,9 @@ commands['CAP'] = async function(msg, con) {
 
         if (mParamU(msg, 2, '') === '*') {
             // More CAPs to follow so store it and come back later
+            offeredCaps = mParam(msg, 3, '').split(' ');
+            offeredCaps = storedCaps.concat(offeredCaps);
+
             await con.state.tempSet('caps_receiving', offeredCaps);
             return false;
         }
@@ -72,6 +75,9 @@ commands['CAP'] = async function(msg, con) {
 
         if (mParamU(msg, 2, '') === '*') {
             // More ACKs to follow so store it and come back later
+            acks = mParam(msg, 3, '').split(' ');
+            acks = storedAcks.concat(acks);
+
             await con.state.tempSet('capack_receiving', acks);
             return false;
         }
