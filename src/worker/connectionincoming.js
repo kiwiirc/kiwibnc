@@ -213,6 +213,15 @@ class ConnectionIncoming {
         // itself and then request messages as needed
         if (!this.state.caps.includes('bouncer')) {
             await this.dumpChannels();
+        } else {
+            // Get the latest NAMEs replies for our joined channels
+            for (let chanName in upstream.state.buffers) {
+                let channel = upstream.state.buffers[chanName];
+                if (channel.isChannel && channel.joined) {
+                    channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
+                    upstream.write(`NAMES ${channel.name}\n`);
+                }
+            }
         }
 
         // If we previously set them away, now bring them back

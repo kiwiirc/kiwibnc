@@ -165,11 +165,24 @@ commands['005'] = async function(msg, con) {
     return false;
 };
 
+// RPL_MOTD
+commands['372'] = async function(msg, con) {
+    if (!con.state.receivedMotd) {
+        con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+        await con.state.save();
+    }
+};
+
+// RPL_MOTDSTART
+commands['375'] = commands['372'];
+
 // RPL_ENDOFMOTD
 commands['376'] = async function(msg, con) {
     // If this is the first time recieving the MOTD, consider us ready to start using the network
     if (!con.state.receivedMotd) {
         con.state.receivedMotd = true;
+        con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
+
         await con.state.save();
 
         con.forEachClient((clientCon) => {
