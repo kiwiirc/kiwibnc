@@ -122,6 +122,7 @@ async function handleBouncerCommand(event) {
                 parts.push('nick=' + netCon.state.nick);
                 parts.push('state=' + (netCon.state.connected ? 'connected' : 'disconnected'));
             } else {
+                parts.push('nick=' + net.nick);
                 parts.push('state=disconnect');
             }
 
