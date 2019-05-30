@@ -22,7 +22,7 @@ class Users {
                     users.admin as user_admin
                 FROM user_networks nets
                 INNER JOIN users ON users.id = nets.user_id
-                WHERE users.username LIKE ? AND nets.name = ?
+                WHERE users.username LIKE ? AND nets.name LIKE ?
             `, [username, network]);
             
             if (row) {
@@ -134,7 +134,7 @@ class Users {
     async getNetworkByName(userId, netName) {
         return this.db.factories.Network.query()
             .where('user_id', userId)
-            .where('name', netName)
+            .where('name', 'LIKE', netName)
             .first();
     }
 }
