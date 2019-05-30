@@ -101,6 +101,19 @@ class ConnectionState {
         await this.db.run(sql);
     }
 
+    async loadConnectionInfo() {
+        let sql = `SELECT * FROM connections WHERE conid = ? LIMIT 1`;
+        let row = await this.db.get(sql, [this.conId]);
+
+        if (row) {
+            this.host = row.host;
+            this.port = row.port;
+            this.tls = row.tls;
+            this.type = row.type;
+            this.sasl = JSON.parse(row.sasl || '{"account":"","password":""}');
+            this.nick = row.nick;
+        }
+    }
     async load() {
         let sql = `SELECT * FROM connections WHERE conid = ? LIMIT 1`;
         let row = await this.db.get(sql, [this.conId]);

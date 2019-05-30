@@ -40,7 +40,9 @@ class ConnectionOutgoing {
         });
     }
 
-    open() {
+    async open() {
+        await this.state.loadConnectionInfo();
+
         this.queue.sendToSockets('connection.open', {
             host: this.state.host,
             port: this.state.port,
