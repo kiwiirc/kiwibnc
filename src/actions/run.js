@@ -16,19 +16,21 @@ module.exports = async function(env, options) {
         workerProc.on('exit', spawnWorker);
     };
 
-    readline.emitKeypressEvents(process.stdin);
-    process.stdin.setRawMode(true);
-    process.stdin.on('keypress', (str, key) => {
-        if (key.ctrl && key.name === 'c') {
-            process.exit();
-            return;
-        }
+    if (process.args.interactive) {
+        readline.emitKeypressEvents(process.stdin);
+        process.stdin.setRawMode(true);
+        process.stdin.on('keypress', (str, key) => {
+            if (key.ctrl && key.name === 'c') {
+                process.exit();
+                return;
+            }
 
-        if (key.name === 'r' && workerProc) {
-            l('Reloading worker process...');
-            workerProc.kill();
-        }
-    });
+            if (key.name === 'r' && workerProc) {
+                l('Reloading worker process...');
+                workerProc.kill();
+            }
+        });
+    }
 
     spawnWorker();
 

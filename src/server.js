@@ -8,7 +8,8 @@ const actionAddUser = require('./actions/adduser');
 
     commander
         .version('0.0.1')
-        .option('-c, --config <path>', 'Config file path', './config.ini');
+        .option('-c, --config <path>', 'Config file path', './config.ini')
+        .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', true);
 
     commander
         .command('adduser')
