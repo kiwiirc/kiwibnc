@@ -99,6 +99,7 @@ class ConnectionOutgoing {
         // Reset some state. They will be re-populated when upstream sends its registration burst again
         this.state.connected = true;
         this.state.netRegistered = false;
+        this.state.receivedMotd = false;
         this.state.isupports = [];
         this.state.registrationLines = [];
         this.state.save();
