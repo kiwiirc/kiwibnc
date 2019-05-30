@@ -3,17 +3,6 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-let wantedCaps = [
-    'server-time',
-    'multi-prefix',
-    'away-notify',
-    'account-notify',
-    'account-tag',
-    'extended-join',
-    'userhost-in-names',
-    'sasl',
-];
-
 module.exports.run = async function run(msg, con) {   
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
@@ -31,11 +20,21 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
+    let wantedCaps = [
+        'server-time',
+        'multi-prefix',
+        'away-notify',
+        'account-notify',
+        'account-tag',
+        'extended-join',
+        'userhost-in-names',
+        'sasl',
+    ];
+
     // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
         let storedCaps = await con.state.tempGet('caps_receiving') || [];
-        let offeredCaps = mParam(msg, 2, '').split(' ');
-        offeredCaps = storedCaps.concat(offeredCaps);
+        let offeredCaps = [];
 
         if (mParamU(msg, 2, '') === '*') {
             // More CAPs to follow so store it and come back later
@@ -46,6 +45,11 @@ commands['CAP'] = async function(msg, con) {
             return false;
         }
 
+        // Join together any stored caps from previous lines with this new lines cap list
+        offeredCaps = mParam(msg, 2, '').split(' ');
+        offeredCaps = storedCaps.concat(offeredCaps);
+
+        // Clean out any stored caps. We don't need them anymore.
         if (storedCaps.length > 0) {
             await con.state.tempSet('caps_receiving', null);
         }
@@ -53,7 +57,7 @@ commands['CAP'] = async function(msg, con) {
         await hooks.emit('cap_to_upstream', {
             client: con,
             message: msg,
-            requesting: wantedCaps,
+            requesting: [...wantedCaps],
             offered: offeredCaps,
         });
 
