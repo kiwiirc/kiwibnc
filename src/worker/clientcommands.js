@@ -180,13 +180,13 @@ commands.CAP = async function(msg, con) {
     await hooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
-        con.writeMsg('CAP', '*', 'LIST', con.state.caps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LIST', con.state.caps.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'LS') {
         // Record the version of CAP the client is using
         await con.state.tempSet('capping', mParamU(msg, 1, '301'));
-        con.writeMsg('CAP', '*', 'LS', availableCaps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LS', availableCaps.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'REQ') {
@@ -194,7 +194,7 @@ commands.CAP = async function(msg, con) {
         let matched = requested.filter((cap) => availableCaps.includes(cap));
         con.state.caps = con.state.caps.concat(matched);
         await con.state.save();
-        con.writeMsg('CAP', '*', 'ACK', matched.join(' '));
+        con.writeFromBnc('CAP', '*', 'ACK', matched.join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'END') {
