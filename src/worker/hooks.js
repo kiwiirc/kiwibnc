@@ -12,6 +12,7 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
     // Some caps to always request
     commandHooks.on('available_caps', event => {
         event.caps.push('batch');
+        event.caps.push('cap-notify');
     });
 
     // server-time support
