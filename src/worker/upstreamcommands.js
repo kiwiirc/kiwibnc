@@ -11,6 +11,7 @@ let wantedCaps = [
     'account-tag',
     'extended-join',
     'userhost-in-names',
+    'cap-notify',
     'sasl',
 ];
 
@@ -50,37 +51,57 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('caps_receiving', null);
         }
 
-        await hooks.emit('cap_to_upstream', {
-            client: con,
-            message: msg,
-            requesting: wantedCaps,
-            offered: offeredCaps,
-        });
-
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
                                         .map((cap) => cap.split('=')[0]);
-        if (requestingCaps.length === 0) {
-            con.writeLine('CAP', 'END');
-        } else {
-            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
-        }
-    }
-
-    // :irc.example.net CAP * NEW :invite-notify ...
-    if (mParamU(msg, 1, '') === 'NEW') {
-        let offeredCaps = mParam(msg, 2, '').split(' ');
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
-                                        .map((cap) => cap.split('=')[0]);
+        let forwardToClient = []
 
         await hooks.emit('cap_to_upstream', {
             client: con,
             message: msg,
             requesting: requestingCaps,
             offered: offeredCaps,
+            forwardToClient: [],
+        });
+
+        if (requestingCaps.length === 0) {
+            con.writeLine('CAP', 'END');
+        } else {
+            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'LS', forwardToClient.join(' '));
+            });
+        }
+    }
+
+    // :irc.example.net CAP * NEW :invite-notify ...
+    if (mParamU(msg, 1, '') === 'NEW') {
+        let offeredCaps = mParam(msg, 2, '').split(' ');
+        // we don't need to remove any caps we already have from here because
+        //  if a cap's being offered to us via NEW we know we don't have it
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
+                                        .map((cap) => cap.split('=')[0]);
+        let forwardToClient = [];
+
+        await hooks.emit('cap_new_upstream', {
+            client: con,
+            message: msg,
+            requesting: requestingCaps,
+            offered: offeredCaps,
+            forwardToClient: forwardToClient,
         });
 
         if (0 < requestingCaps.length) {
             con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                //TODO: only send this to 'em if they support cap-notify or cap version higher than 301
+                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'NEW', forwardToClient.join(' '));
+            });
         }
     }
 
@@ -89,16 +110,24 @@ commands['CAP'] = async function(msg, con) {
         let removedCaps = mParam(msg, 2, '').split(' ');
 
         let caps = con.state.caps || [];
-        removedCaps = caps.filter((cap) => removedCaps.includes(cap.split('=')[0]));
-        caps = caps.filter((cap) => !removedCaps.includes(cap.split('=')[0]));
+        caps = caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
+                                                .includes(cap.split('=')[0].toLowerCase()));
         con.state.caps = caps;
         await con.state.save();
-        
-        if (0 < removedCaps.length) {
-            await hooks.emit('cap_del_upstream', {
-                client: con,
-                message: msg,
-                removed: removedCaps,
+
+        let forwardToClient = [];
+
+        await hooks.emit('cap_del_upstream', {
+            client: con,
+            message: msg,
+            deleted: removedCaps,
+            forwardToClient: forwardToClient,
+        });
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                //TODO: only send this to 'em if they support cap-notify or cap version higher than 301
+                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardToClient.join(' '));
             });
         }
     }
