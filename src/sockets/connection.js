@@ -1,11 +1,15 @@
 const net = require('net');
 const tls = require('tls');
+const { EventEmitter } = require('events');
 const uuidv4 = require('uuid/v4');
 
-module.exports = class SocketConnection {
+module.exports = class SocketConnection extends EventEmitter {
     constructor(conId, queue, sock) {
+        super();
+
         this.queue = queue;
         this.id = conId || uuidv4();
+        this.type = 0;
         this.buffer = [];
         this.readBuffer = '';
         this.connectedEvent = 'connect';
@@ -13,29 +17,32 @@ module.exports = class SocketConnection {
         if (sock) {
             this.sock = sock;
             this.connected = true;
-            this.bindSocketEvents();
+            this.socketLifecycle();
         }
     }
 
-    bindSocketEvents() {
+    socketLifecycle(isTls) {
         let lastError;
 
-        this.sock.on(this.connectedEvent, () => {
+        let completeConnection = () => {
             this.connected = true;
+            this.sock.setEncoding('utf8');
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
                 this.forceWrite(data);
             });
-        });
-        this.sock.on('close', (withError) => {
+        };
+
+        let onClose = (withError) => {
             l.debug(`[end ${this.id}]`);
             this.connected = false;
             this.queue.sendToWorker('connection.close', {id: this.id, error: withError ? lastError : null});
-        });
-        this.sock.on('error', (err) => {
+            this.emit('dispose');
+        };
+        let onError = (err) => {
             lastError = err;
-        });
-        this.sock.on('data', (data) => {
+        };
+        let onData = (data) => {
             this.readBuffer += data;
 
             let lines = this.readBuffer.split('\n');
@@ -50,26 +57,56 @@ module.exports = class SocketConnection {
                 l.debug(`[in  ${this.id}]`, [line.trimEnd()]);
                 this.queue.sendToWorker('connection.data', {id: this.id, data: line.trimEnd()});
             });            
+        };
+
+        let bindEvents = () => {
+            this.sock.on('close', onClose);
+            this.sock.on('error', onError);
+            this.sock.on('data', onData);
+        };
+        let unbindEvents = () => {
+            this.sock.off('close', onClose);
+            this.sock.off('error', onError);
+            this.sock.off('data', onData);
+        };
+
+        // Bind the socket events before we connect so that we catch any end/close events
+        bindEvents();
+        this.sock.once('connect', () => {
+            if (!isTls) {
+                completeConnection();
+                return;
+            }
+
+            // Override the existing socket with the new TLS wrapped socket
+            unbindEvents();
+            this.sock = tls.connect({
+                socket: this.sock,
+            });
+
+            bindEvents();
+            this.sock.once('secureConnect', () => {
+                completeConnection();
+            });
         });
     }
 
-    connect(host, port, useTls) {
+    connect(host, port, useTls, opts={}) {
         l.info('connecting ' + this.id);
-        let sock;
 
-        if (!useTls) {
-            sock = this.sock = new net.Socket({allowHalfOpen: false});
-            sock.connect(port, host);
-            this.connectedEvent = 'connect';
-        } else {
-            sock = this.sock = tls.connect(port, host);
-            this.connectedEvent = 'secureConnect';
-        }
-
-        sock.setEncoding('utf8');
         this.connected = false;
 
-        this.bindSocketEvents();
+        let sock = this.sock = new net.Socket({allowHalfOpen: false});
+        let connectOpts = {
+            port,
+            host,
+            localAddress: opts.bindAddress || undefined,
+            localPort: opts.bindPort || undefined,
+            family: opts.family || undefined,
+        };
+
+        sock.connect(connectOpts);
+        this.socketLifecycle(useTls);
     }
 
     close() {

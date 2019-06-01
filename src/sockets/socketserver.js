@@ -6,6 +6,7 @@ module.exports = class SocketServer extends EventEmitter {
         super();
         this.queue = queue;
         this.id = conId;
+        this.type = 3;
         this.server = new net.Server({allowHalfOpen: false});
 
         this.bindSocketEvents();
