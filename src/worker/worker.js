@@ -154,8 +154,8 @@ function listenToQueue(app) {
     });
 }
 
-// Start any listening servers on interfaces specified in the config, or any existing
-// servers that were previously started outside of the config
+// Start any listening servers on interfaces specified in the config if they do not
+// exist as an active connection already
 async function startServers(app) {
     let existingBinds = await app.db.all('SELECT host, port FROM connections WHERE type = ?', [
         ConnectionDict.TYPE_LISTENING
@@ -199,7 +199,6 @@ async function loadConnections(app) {
                 port: row.port,
                 id: row.conid,
             });
-            return;
         }
     });
 }
