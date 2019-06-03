@@ -115,8 +115,8 @@ class ConnectionIncoming {
         return this.writeMsg(m);
     }
 
-    supportsCapNotify() {
-        return this.state.caps.includes('cap-notify') || (await this.state.tempGet('capver') || 301) > 301;
+    async supportsCapNotify() {
+        return this.state.caps.includes('cap-notify') || (this.state.tempGet('capver') || 301) > 301;
     }
 
     async registerLocalClient() {
