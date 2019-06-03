@@ -185,7 +185,12 @@ commands.CAP = async function(msg, con) {
 
     if (mParamU(msg, 0, '') === 'LS') {
         // Record the version of CAP the client is using
-        await con.state.tempSet('capping', mParamU(msg, 1, '301'));
+        let capVer = parseInt(mParamU(msg, 1, '301'), 10);
+        if (capVer === NaN) {
+            capVer = 301
+        }
+        await con.state.tempSet('capver', capVer);
+        await con.state.tempSet('capping', true);
         con.writeFromBnc('CAP', '*', 'LS', availableCaps.join(' '));
     }
 

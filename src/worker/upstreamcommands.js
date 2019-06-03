@@ -99,8 +99,9 @@ commands['CAP'] = async function(msg, con) {
 
         if (0 < forwardToClient.length) {
             con.forEachClient((clientCon) => {
-                //TODO: only send this to 'em if they support cap-notify or cap version higher than 301
-                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'NEW', forwardToClient.join(' '));
+                if (clientCon.supportsCapNotify()) {
+                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'NEW', forwardToClient.join(' '));
+                }
             });
         }
     }
@@ -126,8 +127,9 @@ commands['CAP'] = async function(msg, con) {
 
         if (0 < forwardToClient.length) {
             con.forEachClient((clientCon) => {
-                //TODO: only send this to 'em if they support cap-notify or cap version higher than 301
-                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardToClient.join(' '));
+                if (clientCon.supportsCapNotify()) {
+                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardToClient.join(' '));
+                }
             });
         }
     }
