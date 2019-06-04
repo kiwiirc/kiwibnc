@@ -187,7 +187,7 @@ commands.CAP = async function(msg, con) {
         // Record the version of CAP the client is using
         let currentVer = con.state.tempGet('capver') || 301;
         let newVer = parseInt(mParamU(msg, 1, '301'), 10);
-        if (newVer !== NaN && newVer > currentVer) {
+        if (!isNaN(newVer) && newVer > currentVer) {
             await con.state.tempSet('capver', newVer);
         }
 
