@@ -45,6 +45,7 @@ commands['CAP'] = async function(msg, con) {
             'extended-join',
             'userhost-in-names',
             'sasl',
+            'message-tags',
         ];
 
         await hooks.emit('cap_to_upstream', {
