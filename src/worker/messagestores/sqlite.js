@@ -36,7 +36,7 @@ class SqliteMessageStore {
             let m = new IrcMessage(data[2], ...data[3]);
             m.prefix = data[0];
             m.tags = data[1];
-            m.tags.time = isoTime(new Date(row.ts));
+            m.tags.time = m.tags.time || isoTime(new Date(row.ts));
             return m;
         });
 
@@ -55,7 +55,7 @@ class SqliteMessageStore {
             let m = new IrcMessage(data[2], ...data[3]);
             m.prefix = data[0];
             m.tags = data[1];
-            m.tags.time = isoTime(new Date(row.ts));
+            m.tags.time = m.tags.time || isoTime(new Date(row.ts));
             return m;
         });
 
