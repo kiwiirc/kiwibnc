@@ -115,6 +115,10 @@ class ConnectionIncoming {
         return this.writeMsg(m);
     }
 
+    async supportsCapNotify() {
+        return this.state.caps.includes('cap-notify') || (this.state.tempGet('capver') || 301) > 301;
+    }
+
     async registerLocalClient() {
         let regLines = [
             ['001', this.state.nick, 'Welcome to your BNC'],

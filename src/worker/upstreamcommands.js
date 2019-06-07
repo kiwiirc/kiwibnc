@@ -3,6 +3,18 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
+let wantedCaps = [
+    'server-time',
+    'multi-prefix',
+    'away-notify',
+    'account-notify',
+    'account-tag',
+    'extended-join',
+    'userhost-in-names',
+    'cap-notify',
+    'sasl',
+];
+
 module.exports.run = async function run(msg, con) {   
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
@@ -28,6 +40,9 @@ commands['CAP'] = async function(msg, con) {
 
         if (mParamU(msg, 2, '') === '*') {
             // More CAPs to follow so store it and come back later
+            offeredCaps = mParam(msg, 3, '').split(' ');
+            offeredCaps = storedCaps.concat(offeredCaps);
+
             await con.state.tempSet('caps_receiving', offeredCaps);
             return false;
         }
@@ -36,41 +51,101 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('caps_receiving', null);
         }
 
-        let wantedCaps = [
-            'server-time',
-            'multi-prefix',
-            'away-notify',
-            'account-notify',
-            'account-tag',
-            'extended-join',
-            'userhost-in-names',
-            'sasl',
-        ];
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
+                                        .map((cap) => cap.split('=')[0]);
+        let forwardToClient = []
 
         await hooks.emit('cap_to_upstream', {
             client: con,
             message: msg,
-            requesting: wantedCaps,
+            requesting: requestingCaps,
             offered: offeredCaps,
+            forwardToClient: [],
         });
 
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0]))
-                                        .map((cap) => cap.split('=')[0]);
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
         } else {
             con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
         }
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'LS', forwardToClient.join(' '));
+            });
+        }
     }
 
+    // :irc.example.net CAP * NEW :invite-notify ...
+    if (mParamU(msg, 1, '') === 'NEW') {
+        let offeredCaps = mParam(msg, 2, '').split(' ');
+        // we don't need to remove any caps we already have from here because
+        //  if a cap's being offered to us via NEW we know we don't have it
+        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
+                                        .map((cap) => cap.split('=')[0]);
+        let forwardToClient = [];
+
+        await hooks.emit('cap_new_upstream', {
+            client: con,
+            message: msg,
+            requesting: requestingCaps,
+            offered: offeredCaps,
+            forwardToClient: forwardToClient,
+        });
+
+        if (0 < requestingCaps.length) {
+            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
+        }
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                if (clientCon.supportsCapNotify()) {
+                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'NEW', forwardToClient.join(' '));
+                }
+            });
+        }
+    }
+
+    // :irc.example.net CAP * DEL :invite-notify ...
+    if (mParamU(msg, 1, '') === 'DEL') {
+        let removedCaps = mParam(msg, 2, '').split(' ');
+
+        let caps = con.state.caps || [];
+        caps = caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
+                                                .includes(cap.split('=')[0].toLowerCase()));
+        con.state.caps = caps;
+        await con.state.save();
+
+        let forwardToClient = [];
+
+        await hooks.emit('cap_del_upstream', {
+            client: con,
+            message: msg,
+            deleted: removedCaps,
+            forwardToClient: forwardToClient,
+        });
+
+        if (0 < forwardToClient.length) {
+            con.forEachClient((clientCon) => {
+                if (clientCon.supportsCapNotify()) {
+                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardToClient.join(' '));
+                }
+            });
+        }
+    }
+
+    // CAP * ACK :multi-prefix sasl
     if (mParamU(msg, 1, '') === 'ACK') {
-        // CAP * ACK :multi-prefix sasl
+        // 'capack_receiving' just caches CAP ACK responses that go across multiple lines
         let storedAcks = await con.state.tempGet('capack_receiving') || [];
         let acks = mParam(msg, 2, '').split(' ');
         acks = storedAcks.concat(acks);
 
         if (mParamU(msg, 2, '') === '*') {
             // More ACKs to follow so store it and come back later
+            acks = mParam(msg, 3, '').split(' ');
+            acks = storedAcks.concat(acks);
+
             await con.state.tempSet('capack_receiving', acks);
             return false;
         }
@@ -79,12 +154,17 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('capack_receiving', null);
         }
 
-        con.state.caps = acks;
+        // dedupe incoming caps
+        let caps = con.state.caps || [];
+        caps = caps.concat(acks.filter((cap) => caps.includes(cap)));
+        con.state.caps = caps;
         await con.state.save();
 
-        if (con.state.sasl.account) {
-            con.writeLine('AUTHENTICATE PLAIN')
-        } else {
+        //TODO: Handle case of sasl defined but no ack given for it.
+        // probably an option to either continue on no/bad sasl auth or abort connection.
+        if (acks.includes('sasl') && con.state.sasl.account) {
+            con.writeLine('AUTHENTICATE PLAIN');
+        } else if (!con.state.receivedMotd) {
             con.writeLine('CAP', 'END');
         }
     }
