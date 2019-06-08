@@ -3,18 +3,6 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-let wantedCaps = [
-    'server-time',
-    'multi-prefix',
-    'away-notify',
-    'account-notify',
-    'account-tag',
-    'extended-join',
-    'userhost-in-names',
-    'cap-notify',
-    'sasl',
-];
-
 module.exports.run = async function run(msg, con) {   
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
@@ -32,47 +20,57 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
+    let wantedCaps = [
+        'server-time',
+        'multi-prefix',
+        'away-notify',
+        'account-notify',
+        'account-tag',
+        'extended-join',
+        'userhost-in-names',
+        'cap-notify',
+        'sasl',
+    ];
+
     // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
         let storedCaps = await con.state.tempGet('caps_receiving') || [];
-        let offeredCaps = mParam(msg, 2, '').split(' ');
-        offeredCaps = storedCaps.concat(offeredCaps);
 
         if (mParamU(msg, 2, '') === '*') {
             // More CAPs to follow so store it and come back later
-            offeredCaps = mParam(msg, 3, '').split(' ');
+            let offeredCaps = mParam(msg, 3, '').split(' ');
             offeredCaps = storedCaps.concat(offeredCaps);
 
             await con.state.tempSet('caps_receiving', offeredCaps);
             return false;
         }
 
+        let offeredCaps = mParam(msg, 2, '').split(' ');
+        offeredCaps = storedCaps.concat(offeredCaps);
+
+        // Clear out any stored CAPS now that we have them all
         if (storedCaps.length > 0) {
             await con.state.tempSet('caps_receiving', null);
         }
 
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
-                                        .map((cap) => cap.split('=')[0]);
-        let forwardToClient = []
+        // Make a list of CAPs we want to REQ
+        let requestingCaps = offeredCaps
+            .filter((cap) => (
+                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+            ))
+            .map((cap) => cap.split('=')[0]);
 
         await hooks.emit('cap_to_upstream', {
             client: con,
             message: msg,
             requesting: requestingCaps,
             offered: offeredCaps,
-            forwardToClient: [],
         });
 
         if (requestingCaps.length === 0) {
             con.writeLine('CAP', 'END');
         } else {
             con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
-        }
-
-        if (0 < forwardToClient.length) {
-            con.forEachClient((clientCon) => {
-                clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'LS', forwardToClient.join(' '));
-            });
         }
     }
 
@@ -81,28 +79,21 @@ commands['CAP'] = async function(msg, con) {
         let offeredCaps = mParam(msg, 2, '').split(' ');
         // we don't need to remove any caps we already have from here because
         //  if a cap's being offered to us via NEW we know we don't have it
-        let requestingCaps = offeredCaps.filter((cap) => wantedCaps.includes(cap.split('=')[0].toLowerCase()))
-                                        .map((cap) => cap.split('=')[0]);
-        let forwardToClient = [];
+        let requestingCaps = offeredCaps
+            .filter((cap) => (
+                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+            ))
+            .map((cap) => cap.split('=')[0]);
 
-        await hooks.emit('cap_new_upstream', {
+        let hook = await hooks.emit('cap_new_upstream', {
             client: con,
             message: msg,
             requesting: requestingCaps,
             offered: offeredCaps,
-            forwardToClient: forwardToClient,
         });
 
-        if (0 < requestingCaps.length) {
-            con.writeLine('CAP', 'REQ', requestingCaps.join(' '));
-        }
-
-        if (0 < forwardToClient.length) {
-            con.forEachClient((clientCon) => {
-                if (clientCon.supportsCapNotify()) {
-                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'NEW', forwardToClient.join(' '));
-                }
-            });
+        if (hook.event.requesting.length > 0) {
+            con.writeLine('CAP', 'REQ', hook.event.requesting.join(' '));
         }
     }
 
@@ -112,23 +103,23 @@ commands['CAP'] = async function(msg, con) {
 
         let caps = con.state.caps || [];
         caps = caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
-                                                .includes(cap.split('=')[0].toLowerCase()));
+            .includes(cap.split('=')[0].toLowerCase()));
+
         con.state.caps = caps;
         await con.state.save();
 
-        let forwardToClient = [];
-
-        await hooks.emit('cap_del_upstream', {
+        let hook = await hooks.emit('cap_del_upstream', {
             client: con,
             message: msg,
             deleted: removedCaps,
-            forwardToClient: forwardToClient,
+            forwardToClient: [...deleted],
         });
 
-        if (0 < forwardToClient.length) {
+        if (hook.event.forwardToClient.length > 0) {
+            let forwardCaps = hook.event.forwardToClient.join(' ');
             con.forEachClient((clientCon) => {
-                if (clientCon.supportsCapNotify()) {
-                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardToClient.join(' '));
+                if (clientCon.state.netRegistered && clientCon.supportsCapNotify()) {
+                    clientCon.writeMsgFrom(clientCon.upstream.state.serverPrefix, 'CAP', clientCon.upstream.state.nick, 'DEL', forwardCaps);
                 }
             });
         }
@@ -138,19 +129,21 @@ commands['CAP'] = async function(msg, con) {
     if (mParamU(msg, 1, '') === 'ACK') {
         // 'capack_receiving' just caches CAP ACK responses that go across multiple lines
         let storedAcks = await con.state.tempGet('capack_receiving') || [];
-        let acks = mParam(msg, 2, '').split(' ');
-        acks = storedAcks.concat(acks);
 
         if (mParamU(msg, 2, '') === '*') {
             // More ACKs to follow so store it and come back later
-            acks = mParam(msg, 3, '').split(' ');
+            let acks = mParam(msg, 3, '').split(' ');
             acks = storedAcks.concat(acks);
 
             await con.state.tempSet('capack_receiving', acks);
             return false;
         }
 
+        let acks = mParam(msg, 2, '').split(' ');
+        acks = storedAcks.concat(acks);
+
         if (storedAcks.length > 0) {
+            // Clear any stored acks now that we have them all
             await con.state.tempSet('capack_receiving', null);
         }
 
@@ -159,6 +152,8 @@ commands['CAP'] = async function(msg, con) {
         caps = caps.concat(acks.filter((cap) => caps.includes(cap)));
         con.state.caps = caps;
         await con.state.save();
+
+        await hooks.emit('cap_ack_upstream', {client: this, caps: acks});
 
         //TODO: Handle case of sasl defined but no ack given for it.
         // probably an option to either continue on no/bad sasl auth or abort connection.

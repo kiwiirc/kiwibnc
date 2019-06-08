@@ -115,8 +115,17 @@ class ConnectionIncoming {
         return this.writeMsg(m);
     }
 
-    async supportsCapNotify() {
-        return this.state.caps.includes('cap-notify') || (this.state.tempGet('capver') || 301) > 301;
+    supportsCapNotify() {
+        if (this.state.caps.includes('cap-notify')) {
+            return true;
+        }
+
+        // CAP versions over 301 implicitally support cap-notify
+        if ((this.state.tempGet('capver') || 301) > 301) {
+            return true;
+        }
+
+        return false;
     }
 
     async registerLocalClient() {
