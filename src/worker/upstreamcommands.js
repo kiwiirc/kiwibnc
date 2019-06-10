@@ -112,7 +112,7 @@ commands['CAP'] = async function(msg, con) {
             client: con,
             message: msg,
             deleted: removedCaps,
-            forwardToClient: [...deleted],
+            forwardToClient: [...removedCaps],
         });
 
         if (hook.event.forwardToClient.length > 0) {
