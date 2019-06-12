@@ -26,6 +26,7 @@ async function run() {
     initModelFactories(app);
 
     app.userDb = new Users(app.db);
+    db.users = app.userDb;
 
     app.messages = new MessageStore(app.conf.get('messages', {}));
     await app.messages.init();

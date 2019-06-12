@@ -102,16 +102,14 @@ class ConnectionState {
     }
 
     async loadConnectionInfo() {
-        let sql = `SELECT * FROM connections WHERE conid = ? LIMIT 1`;
-        let row = await this.db.get(sql, [this.conId]);
+        let net = await this.db.users.getNetwork(this.authNetworkId);
 
-        if (row) {
-            this.host = row.host;
-            this.port = row.port;
-            this.tls = row.tls;
-            this.type = row.type;
-            this.sasl = JSON.parse(row.sasl || '{"account":"","password":""}');
-            this.nick = row.nick;
+        if (net) {
+            this.host = net.host;
+            this.port = net.port;
+            this.tls = !!net.tls;
+            this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
+            this.nick = net.nick;
         }
     }
     async load() {

@@ -11,6 +11,9 @@ module.exports = class Database {
         });
 
         this.factories = Object.create(null);
+
+        // The users db abstractions will set itself here
+        this.users = null;
     }
 
     get(sql, params) {
