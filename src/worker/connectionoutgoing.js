@@ -43,6 +43,20 @@ class ConnectionOutgoing {
     async open() {
         await this.state.loadConnectionInfo();
 
+        let hook = await hooks.emit('connection_to_open', {
+            upstream: this,
+            allowConnection: true,
+        });
+
+        if (!hook.event.allowConnection) {
+            this.state.disallowed = true;
+            this.forEachClient((client) => {
+                let msg = 'This network has been disallowed';
+                client.writeStatus(msg);
+            });
+            return;
+        }
+
         this.queue.sendToSockets('connection.open', {
             host: this.state.host,
             port: this.state.port,
