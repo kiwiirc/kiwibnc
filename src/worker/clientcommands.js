@@ -176,11 +176,11 @@ async function maybeProcessRegistration(con) {
  */
 
 commands.CAP = async function(msg, con) {
-    let availableCaps = [];
+    let availableCaps = new Set();
     await hooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
-        con.writeFromBnc('CAP', '*', 'LIST', con.state.caps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LIST', Array.from(con.state.caps).join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'LS') {
@@ -192,13 +192,13 @@ commands.CAP = async function(msg, con) {
         }
 
         await con.state.tempSet('capping', true);
-        con.writeFromBnc('CAP', '*', 'LS', availableCaps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LS', Array.from(availableCaps).join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'REQ') {
         let requested = mParam(msg, 1, '').split(' ');
-        let matched = requested.filter((cap) => availableCaps.includes(cap));
-        con.state.caps = con.state.caps.concat(matched);
+        let matched = requested.filter((cap) => availableCaps.has(cap));
+        con.state.caps = new Set(Array.from(con.state.caps).concat(matched));
         await con.state.save();
         con.writeFromBnc('CAP', '*', 'ACK', matched.join(' '));
     }

@@ -31,7 +31,7 @@ class ConnectionState {
         this.serverPrefix = 'bnc';
         this.registrationLines = [];
         this.isupports = [];
-        this.caps = [];
+        this.caps = new Set();
         this.buffers = Object.create(null);
         this.nick = 'unknown-user';
         this.account = '';
@@ -85,7 +85,7 @@ class ConnectionState {
             server_prefix: this.serverPrefix,
             registration_lines: JSON.stringify(this.registrationLines),
             isupports: JSON.stringify(this.isupports),
-            caps: JSON.stringify(this.caps),
+            caps: JSON.stringify(Array.from(this.caps)),
             buffers: JSON.stringify(this.buffers),
             nick: this.nick,
             received_motd: this.receivedMotd,
@@ -119,7 +119,7 @@ class ConnectionState {
         if (!row) {
             this.registrationLines = [];
             this.isupports = [];
-            this.caps = [];
+            this.caps = new Set();
             this.buffers = [];
             this.tempData = {};
             this.logging = true;
@@ -133,7 +133,7 @@ class ConnectionState {
             this.serverPrefix = row.server_prefix;
             this.registrationLines = JSON.parse(row.registration_lines);
             this.isupports = JSON.parse(row.isupports);
-            this.caps = JSON.parse(row.caps);
+            this.caps = new Set(JSON.parse(row.caps));
             this.buffers = Object.create(null);
             let rowChans = JSON.parse(row.buffers);
             for (let chanName in rowChans) {

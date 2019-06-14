@@ -8,7 +8,7 @@ module.exports.run = async function run(msg, con) {
     if (hook.prevent) {
         return;
     }
-
+    msg.tags.bnc = 1;
     let command = msg.command.toUpperCase();
     if (commands[command]) {
         let ret = await commands[command](msg, con);
@@ -30,6 +30,8 @@ commands['CAP'] = async function(msg, con) {
         'userhost-in-names',
         'cap-notify',
         'sasl',
+        'message-tags',
+        'echo-message'
     ];
 
     // :irc.example.net CAP * LS :invite-notify ...
@@ -101,9 +103,9 @@ commands['CAP'] = async function(msg, con) {
     if (mParamU(msg, 1, '') === 'DEL') {
         let removedCaps = mParam(msg, 2, '').split(' ');
 
-        let caps = con.state.caps || [];
-        caps = caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
-            .includes(cap.split('=')[0].toLowerCase()));
+        let caps = con.state.caps || new Set();
+        caps = new Set(Array.from(caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
+            .includes(cap.split('=')[0].toLowerCase()))));
 
         con.state.caps = caps;
         await con.state.save();
@@ -147,10 +149,7 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('capack_receiving', null);
         }
 
-        // dedupe incoming caps
-        let caps = con.state.caps || [];
-        caps = caps.concat(acks.filter((cap) => caps.includes(cap)));
-        con.state.caps = caps;
+        con.state.caps = new Set(acks);
         await con.state.save();
 
         await hooks.emit('cap_ack_upstream', {client: this, caps: acks});
