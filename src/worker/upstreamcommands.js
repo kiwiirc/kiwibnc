@@ -103,8 +103,8 @@ commands['CAP'] = async function(msg, con) {
         let removedCaps = mParam(msg, 2, '').split(' ');
 
         let caps = con.state.caps || new Set();
-        caps = new Set(Array.from(caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
-            .includes(cap.split('=')[0].toLowerCase()))));
+        caps = new Set(Array.from(caps).filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
+            .includes(cap.split('=')[0].toLowerCase())));
 
         con.state.caps = caps;
         await con.state.save();
