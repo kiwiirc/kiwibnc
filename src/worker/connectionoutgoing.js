@@ -43,6 +43,11 @@ class ConnectionOutgoing {
     async open() {
         await this.state.loadConnectionInfo();
 
+        let hook = await hooks.emit('connection_to_open', {upstream: this});
+        if (hook.prevent) {
+            return;
+        }
+
         this.queue.sendToSockets('connection.open', {
             host: this.state.host,
             port: this.state.port,
