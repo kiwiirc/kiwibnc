@@ -8,7 +8,6 @@ module.exports.run = async function run(msg, con) {
     if (hook.prevent) {
         return;
     }
-    msg.tags.bnc = 1;
     let command = msg.command.toUpperCase();
     if (commands[command]) {
         let ret = await commands[command](msg, con);
@@ -20,7 +19,7 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
-    let wantedCaps = [
+    let wantedCaps = new Set([
         'server-time',
         'multi-prefix',
         'away-notify',
@@ -31,8 +30,8 @@ commands['CAP'] = async function(msg, con) {
         'cap-notify',
         'sasl',
         'message-tags',
-        'echo-message'
-    ];
+    ]);
+    await hooks.emit('wanted_caps', {client: con, wantedCaps});
 
     // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
@@ -58,7 +57,7 @@ commands['CAP'] = async function(msg, con) {
         // Make a list of CAPs we want to REQ
         let requestingCaps = offeredCaps
             .filter((cap) => (
-                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+                wantedCaps.has(cap.split('=')[0].toLowerCase())
             ))
             .map((cap) => cap.split('=')[0]);
 
@@ -83,7 +82,7 @@ commands['CAP'] = async function(msg, con) {
         //  if a cap's being offered to us via NEW we know we don't have it
         let requestingCaps = offeredCaps
             .filter((cap) => (
-                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+                wantedCaps.has(cap.split('=')[0].toLowerCase())
             ))
             .map((cap) => cap.split('=')[0]);
 

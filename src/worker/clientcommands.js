@@ -198,7 +198,7 @@ commands.CAP = async function(msg, con) {
     if (mParamU(msg, 0, '') === 'REQ') {
         let requested = mParam(msg, 1, '').split(' ');
         let matched = requested.filter((cap) => availableCaps.has(cap));
-        con.state.caps = new Set(Array.from(con.state.caps).concat(matched));
+        con.state.caps = new Set([...con.state.caps, ...matched]);
         await con.state.save();
         con.writeFromBnc('CAP', '*', 'ACK', matched.join(' '));
     }
