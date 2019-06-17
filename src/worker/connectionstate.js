@@ -42,8 +42,6 @@ class ConnectionState {
         this.port = 6667;
         this.tls = false;
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
-        // disallowed - true if this net has been disallowed, false otherwise
-        this.disallowed = false;
         this.connected = false;
         this.sasl = {
             account: '',

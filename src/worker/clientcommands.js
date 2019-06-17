@@ -152,8 +152,6 @@ async function maybeProcessRegistration(con) {
         if (!con.upstream) {
             con.makeUpstream(network);
             con.writeStatus('Connecting to the network..');
-        } else if (con.upstream.state.disallowed) {
-            con.writeStatus('This network has been disallowed');
         } else if (!con.upstream.state.connected) {
             // The upstream connection will call con.registerClient() once it's registered
             con.writeStatus('Connecting to the network..');

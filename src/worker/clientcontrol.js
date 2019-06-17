@@ -145,9 +145,7 @@ commands.ATTACH = async function(input, con, msg) {
 
     // Close any active upstream connections we have for this network
     let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-    if (upstream && upstream.state.disallowed) {
-        con.writeStatus('This network has been disallowed');
-    } if (upstream && !upstream.state.connected) {
+    if (upstream && !upstream.state.connected) {
         // The upstream connection will call con.registerClient() once it's registered
         con.writeStatus('Connecting to the network..');
         upstream.open();

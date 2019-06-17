@@ -45,11 +45,6 @@ class ConnectionOutgoing {
 
         let hook = await hooks.emit('connection_to_open', {upstream: this});
         if (hook.prevent) {
-            this.state.disallowed = true;
-            this.forEachClient((client) => {
-                let msg = 'This network has been disallowed';
-                client.writeStatus(msg);
-            });
             return;
         }
 
