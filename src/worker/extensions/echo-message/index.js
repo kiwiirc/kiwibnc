@@ -10,12 +10,6 @@ module.exports.init = async function init(hooks) {
     });
     hooks.on('wanted_caps', (event) => {
         event.wantedCaps.add('echo-message');
-        Array.from(event.client.state.linkedIncomingConIds).forEach((linkedId) => {
-            let cCon = event.client.conDict.map.get(linkedId);
-            if(cCon.state.caps.has('echo-message')) {
-                event.wantedCaps.add('echo-message');
-            }
-        })
     });
     hooks.on('message_from_client', (event) => {
         if (!event.client.state.netRegistered) {
@@ -55,9 +49,14 @@ module.exports.init = async function init(hooks) {
         if(!event.client.upstream) {
             return;
         }
-        if((event.message.command === 'PRIVMSG' || event.message.command === 'NOTICE')
-        && (event.client.state.nick === event.message.prefix)) {
-            event.preventDefault();
+        let {client, message} = event;
+        if(message.command === 'PRIVMSG' || message.command === 'NOTICE') {
+            if (!client.state.caps.has('echo-message')
+            && client.state.nick+'!'+client.state.username === message.nick+'!'+message.ident) {
+                event.preventDefault();
+            } else if(client.state.caps.has('echo-message') && !message.tags.msgid) {
+                event.preventDefault();
+            }
         }
     });
 };
