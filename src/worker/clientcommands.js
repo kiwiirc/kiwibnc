@@ -1,4 +1,4 @@
-const { ircLineParser } = require('irc-framework');
+const { ircLineParser, Message } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
 const ClientControl = require('./clientcontrol');
 const hooks = require('./hooks');
@@ -238,7 +238,10 @@ commands.USER = async function(msg, con) {
 commands.NOTICE = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeMsgFrom(con.upstream.state.nick, 'NOTICE', msg.params[0], msg.params[1]);
+        let m = new Message('NOTICE', msg.params[0], msg.params[1]);
+        m.prefix = con.upstream.state.nick;
+        m.from_client = true;
+        client.writeMsg(m);
     }, con);
 
     if (con.upstream && con.upstream.state.logging) {
@@ -254,7 +257,10 @@ commands.NOTICE = async function(msg, con) {
 commands.PRIVMSG = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeMsgFrom(con.upstream.state.nick, 'PRIVMSG', msg.params[0], msg.params[1]);
+        let m = new Message('PRIVMSG', msg.params[0], msg.params[1]);
+        m.prefix = con.upstream.state.nick;
+        m.from_client = true;
+        client.writeMsg(m);
     }, con);
 
     // PM to *bnc while logged in
