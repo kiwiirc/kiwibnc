@@ -240,7 +240,7 @@ commands.NOTICE = async function(msg, con) {
     con.upstream && con.upstream.forEachClient((client) => {
         let m = new Message('NOTICE', msg.params[0], msg.params[1]);
         m.prefix = con.upstream.state.nick;
-        m.from_client = true;
+        m.source = 'client';
         client.writeMsg(m);
     }, con);
 
@@ -259,7 +259,7 @@ commands.PRIVMSG = async function(msg, con) {
     con.upstream && con.upstream.forEachClient((client) => {
         let m = new Message('PRIVMSG', msg.params[0], msg.params[1]);
         m.prefix = con.upstream.state.nick;
-        m.from_client = true;
+        m.source = 'client';
         client.writeMsg(m);
     }, con);
 
