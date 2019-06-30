@@ -297,7 +297,7 @@ commands['901'] = async function(msg, con) {
 }
 
 commands.PING = async function(msg, con) {
-    con.write('PONG :' + msg.params[0] + '\n');
+    con.writeLine('PONG', msg.params[0]);
     return false;
 };
 
