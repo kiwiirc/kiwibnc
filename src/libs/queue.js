@@ -1,4 +1,5 @@
 const EventEmitter = require('./eventemitter');
+const Stats = require('./stats');
 const amqp = require('amqplib/callback_api');
 
 module.exports = class Queue extends EventEmitter {
@@ -10,6 +11,7 @@ module.exports = class Queue extends EventEmitter {
         this.channel = null;
         this.consumerTag = '';
         this.closing = false;
+        this.stats = Stats.instance().makePrefix('queue');
     }
 
     async connect() {
@@ -26,6 +28,7 @@ module.exports = class Queue extends EventEmitter {
 
         let payload = JSON.stringify([type, data]);
         l.trace('Queue sending to worker:', payload);
+        this.stats.increment('sendtoworker');
         this.channel.sendToQueue(this.queueToWorker, Buffer.from(payload), {persistent: true});
     }
 
@@ -36,6 +39,7 @@ module.exports = class Queue extends EventEmitter {
 
         let payload = JSON.stringify([type, data]);
         l.trace('Queue sending to sockets: ' + payload);
+        this.stats.increment('sendtosockets');
         this.channel.sendToQueue(this.queueToSockets, Buffer.from(payload), {persistent: true});
     }
 
@@ -70,14 +74,18 @@ module.exports = class Queue extends EventEmitter {
 
             let id = 'msg' + ++nextMsgId;
             let msg = msgQueue.shift();
-            l.debug('Queue recieved:', id, msg.content.toString());
+            l.debug('Queue received:', id, msg.content.toString());
             let obj = JSON.parse(msg.content.toString());
 
             if (!obj || obj.length !== 2) {
+                this.stats.increment('message.ignored');
                 this.channel.ack(msg);
                 processNext();
                 return;
             }
+
+            this.stats.increment('message.received');
+            let messageTmr = this.stats.timerStart('message.received.' + obj[0]);
 
             // Don't bother emitting if we have no events for it
             if (this.listenerCount(obj[0]) > 0) {
@@ -88,7 +96,7 @@ module.exports = class Queue extends EventEmitter {
                 }
             }
 
-
+            messageTmr.stop();
             this.channel.ack(msg);
             processNext();
         }
@@ -107,6 +115,7 @@ module.exports = class Queue extends EventEmitter {
 
     stopListening() {
         return new Promise((resolve, reject) => {
+            this.stats.increment('stopping');
             this.closing = true;
 
             if (!this.consumerTag) {
@@ -122,12 +131,20 @@ module.exports = class Queue extends EventEmitter {
 
     getChannel() {
         return new Promise((resolve, reject) => {
+            this.stats.increment('connecting');
+            let connectTmr = this.stats.timerStart('connecting.time');
+
             amqp.connect(this.host, (err, conn) => {
+                connectTmr.stop();
+
                 if (err) {
+                    this.stats.increment('connecting.fail');
                     reject(err);
                     return;
                 }
 
+                this.stats.increment('connecting.success');
+                this.stats.increment('connecting.time');
                 conn.createChannel((err, channel) => {
                     if (err) {
                         reject(err);

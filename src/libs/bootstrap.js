@@ -1,4 +1,5 @@
 const Queue = require('../libs/queue');
+const Stats = require('../libs/stats');
 const Config = require('../libs/config');
 
 function createLogger(label) {
@@ -107,6 +108,15 @@ module.exports = async function bootstrap(label) {
         process.exit(0)
     }
 
+    let statsConfig = conf.get('stats', {});
+    statsConfig.prefix = statsConfig.prefix ?
+        'bnc.' + statsConfig.prefix + '.' + label :
+        'bnc.' + label;
+
+    // Create the defualt Stats instance withour config
+    let stats = Stats.instance(statsConfig);
+    stats.increment('processstart');
+
     let queue = new Queue(conf.get('queue.host', 'amqp://localhost'), {
         sockets: conf.get('queue.sockets_queue'),
         worker: conf.get('queue.worker_queue'),
@@ -122,5 +132,6 @@ module.exports = async function bootstrap(label) {
     return {
         conf,
         queue,
+        stats,
     }
 }
