@@ -19,6 +19,7 @@ async function run() {
     // Tell the worker that we're starting up. All connections should be purged
     app.queue.sendToWorker('reset', {reason: 'startup'});
 
+    broadcastStats(app);
     app.queue.listenForEvents(app.queue.queueToSockets);
 
     app.queue.on('connection.data', async (event) => {
@@ -104,6 +105,21 @@ async function run() {
         con.once('dispose', () => {
             cons.delete(con.id);
         });
+    }
+
+    function broadcastStats(app) {
+        function broadcast() {
+            app.stats.gauge('stats.connections', cons.size);
+    
+            let mem = process.memoryUsage();
+            app.stats.gauge('stats.memoryheapused', mem.heapUsed);
+            app.stats.gauge('stats.memoryheaptotal', mem.heapTotal);
+            app.stats.gauge('stats.memoryrss', mem.rss);
+    
+            setTimeout(broadcast, 10000);
+        }
+    
+        broadcast();
     }
 
     function outputInfo() {

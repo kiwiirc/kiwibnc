@@ -1,11 +1,13 @@
 const sqlite3 = require('sqlite3');
 const { isoTime } = require('../../libs/helpers');
+const Stats = require('../../libs/stats');
 
 const IrcMessage = require('irc-framework').Message;
 
 class SqliteMessageStore {
     constructor(conf) {
         this.db = new sqlite3.Database(conf.db_path || './messages.db');
+        this.stats = Stats.instance().makePrefix('messages');
     }
 
     async init() {
@@ -27,6 +29,8 @@ class SqliteMessageStore {
 
     async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) { }
     async getMessagesFromTime(userId, networkId, buffer, fromTime, length) {
+        let messagesTmr = this.stats.timerStart('lookup.time');
+
         let sql = 'SELECT * FROM messages WHERE user_id = ? AND network_id = ? AND buffer = ? AND ts > ? ORDER BY ts LIMIT ?';
         let rows = await dbAll(this.db, sql, [userId, networkId, buffer, fromTime, length || 50]);
 
@@ -40,9 +44,12 @@ class SqliteMessageStore {
             return m;
         });
 
+        messagesTmr.stop();
         return messages;
     }
     async getMessagesBeforeTime(userId, networkId, buffer, fromTime, length) {
+        let messagesTmr = this.stats.timerStart('lookup.time');
+
         let sql = 'SELECT * FROM messages WHERE user_id = ? AND network_id = ? AND buffer = ? AND ts <= ? ORDER BY ts DESC LIMIT ?';
         let rows = await dbAll(this.db, sql, [userId, networkId, buffer, fromTime, length || 50]);
 
@@ -59,6 +66,7 @@ class SqliteMessageStore {
             return m;
         });
 
+        messagesTmr.stop();
         return messages;
     }
 
@@ -88,6 +96,7 @@ class SqliteMessageStore {
             return;
         }
 
+        let messagesTmr = this.stats.timerStart('store.time');
         await dbRun(this.db, sql, [
             userId,
             networkId,
@@ -97,6 +106,7 @@ class SqliteMessageStore {
             msgId,
             data,
         ]);
+        messagesTmr.stop();
     }
 }
 
