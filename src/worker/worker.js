@@ -35,6 +35,7 @@ async function run() {
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
     initExtensions(app);
+    broadcastStats(app);
     listenToQueue(app);
 
     // Give some time for the queue to connect + sync up
@@ -68,6 +69,21 @@ async function initExtensions(app) {
 function initModelFactories(app) {
     app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
     app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
+}
+
+function broadcastStats(app) {
+    function broadcast() {
+        app.stats.gauge('stats.connections', app.cons.map.size);
+
+        let mem = process.memoryUsage();
+        app.stats.gauge('stats.memoryheapused', mem.heapUsed);
+        app.stats.gauge('stats.memoryheaptotal', mem.heapTotal);
+        app.stats.gauge('stats.memoryrss', mem.rss);
+
+        setTimeout(broadcast, 10000);
+    }
+
+    broadcast();
 }
 
 function listenToQueue(app) {
