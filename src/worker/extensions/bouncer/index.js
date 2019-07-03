@@ -9,7 +9,7 @@ module.exports.init = async function init(hooks, app) {
         }
 
         upstream.forEachClient(client => {
-            if (client.state.caps.has('BOUNCER')) {
+            if (client.state.caps.has('bouncer')) {
                 client.writeMsg('BOUNCER', 'state', network.name, state);
             }
         });
