@@ -1,5 +1,5 @@
 const messageTags = require('irc-framework/src/messagetags');
-const { mParam, mParamU } = require('../../../libs/helpers');
+const { mParam, mParamU, isoTime } = require('../../../libs/helpers');
 
 module.exports.init = async function init(hooks, app) {
     let sendConnectionState = async (upstream, state) => {
@@ -154,6 +154,9 @@ async function handleBouncerCommand(event) {
                     network: network.name,
                     buffer: buffer.name,
                 };
+                if (buffer.lastSeen) {
+                    chan.seen = isoTime(new Date(buffer.lastSeen));
+                }
                 if (buffer.isChannel) {
                     chan = {
                         ...chan,

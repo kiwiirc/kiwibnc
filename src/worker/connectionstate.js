@@ -7,6 +7,7 @@ class IrcBuffer {
         this.isChannel = upstreamCon ?
             upstreamCon.isChannelName(name) :
             true;
+        this.lastSeen = 0;
     }
 
     static fromObj(obj) {
