@@ -22,7 +22,7 @@ module.exports.init = async function init(hooks) {
         // If the server doesn't support echo-message we do it ourselves with our own message.
         if (!upstream.state.caps.has('echo-message')) {
             let msg = event.message;
-            if(msg.command !== 'PRIVMSG' && msg.command !== 'NOTICE') {
+            if(msg.command !== 'PRIVMSG' && msg.command !== 'NOTICE' && msg.command !== 'TAGMSG') {
                 return;
             }
             // Give ID to original message so it is stored correctly
@@ -50,9 +50,9 @@ module.exports.init = async function init(hooks) {
             return;
         }
         let {client, message} = event;
-        if(message.command === 'PRIVMSG' || message.command === 'NOTICE') {
+        if(message.command === 'PRIVMSG' || message.command === 'NOTICE' || message.command === 'TAGMSG') {
             if (!client.state.caps.has('echo-message')
-            && client.state.nick+'!'+client.state.username === message.nick+'!'+message.ident) {
+            && client.upstream.state.nick === message.nick) {
                 event.preventDefault();
             } else if(client.state.caps.has('echo-message') && message.source === 'client') {
                 event.preventDefault(); // Client and server support echo-message and msg came from a client, so ignore it.
