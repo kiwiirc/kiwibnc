@@ -224,7 +224,7 @@ class ConnectionIncoming {
 
         // If the client supports BOUNCER commands, it will request a buffer list
         // itself and then request messages as needed
-        if (!this.state.caps.includes('bouncer')) {
+        if (!this.state.caps.includes('kiwiirc.com/bouncer')) {
             await this.dumpChannels();
         } else {
             // Get the latest NAMEs replies for our joined channels
