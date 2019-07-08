@@ -9,14 +9,14 @@ module.exports.init = async function init(hooks, app) {
         }
 
         upstream.forEachClient(client => {
-            if (client.state.caps.includes('BOUNCER')) {
+            if (client.state.caps.includes('kiwiirc.com/bouncer')) {
                 client.writeMsg('BOUNCER', 'state', network.name, state);
             }
         });
     };
 
     hooks.on('available_caps', event => {
-        event.caps.push('bouncer');
+        event.caps.push('kiwiirc.com/bouncer');
     });
 
     hooks.on('connection_open', event => {
@@ -60,7 +60,10 @@ async function handleBouncerCommand(event) {
     let subCmd = mParamU(msg, 0, '');
     let encodeTags = require('irc-framework/src/messagetags').encode;
 
+    let handled = false;
+
     if (subCmd === 'CONNECT') {
+        handled = true;
         let netName = mParam(msg, 1, '');
         if (!netName) {
             con.writeMsg('BOUNCER', 'connect', '*', 'ERR_INVALIDARGS');
@@ -83,6 +86,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DISCONNECT') {
+        handled = true;
         let netName = mParam(msg, 1, '');
         if (!netName) {
             con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_INVALIDARGS');
@@ -108,6 +112,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'LISTNETWORKS') {
+        handled = true;
         let nets = await con.userDb.getUserNetworks(con.state.authUserId);
         nets.forEach((net) => {
             let parts = [];
@@ -133,6 +138,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'LISTBUFFERS') {
+        handled = true;
         let netName = mParam(msg, 1, '');
         if (!netName) {
             con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_INVALIDARGS');
@@ -172,6 +178,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DELBUFFER') {
+        handled = true;
         let netName = mParam(msg, 1, '');
         let bufferName = mParam(msg, 2, '');
         if (!netName || !bufferName) {
@@ -210,6 +217,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'CHANGEBUFFER') {
+        handled = true;
         let netName = mParam(msg, 1, '');
         let bufferName = mParam(msg, 2, '');
         if (!netName || !bufferName) {
@@ -247,6 +255,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'ADDNETWORK') {
+        handled = true;
         let tags = messageTags.decode(mParam(msg, 1));
         if (!tags || !tags.network || !tags.network.match(/^[a-z0-9_]+$/i)) {
             con.writeMsg('BOUNCER', 'addnetwork', '*', 'ERR_NEEDSNAME');
@@ -289,6 +298,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'CHANGENETWORK') {
+        handled = true;
         let netName = mParam(msg, 1);
         let tags = messageTags.decode(mParam(msg, 2));
         if (!netName || !tags) {
@@ -373,6 +383,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DELNETWORK') {
+        handled = true;
         let netName = mParam(msg, 1);
 
         // Make sure the network exists
@@ -392,5 +403,12 @@ async function handleBouncerCommand(event) {
 
         await con.db.db('user_networks').where('id', network.id).delete();
         con.writeMsg('BOUNCER', 'delnetwork', netName, 'RPL_OK');
+    }
+
+    if (!handled) {
+        if (subCmd == '' || subCmd[0] == ':') {
+            subCmd = '*';
+        }
+        con.writeMsg('FAIL', 'BOUNCER', 'unknown_subcommand', subCmd, 'Unknown subcommand');
     }
 };
