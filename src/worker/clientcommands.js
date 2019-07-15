@@ -1,4 +1,4 @@
-const { ircLineParser } = require('irc-framework');
+const { ircLineParser, Message } = require('irc-framework');
 const { mParam, mParamU } = require('../libs/helpers');
 const ClientControl = require('./clientcontrol');
 const hooks = require('./hooks');
@@ -176,11 +176,11 @@ async function maybeProcessRegistration(con) {
  */
 
 commands.CAP = async function(msg, con) {
-    let availableCaps = [];
+    let availableCaps = new Set();
     await hooks.emit('available_caps', {client: con, caps: availableCaps});
 
     if (mParamU(msg, 0, '') === 'LIST') {
-        con.writeFromBnc('CAP', '*', 'LIST', con.state.caps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LIST', Array.from(con.state.caps).join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'LS') {
@@ -192,13 +192,13 @@ commands.CAP = async function(msg, con) {
         }
 
         await con.state.tempSet('capping', true);
-        con.writeFromBnc('CAP', '*', 'LS', availableCaps.join(' '));
+        con.writeFromBnc('CAP', '*', 'LS', Array.from(availableCaps).join(' '));
     }
 
     if (mParamU(msg, 0, '') === 'REQ') {
         let requested = mParam(msg, 1, '').split(' ');
-        let matched = requested.filter((cap) => availableCaps.includes(cap));
-        con.state.caps = con.state.caps.concat(matched);
+        let matched = requested.filter((cap) => availableCaps.has(cap));
+        con.state.caps = new Set([...con.state.caps, ...matched]);
         await con.state.save();
         con.writeFromBnc('CAP', '*', 'ACK', matched.join(' '));
     }
@@ -238,7 +238,10 @@ commands.USER = async function(msg, con) {
 commands.NOTICE = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeMsgFrom(con.upstream.state.nick, 'NOTICE', msg.params[0], msg.params[1]);
+        let m = new Message('NOTICE', msg.params[0], msg.params[1]);
+        m.prefix = con.upstream.state.nick;
+        m.source = 'client';
+        client.writeMsg(m);
     }, con);
 
     if (con.upstream && con.upstream.state.logging) {
@@ -254,7 +257,10 @@ commands.NOTICE = async function(msg, con) {
 commands.PRIVMSG = async function(msg, con) {
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
-        client.writeMsgFrom(con.upstream.state.nick, 'PRIVMSG', msg.params[0], msg.params[1]);
+        let m = new Message('PRIVMSG', msg.params[0], msg.params[1]);
+        m.prefix = con.upstream.state.nick;
+        m.source = 'client';
+        client.writeMsg(m);
     }, con);
 
     // PM to *bnc while logged in

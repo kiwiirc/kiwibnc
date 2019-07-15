@@ -9,14 +9,14 @@ module.exports.init = async function init(hooks, app) {
         }
 
         upstream.forEachClient(client => {
-            if (client.state.caps.includes('BOUNCER')) {
+            if (client.state.caps.has('bouncer')) {
                 client.writeMsg('BOUNCER', 'state', network.name, state);
             }
         });
     };
 
     hooks.on('available_caps', event => {
-        event.caps.push('bouncer');
+        event.caps.add('bouncer');
     });
 
     hooks.on('connection_open', event => {

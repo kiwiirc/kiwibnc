@@ -8,7 +8,6 @@ module.exports.run = async function run(msg, con) {
     if (hook.prevent) {
         return;
     }
-
     let command = msg.command.toUpperCase();
     if (commands[command]) {
         let ret = await commands[command](msg, con);
@@ -20,7 +19,7 @@ module.exports.run = async function run(msg, con) {
 };
 
 commands['CAP'] = async function(msg, con) {
-    let wantedCaps = [
+    let wantedCaps = new Set([
         'server-time',
         'multi-prefix',
         'away-notify',
@@ -30,7 +29,9 @@ commands['CAP'] = async function(msg, con) {
         'userhost-in-names',
         'cap-notify',
         'sasl',
-    ];
+        'message-tags',
+    ]);
+    await hooks.emit('wanted_caps', {client: con, wantedCaps});
 
     // :irc.example.net CAP * LS :invite-notify ...
     if (mParamU(msg, 1, '') === 'LS') {
@@ -56,7 +57,7 @@ commands['CAP'] = async function(msg, con) {
         // Make a list of CAPs we want to REQ
         let requestingCaps = offeredCaps
             .filter((cap) => (
-                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+                wantedCaps.has(cap.split('=')[0].toLowerCase())
             ))
             .map((cap) => cap.split('=')[0]);
 
@@ -81,7 +82,7 @@ commands['CAP'] = async function(msg, con) {
         //  if a cap's being offered to us via NEW we know we don't have it
         let requestingCaps = offeredCaps
             .filter((cap) => (
-                wantedCaps.includes(cap.split('=')[0].toLowerCase())
+                wantedCaps.has(cap.split('=')[0].toLowerCase())
             ))
             .map((cap) => cap.split('=')[0]);
 
@@ -101,9 +102,9 @@ commands['CAP'] = async function(msg, con) {
     if (mParamU(msg, 1, '') === 'DEL') {
         let removedCaps = mParam(msg, 2, '').split(' ');
 
-        let caps = con.state.caps || [];
-        caps = caps.filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
-            .includes(cap.split('=')[0].toLowerCase()));
+        let caps = con.state.caps || new Set();
+        caps = new Set(Array.from(caps).filter((cap) => !removedCaps.map((rcap) => rcap.toLowerCase())
+            .includes(cap.split('=')[0].toLowerCase())));
 
         con.state.caps = caps;
         await con.state.save();
@@ -147,10 +148,7 @@ commands['CAP'] = async function(msg, con) {
             await con.state.tempSet('capack_receiving', null);
         }
 
-        // dedupe incoming caps
-        let caps = con.state.caps || [];
-        caps = caps.concat(acks.filter((cap) => caps.includes(cap)));
-        con.state.caps = caps;
+        con.state.caps = new Set(acks);
         await con.state.save();
 
         await hooks.emit('cap_ack_upstream', {client: this, caps: acks});
