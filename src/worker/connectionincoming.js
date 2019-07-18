@@ -116,7 +116,7 @@ class ConnectionIncoming {
     }
 
     supportsCapNotify() {
-        if (this.state.caps.includes('cap-notify')) {
+        if (this.state.caps.has('cap-notify')) {
             return true;
         }
 
@@ -224,7 +224,7 @@ class ConnectionIncoming {
 
         // If the client supports BOUNCER commands, it will request a buffer list
         // itself and then request messages as needed
-        if (!this.state.caps.includes('bouncer')) {
+        if (!this.state.caps.has('bouncer')) {
             await this.dumpChannels();
         } else {
             // Get the latest NAMEs replies for our joined channels
@@ -273,7 +273,7 @@ class ConnectionIncoming {
                 Date.now() - 3600*1000
             );
 
-            let supportsTime = this.state.caps.includes('server-time');
+            let supportsTime = this.state.caps.has('server-time');
             messages.forEach(async (msg) => {
                 if (!supportsTime) {
                     msg.params[1] = `[${strftime('%H:%M:%S')}] ${msg.params[1]}`;
