@@ -359,6 +359,11 @@ commands['332'] = async function(msg, con) {
 
 // nick in use
 commands['433'] = async function(msg, con) {
+    // Only auto change our nick if we're still trying to connect
+    if (con.state.netRegistered) {
+        return true;
+    }
+
     if (con.state.nick.length < 8) {
         con.state.nick = con.state.nick + '_';
     } else {
@@ -378,6 +383,7 @@ commands['433'] = async function(msg, con) {
 
 commands.NICK = async function(msg, con) {
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        // Someone elses nick changed. Update any buffers we have to their new nick
         let buffer = con.state.getBuffer(msg.nick);
         if (!buffer) {
             return;
@@ -386,11 +392,12 @@ commands.NICK = async function(msg, con) {
         // Try to track nick changes so that they stay in the same buffer instance
         con.state.renameBuffer(buffer.name, msg.params[0]);
         con.state.save();
-        return;
-    }
 
-    con.state.nick = msg.params[0];
-    con.state.save();
+    } else {
+        // Our nick changed, keep track of it
+        con.state.nick = msg.params[0];
+        con.state.save();
+    }
 };
 
 commands.PRIVMSG = async function(msg, con) {
