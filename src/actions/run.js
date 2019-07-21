@@ -12,7 +12,10 @@ module.exports = async function(env, options) {
         let nodeBin = process.argv[0];
         let nodeArgs = [...process.argv.slice(1), 'worker'];
         nodeArgs.splice(nodeArgs.indexOf('run'), 1);
-        workerProc = spawn(nodeBin, nodeArgs, {stdio: [process.stdin, process.stdout, process.stderr]});
+        workerProc = spawn(nodeBin, nodeArgs, {
+            stdio: [process.stdin, process.stdout, process.stderr],
+            env: process.env,
+        });
         workerProc.on('exit', spawnWorker);
     };
 
