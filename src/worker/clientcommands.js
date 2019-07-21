@@ -109,6 +109,12 @@ async function maybeProcessRegistration(con) {
         if (hook.event.network) {
             con.state.authNetworkId = hook.event.network.id;
             network = hook.event.network;
+        } else if (networkName) {
+            // Extension authed the user but left the network to us
+            network = await con.userDb.getNetworkByName(hook.event.userId, networkName);
+            if (network) {
+                con.state.authNetworkId = network.id;
+            }
         }
 
     } else if (con.state.authUserId && con.state.authNetworkId) {
@@ -151,10 +157,10 @@ async function maybeProcessRegistration(con) {
     if (network) {
         if (!con.upstream) {
             con.makeUpstream(network);
-            con.writeStatus('Connecting to the network..');
+            con.writeStatus('Connecting to the network...');
         } else if (!con.upstream.state.connected) {
             // The upstream connection will call con.registerClient() once it's registered
-            con.writeStatus('Connecting to the network..');
+            con.writeStatus('Waiting for the network to connect...');
             con.upstream.open();
         } else {
             con.writeStatus(`Attaching you to the network`);
