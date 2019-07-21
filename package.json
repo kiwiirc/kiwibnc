@@ -6,6 +6,7 @@
   "dependencies": {
     "amqplib": "^0.5.3",
     "bcrypt": "^3.0.3",
+    "better-sqlite3": "^5.4.1",
     "commander": "^2.19.0",
     "irc-framework": "^4.0.0",
     "knex": "^0.16.3",

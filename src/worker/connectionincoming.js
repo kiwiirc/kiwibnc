@@ -262,7 +262,7 @@ class ConnectionIncoming {
         // Now the client has a channel list, send any messages we have for them
         for (let buffName in upstream.state.buffers) {
             let buffer = upstream.state.buffers[buffName];
-            if (buffer.isChannel && !buffer.joined) {
+            if (!buffer.isChannel || !buffer.joined) {
                 continue;
             }
 
