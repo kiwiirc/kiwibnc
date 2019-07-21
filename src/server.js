@@ -1,6 +1,7 @@
 const commander = require('commander');
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
+const actionUpdateDb = require('./actions/updatedb');
 
 (async function() {
     // Make the args available globally
@@ -15,6 +16,11 @@ const actionAddUser = require('./actions/adduser');
         .command('adduser')
         .description('Add a user')
         .action(actionAddUser);
+
+    commander
+        .command('updatedb')
+        .description('Update the database schema to the latest')
+        .action(actionUpdateDb);
 
     commander
         .command('run')
