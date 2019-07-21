@@ -28,6 +28,9 @@ class User extends DatabaseSavable {
     get admin() { return this.getData('admin'); }
     set admin(newVal) { return this.setData('admin', newVal); }
 
+    get bind_host() { return this.getData('bind_host'); }
+    set bind_host(newVal) { return this.setData('bind_host', newVal); }
+
     checkPassword(password) {
         let hashed = this.password;
         return bcrypt.compareSync(password, hashed);

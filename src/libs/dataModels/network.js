@@ -18,7 +18,10 @@ class Network extends DatabaseSavable {
     
     get user_id() { return this.getData('user_id'); }
     set user_id(newVal) { return this.setData('user_id', newVal); }
-    
+
+    get bind_host() { return this.getData('bind_host'); }
+    set bind_host(newVal) { return this.setData('bind_host', newVal); }
+
     get host() { return this.getData('host'); }
     set host(newVal) { return this.setData('host', newVal); }
     

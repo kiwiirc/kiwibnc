@@ -42,6 +42,7 @@ class ConnectionState {
         this.host = '';
         this.port = 6667;
         this.tls = false;
+        this.bindHost = '';
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
         this.connected = false;
         this.sasl = {
@@ -76,6 +77,7 @@ class ConnectionState {
         let query = this.db.db('connections').insert({
             conid: this.conId,
             last_statesave: Date.now(),
+            bind_host: '',
             host: this.host,
             port: this.port,
             tls: this.tls,
@@ -104,8 +106,18 @@ class ConnectionState {
 
     async loadConnectionInfo() {
         let net = await this.db.users.getNetwork(this.authNetworkId);
+        let bindHost = net.bind_host;
+
+        // If a network doesn't have a bindHost, check if it's user has a global one instead
+        if (!bindHost) {
+            let user = await this.db.factories.User.query().where('id', this.authUserId).first();
+            if (user && user.bind_host) {
+                bindHost = user.bind_host;
+            }
+        }
 
         if (net) {
+            this.bindHost = bindHost || '';
             this.host = net.host;
             this.port = net.port;
             this.tls = !!net.tls;
@@ -125,6 +137,7 @@ class ConnectionState {
             this.tempData = {};
             this.logging = true;
         } else {
+            this.bindHost = row.bind_host || '';
             this.host = row.host;
             this.port = row.port;
             this.tls = row.tls;
