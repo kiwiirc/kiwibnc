@@ -56,6 +56,7 @@ async function run() {
             bindAddress: event.bindAddress,
             bindPort: event.bindPort,
             family: event.family,
+            servername: event.servername,
         });
     });
 

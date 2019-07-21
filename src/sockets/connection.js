@@ -21,7 +21,7 @@ module.exports = class SocketConnection extends EventEmitter {
         }
     }
 
-    socketLifecycle(isTls) {
+    socketLifecycle(tlsOpts) {
         let lastError;
 
         let completeConnection = () => {
@@ -36,7 +36,10 @@ module.exports = class SocketConnection extends EventEmitter {
         let onClose = (withError) => {
             l.debug(`[end ${this.id}]`);
             this.connected = false;
-            this.queue.sendToWorker('connection.close', {id: this.id, error: withError ? lastError : null});
+            this.queue.sendToWorker('connection.close', {
+                id: this.id,
+                error: withError && lastError ? lastError.toString() : null,
+            });
             this.emit('dispose');
         };
         let onError = (err) => {
@@ -73,7 +76,7 @@ module.exports = class SocketConnection extends EventEmitter {
         // Bind the socket events before we connect so that we catch any end/close events
         bindEvents();
         this.sock.once('connect', () => {
-            if (!isTls) {
+            if (!tlsOpts) {
                 completeConnection();
                 return;
             }
@@ -82,6 +85,7 @@ module.exports = class SocketConnection extends EventEmitter {
             unbindEvents();
             this.sock = tls.connect({
                 socket: this.sock,
+                servername: tlsOpts.servername || undefined,
             });
 
             bindEvents();
@@ -106,7 +110,7 @@ module.exports = class SocketConnection extends EventEmitter {
         };
 
         sock.connect(connectOpts);
-        this.socketLifecycle(useTls);
+        this.socketLifecycle(useTls ? { servername: opts.servername } : null);
     }
 
     close() {

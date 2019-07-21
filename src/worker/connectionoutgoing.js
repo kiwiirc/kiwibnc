@@ -43,17 +43,23 @@ class ConnectionOutgoing {
     async open() {
         await this.state.loadConnectionInfo();
 
-        let hook = await hooks.emit('connection_to_open', {upstream: this});
-        if (hook.prevent) {
-            return;
-        }
-
-        this.queue.sendToSockets('connection.open', {
+        let connection = {
             host: this.state.host,
             port: this.state.port,
             tls: this.state.tls,
             id: this.id,
-        });
+            bindAddress: this.state.bindHost || '',
+            family: undefined,
+            // servername - force a specific TLS servername
+            servername: undefined,
+        };
+
+        let hook = await hooks.emit('connection_to_open', {upstream: this, connection });
+        if (hook.prevent) {
+            return;
+        }
+
+        this.queue.sendToSockets('connection.open', connection);
     }
 
     write(data) {
@@ -143,6 +149,8 @@ class ConnectionOutgoing {
             let msg = 'Network disconnected';
             if (err && err.code) {
                 msg += ' ' + err.code;
+            } else if (err && typeof err === 'string') {
+                msg += ' ' + err;
             }
             client.writeStatus(msg);
 
