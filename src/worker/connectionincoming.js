@@ -298,7 +298,7 @@ class ConnectionIncoming {
 
     async makeUpstream(network) {
         // May not be logged into a network
-        if (!this.state.authNetworkId) {
+        if (!this.state.authNetworkId && !network) {
             return null;
         }
 
