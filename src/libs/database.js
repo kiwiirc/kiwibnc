@@ -1,3 +1,4 @@
+const path = require('path');
 const knex = require('knex');
 
 module.exports = class Database {
@@ -29,80 +30,6 @@ module.exports = class Database {
     }
 
     async init() {
-        let sql = [];
-        sql.push(`
-        CREATE TABLE IF NOT EXISTS connections (
-            conid TEXT PRIMARY KEY,
-            last_statesave INTEGER,
-            host TEXT,
-            port INTEGER,
-            tls BOOLEAN,
-            type INTEGER,
-            connected BOOLEAN,
-            sasl TEXT,
-            server_prefix TEXT,
-            registration_lines TEXT,
-            isupports TEXT,
-            caps TEXT,
-            buffers TEXT,
-            nick TEXT,
-            account TEXT,
-            received_motd BOOLEAN,
-            net_registered BOOLEAN,
-            auth_user_id INTEGER,
-            auth_network_id INTEGER,
-            auth_admin BOOLEAN,
-            linked_con_ids TEXT,
-            logging BOOL,
-            temp TEXT
-        );
-        `);
-
-        sql.push(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            username TEXT COLLATE NOCASE,
-            password TEXT,
-            created_at INTEGER,
-            admin BOOLEAN
-        );
-        `);
-        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS users_username_uindex ON users (username);');
-
-        sql.push(`
-        CREATE TABLE IF NOT EXISTS user_networks (
-            id INTEGER PRIMARY KEY,
-            name TEXT COLLATE NOCASE,
-            user_id INTEGER,
-            host TEXT,
-            port INTEGER,
-            tls BOOLEAN,
-            nick TEXT,
-            username TEXT,
-            realname TEXT,
-            password TEXT,
-            sasl_account TEXT,
-            sasl_pass TEXT
-        );
-        `);
-        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_networks_name_user_id_uindex ON user_networks (name, user_id);');
-
-        sql.push(`
-        CREATE TABLE IF NOT EXISTS user_tokens (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER,
-            created_at INTEGER
-        );
-        `);
-        sql.push('CREATE UNIQUE INDEX IF NOT EXISTS user_tokens_token_uindex ON user_tokens (token);');
-
-        for (let i=0; i<sql.length; i++) {
-            try {
-                await this.run(sql[i]);
-            } catch (err) {
-                console.error(err.stack);
-                process.exit(1);
-            }
-        }
+        return this.db.migrate.latest({ directory: path.join(__dirname, '..', 'dbschemas') });
     }
 }
