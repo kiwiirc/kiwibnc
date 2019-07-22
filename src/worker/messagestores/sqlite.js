@@ -1,4 +1,5 @@
 const sqlite3 = require('better-sqlite3');
+const LRU = require('lru-cache');
 const { isoTime } = require('../../libs/helpers');
 const Stats = require('../../libs/stats');
 
@@ -14,6 +15,11 @@ class SqliteMessageStore {
 
         this.storeQueueLooping = false;
         this.storeQueue = [];
+
+        this.dataCache = new LRU({
+            max: 50 * 1000 * 1000, // very roughly 50mb cache
+            length: (entry, key) => key.length,
+        });
     }
 
     async init() {
@@ -59,6 +65,11 @@ class SqliteMessageStore {
 
     // Insert a chunk of data into the data table if it doesn't already exist, returning its ID
     async dataId(data) {
+        let cached = this.dataCache.get(data);
+        if (cached) {
+            return cached;
+        }
+
         try {
             // Will fail if the data already exists in the db
             this.stmtInsertData.run(data);
@@ -66,7 +77,12 @@ class SqliteMessageStore {
         }
 
         let row = this.stmtGetExistingDataId.get(data);
-        return row.id;
+        if (row && row.id) {
+            this.dataCache.set(data, row.id);
+            return row.id;
+        }
+
+        return null;
     }
 
     async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) { }

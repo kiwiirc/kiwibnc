@@ -11,6 +11,7 @@
     "irc-framework": "^4.0.0",
     "knex": "^0.16.3",
     "lodash": "^4.17.11",
+    "lru-cache": "^5.1.1",
     "node-cleanup": "^2.1.2",
     "readline-sync": "^1.4.9",
     "request-promise": "^4.2.4",
