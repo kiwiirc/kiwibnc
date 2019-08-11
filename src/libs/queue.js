@@ -3,11 +3,11 @@ const Stats = require('./stats');
 const amqp = require('amqplib/callback_api');
 
 module.exports = class Queue extends EventEmitter {
-    constructor(amqpHost, opts={sockets:'', worker:''}) {
+    constructor(conf) {
         super();
-        this.host = amqpHost || 'amqp://localhost';
-        this.queueToSockets = opts.sockets || 'control';
-        this.queueToWorker = opts.worker || 'connections';
+        this.host = conf.get('queue.amqp_host', 'amqp://localhost');
+        this.queueToSockets = conf.get('queue.sockets_queue', 'control');
+        this.queueToWorker = conf.get('queue.worker_queue', 'connections');
         this.channel = null;
         this.consumerTag = '';
         this.closing = false;
@@ -19,6 +19,16 @@ module.exports = class Queue extends EventEmitter {
         await channel.assertQueue(this.queueToSockets, {durable: true});
         await channel.assertQueue(this.queueToWorker, {durable: true});
         this.channel = channel;
+    }
+
+    async initServer() {
+        this.queueName = this.queueToSockets;
+        await this.connect();
+    }
+
+    async initWorker() {
+        this.queueName = this.queueToWorker;
+        await this.connect();
     }
 
     async sendToWorker(type, data) {
@@ -43,11 +53,12 @@ module.exports = class Queue extends EventEmitter {
         this.channel.sendToQueue(this.queueToSockets, Buffer.from(payload), {persistent: true});
     }
 
-    async listenForEvents(queueName) {
+    async listenForEvents() {
         if (!this.channel) {
             await this.connect();
         }
 
+        let queueName = this.queueName;
         this.closing = false;
 
         l.info('Listening on queue ' + queueName);

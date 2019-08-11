@@ -11,7 +11,7 @@ const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
 
 async function run() {
-    let app = await require('../libs/bootstrap')('worker');
+    let app = await require('../libs/bootstrap')('worker', {type: 'worker'});
 
     let cryptKey = app.conf.get('database.crypt_key', '');
     if (cryptKey.length !== 32) {
@@ -88,21 +88,24 @@ function broadcastStats(app) {
 
 function listenToQueue(app) {
     let cons = app.cons;
-    app.queue.listenForEvents(app.queue.queueToWorker);
+    app.queue.listenForEvents();
 
     app.queue.on('reset', async (event) => {
         // Wipe out all incoming connection states. Incoming connections need to manually reconnect
         await app.db.run('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
+
+        // Since there are now no incoming connections, clear all incoming<>outgoing links
         await app.db.run('UPDATE connections SET linked_con_ids = "[]"');
 
-        // If we don't have any connections then we don't need to clear anything out. We do
+        // If we don't have any connections then we have nothing to clear out. We do
         // need to start our servers again though
         if (cons.size === 0) {
             startServers(app);
             return;
         }
 
-        // Give some time for the queue to process some internal stuff
+        // Give some time for the queue to process some internal stuff then just exit. This worker
+        // will get restarted by the sockets process automatically
         app.queue.stopListening().then(async () => {
             setTimeout(() => {
                 process.exit();

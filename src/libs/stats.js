@@ -3,7 +3,7 @@ const dgram = require('dgram');
 let instance = null;
 
 module.exports = class Stats {
-    constructor(opts) {
+    constructor(opts={}) {
         this.opts = opts;
 
         if (opts.host) {

@@ -16,21 +16,26 @@ async function init(worker, sockets) {
         // we don't need this output
     };
 
-    let workerQ = new Queue('amqp://localhost', {
-        sockets: 'testqueue_sockets',
-        worker: 'testqueue_worker',
-    });
-    let socketQ = new Queue('amqp://localhost', {
-        sockets: 'testqueue_sockets',
-        worker: 'testqueue_worker',
-    });
+    let conf = {
+        data: {
+            'queue.amqp_host': 'amqp://127.0.0.1',
+            'queue.sockets_queue': 'q_sockets',
+            'queue.worker_queue': 'q_worker',
+        },
+        get(name) {
+            return this.data[name];
+        },
+    };
+
+    let workerQ = new Queue(conf);
+    let socketQ = new Queue(conf);
 
     try {
         worker && await workerQ.connect();
         sockets && await socketQ.connect();
 
-        worker && workerQ.listenForEvents('testqueue_worker');
-        sockets && socketQ.listenForEvents('testqueue_sockets');
+        worker && workerQ.listenForEvents();
+        sockets && socketQ.listenForEvents();
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
         process.exit(1);

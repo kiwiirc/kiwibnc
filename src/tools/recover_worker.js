@@ -7,15 +7,23 @@ const Queue = require('../libs/queue');
         //console.log(...args);
     };
 
-    let workerQ = new Queue('amqp://localhost', {
-        sockets: 'testqueue_sockets',
-        worker: 'testqueue_worker',
-    });
+    let conf = {
+        data: {
+            'queue.amqp_host': 'amqp://127.0.0.1',
+            'queue.sockets_queue': 'q_sockets',
+            'queue.worker_queue': 'q_worker',
+        },
+        get(name) {
+            return this.data[name];
+        },
+    };
+
+    let workerQ = new Queue(conf);
 
     try {
         await workerQ.connect();
 
-        workerQ.listenForEvents('testqueue_worker');
+        workerQ.listenForEvents();
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
         process.exit(1);

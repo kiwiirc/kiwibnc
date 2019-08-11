@@ -1,4 +1,5 @@
 const Queue = require('../libs/queue');
+const IpcQueue = require('../libs/ipcqueue');
 
 (async function() {
 
@@ -12,24 +13,39 @@ const Queue = require('../libs/queue');
 async function init(worker, sockets) {
     global.l = function(){};
     global.l.info = global.l.trace = global.l.error = global.l.debug = (...args)=>{
+        // console.log(...args);
         // we don't need this output
     };
 
-    let workerQ = new Queue('amqp://localhost', {
-        sockets: 'testqueue_sockets',
-        worker: 'testqueue_worker',
-    });
-    let socketQ = new Queue('amqp://localhost', {
-        sockets: 'testqueue_sockets',
-        worker: 'testqueue_worker',
-    });
+    // Mock the config object
+    let conf = {
+        data: {
+            'queue.amqp_host': 'amqp://127.0.0.1',
+            'queue.sockets_queue': 'q_sockets',
+            'queue.worker_queue': 'q_worker',
+        },
+        get(name) {
+            return this.data[name];
+        },
+    };
+
+    let workerQ = null;
+    let socketQ = null;
+
+    if (conf.get('queue.amqp_host')) {
+        workerQ = new Queue(conf);
+        socketQ = new Queue(conf);
+    } else {
+        workerQ = new IpcQueue(conf);
+        socketQ = new IpcQueue(conf);
+    }
 
     try {
-        worker && await workerQ.connect();
-        sockets && await socketQ.connect();
+        worker && await workerQ.initWorker();
+        sockets && await socketQ.initServer();
 
-        worker && workerQ.listenForEvents('testqueue_worker');
-        sockets && socketQ.listenForEvents('testqueue_sockets');
+        worker && workerQ.listenForEvents();
+        sockets && socketQ.listenForEvents();
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
         process.exit(1);

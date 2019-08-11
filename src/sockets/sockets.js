@@ -11,7 +11,7 @@ async function throttledConnect(throttle, connection, host, port, tls, opts) {
 }
 
 async function run() {
-    let app = await require('../libs/bootstrap')('sockets');
+    let app = await require('../libs/bootstrap')('sockets', {type: 'server'});
 
     let cons = new Map();
     let connectThrottler = new Throttler(app.conf.get('connections.throttle', 1000));
@@ -20,7 +20,7 @@ async function run() {
     app.queue.sendToWorker('reset', {reason: 'startup'});
 
     broadcastStats(app);
-    app.queue.listenForEvents(app.queue.queueToSockets);
+    app.queue.listenForEvents();
 
     app.queue.on('connection.data', async (event) => {
         let con = cons.get(event.id);

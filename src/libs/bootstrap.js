@@ -1,4 +1,5 @@
-const Queue = require('../libs/queue');
+const IpcQueue = require('../libs/ipcqueue');
+const AmqpQueue = require('../libs/queue');
 const Stats = require('../libs/stats');
 const Config = require('../libs/config');
 
@@ -77,7 +78,7 @@ function createLogger(label) {
     return logger;
 }
 
-module.exports = async function bootstrap(label) {
+module.exports = async function bootstrap(label, opts={}) {
     process.title = 'kiwibnc-' + label;
 
     // Helper global logger
@@ -117,15 +118,22 @@ module.exports = async function bootstrap(label) {
     let stats = Stats.instance(statsConfig);
     stats.increment('processstart');
 
-    let queue = new Queue(conf.get('queue.host', 'amqp://localhost'), {
-        sockets: conf.get('queue.sockets_queue'),
-        worker: conf.get('queue.worker_queue'),
-    });
+    let queue = null;
+    if (conf.get('queue.amqp_host')) {
+        queue = new AmqpQueue(conf);
+    } else {
+        queue = new IpcQueue(conf);
+    }
 
     try {
-        await queue.connect();
+        if (opts.type === 'server') {
+            await queue.initServer();
+        } else if (opts.type === 'worker') {
+            await queue.initWorker();
+        }
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
+        console.error(err);
         process.exit(1);
     }
 
