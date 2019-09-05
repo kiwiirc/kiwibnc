@@ -148,7 +148,7 @@ module.exports = class IpcQueue extends EventEmitter {
     }
 
     async triggerPayload(payload) {
-        l.debug('Queue received:', payload);
+        l.trace('Queue received:', payload);
         let obj = null;
         try {
             obj = JSON.parse(payload);

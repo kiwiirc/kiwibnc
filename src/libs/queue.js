@@ -6,8 +6,8 @@ module.exports = class Queue extends EventEmitter {
     constructor(conf) {
         super();
         this.host = conf.get('queue.amqp_host', 'amqp://localhost');
-        this.queueToSockets = conf.get('queue.sockets_queue', 'control');
-        this.queueToWorker = conf.get('queue.worker_queue', 'connections');
+        this.queueToSockets = conf.get('queue.sockets_queue', 'q_sockets');
+        this.queueToWorker = conf.get('queue.worker_queue', 'q_worker');
         this.channel = null;
         this.consumerTag = '';
         this.closing = false;
@@ -85,7 +85,7 @@ module.exports = class Queue extends EventEmitter {
 
             let id = 'msg' + ++nextMsgId;
             let msg = msgQueue.shift();
-            l.debug('Queue received:', id, msg.content.toString());
+            l.trace('Queue received:', id, msg.content.toString());
             let obj = JSON.parse(msg.content.toString());
 
             if (!obj || obj.length !== 2) {
