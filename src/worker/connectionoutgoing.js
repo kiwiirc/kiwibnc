@@ -12,6 +12,10 @@ function hotReloadUpstreamCommands() {
 
 hotReloadUpstreamCommands();
 
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min) + min);
+}
+
 class ConnectionOutgoing {
     constructor(_id, db, messages, queue, conDict) {
         let id = _id || uuidv4();
@@ -59,7 +63,9 @@ class ConnectionOutgoing {
             return;
         }
 
-        this.queue.sendToSockets('connection.open', connection);
+        if (connection.host && connection.port) {
+            this.queue.sendToSockets('connection.open', connection);
+        }
     }
 
     write(data) {
@@ -133,6 +139,9 @@ class ConnectionOutgoing {
     }
 
     async onUpstreamClosed(err) {
+        let shouldReconnect = this.state.connected &&
+            this.state.netRegistered;
+
         this.state.connected = false;
         this.state.netRegistered = false;
         this.state.receivedMotd = false;
@@ -158,6 +167,15 @@ class ConnectionOutgoing {
                 client.registerLocalClient();
             }
         });
+
+        if (shouldReconnect) {
+            let reconnectTimeout = rand(500, 5000);
+            l('Reconnecting in ' + reconnectTimeout + 'ms');
+
+            setTimeout(() => {
+                this.open();
+            }, reconnectTimeout);
+        }
     }
 
     iSupportToken(tokenName) {

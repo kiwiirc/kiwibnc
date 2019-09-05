@@ -106,10 +106,12 @@ class ConnectionState {
 
     async loadConnectionInfo() {
         let net = await this.db.users.getNetwork(this.authNetworkId);
-        let bindHost = net.bind_host;
+        let bindHost = '';
 
         // If a network doesn't have a bindHost, check if it's user has a global one instead
-        if (!bindHost) {
+        if (net && net.bind_host) {
+            bindHost = net.bind_host;
+        } else if (net && !net.bind_host) {
             let user = await this.db.factories.User.query().where('id', this.authUserId).first();
             if (user && user.bind_host) {
                 bindHost = user.bind_host;
@@ -123,6 +125,14 @@ class ConnectionState {
             this.tls = !!net.tls;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
             this.nick = net.nick;
+        } else {
+            // This network wasn't found in the database. Maybe it was deleted
+            this.bindHost = '';
+            this.host = '';
+            this.port = 0;
+            this.tls = false;
+            this.sasl = { account: '', password: '' };
+            this.nick = '';
         }
     }
     async load() {
