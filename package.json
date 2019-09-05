@@ -2,7 +2,7 @@
   "name": "statebnc",
   "version": "1.0.0",
   "description": "",
-  "main": "queue.js",
+  "main": "src/server.js",
   "dependencies": {
     "amqplib": "^0.5.5",
     "bcrypt": "^3.0.6",
@@ -23,7 +23,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js"
   },
   "author": "",
   "license": "ISC"
