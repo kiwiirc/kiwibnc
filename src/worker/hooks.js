@@ -83,6 +83,33 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         }
     });
 
+    // message-tags (and msgid, c2ctags, etc) support
+    commandHooks.on('available_caps', event => {
+        event.caps.add('message-tags');
+    });
+    commandHooks.on('message_to_client', event => {
+        let m = event.message;
+        if (!event.client.state.caps.has('message-tags')) {
+            if (m.command === 'TAGMSG') {
+                event.preventDefault();
+                return;
+            }
+
+            let initialTags = Object.keys(m.tags);
+            for (let i = 0; i < initialTags.length; i++) {
+                let key = initialTags[i];
+                if (key.startsWith('+') && m.tags[key]) {
+                    delete m.tags[key];
+                } else if (key.toLowerCase() == 'msgid' && m.tags[key]) {
+                    delete m.tags[key];
+                }
+                //TODO: move all the specific tag-blocking done by other handlers
+                //  into this one or something similar, since message-tags allows
+                //  any c2c or regular tag
+            }
+        }
+    });
+
     // multi-prefix support
     commandHooks.on('available_caps', event => {
         event.caps.add('multi-prefix');
