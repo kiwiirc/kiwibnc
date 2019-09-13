@@ -197,6 +197,11 @@ class ConnectionOutgoing {
         l('Reconnection attempt ' + numAttempts + ' in ' + reconnectTimeout + 'ms');
 
         setTimeout(() => {
+            // The user may have forced a reconnect since
+            if (this.state.connected) {
+                return;
+            }
+
             this.open();
         }, reconnectTimeout);
     }
