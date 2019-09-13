@@ -61,6 +61,7 @@ async function handleCommand(event) {
 };
 
 async function commandAround(msg, con, messageDb) {
+    // TODO: implement this
     con.writeMsg(
         'FAIL',
         'CHATHISTORY',
@@ -77,12 +78,11 @@ async function commandBetween(msg, con, messageDb) {
     let toMsgRef = parseReference(mParam(msg, 3, ''));
     let paramLimit = parseLimit(mParam(msg, 4, ''), MAX_MESSAGES);
 
-    // We want to get messages between msgRef and NOW(), max paramLimit messages
     if (
         (fromMsgRef.type === 'timestamp' || fromMsgRef.type === 'msgid') &&
         (toMsgRef.type === 'timestamp' || toMsgRef.type === 'msgid')
     ) {
-        // messageDb requires timestands in numeric format
+        // messageDb requires timestanps in numeric format
         if (fromMsgRef.type === 'timestamp') {
             fromMsgRef.value = dateToTs(fromMsgRef.value);
         }
