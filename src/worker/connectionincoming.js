@@ -102,10 +102,13 @@ class ConnectionIncoming {
             msgObj = msg;
         }
 
-        return hooks.emit('message_to_client', {client: this, message: msgObj}).then(hook => {
-            if (!hook.prevent) {
-                this.write(msgObj.to1459() + '\r\n');
+        return hooks.emit('message_to_client', {client: this, message: msgObj, raw: ''}).then(hook => {
+            if (hook.prevent) {
+                return;
             }
+
+            let toWrite = hook.event.raw || msgObj.to1459() + '\r\n';
+            this.write(toWrite);
         });
     }
 
