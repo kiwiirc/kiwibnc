@@ -1,6 +1,8 @@
 const Irc = require('irc-framework');
 const { mParam, mParamU } = require('../../../libs/helpers');
 
+const MAX_MESSAGES = 50;
+
 let stats = null;
 
 module.exports.init = async function init(hooks, app) {
@@ -13,8 +15,7 @@ module.exports.init = async function init(hooks, app) {
     });
 
     hooks.on('available_isupports', async event => {
-        // 50 = max messages to request
-        event.tokens.push('CHATHISTORY=50');
+        event.tokens.push('CHATHISTORY=' + MAX_MESSAGES);
     });
 };
 
@@ -74,7 +75,7 @@ async function commandBetween(msg, con, messageDb) {
     let target = mParam(msg, 1, '');
     let fromMsgRef = parseReference(mParam(msg, 2, ''));
     let toMsgRef = parseReference(mParam(msg, 3, ''));
-    let paramLimit = parseLimit(mParam(msg, 4, ''), 50);
+    let paramLimit = parseLimit(mParam(msg, 4, ''), MAX_MESSAGES);
 
     // We want to get messages between msgRef and NOW(), max paramLimit messages
     if (
@@ -114,7 +115,7 @@ async function commandLatest(msg, con, messageDb) {
     let messages = [];
     let target = mParam(msg, 1, '');
     let msgRef = parseReference(mParam(msg, 2, ''));
-    let paramLimit = parseLimit(mParam(msg, 3, ''), 50);
+    let paramLimit = parseLimit(mParam(msg, 3, ''), MAX_MESSAGES);
 
     // We want to get messages between msgRef and NOW(), max paramLimit messages
     if (msgRef.type === 'timestamp') {
@@ -146,7 +147,7 @@ async function commandBeforeOrAfter(msg, con, messageDb) {
     let subCmd = mParamU(msg, 0, '');
     let target = mParam(msg, 1, '');
     let msgRef = parseReference(mParam(msg, 2, ''));
-    let paramLimit = parseLimit(mParam(msg, 3, ''), 50);
+    let paramLimit = parseLimit(mParam(msg, 3, ''), MAX_MESSAGES);
 
     if (msgRef.type === 'timestamp') {
         let ts = dateToTs(msgRef.value);
