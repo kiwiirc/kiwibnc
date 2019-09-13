@@ -114,14 +114,16 @@ class ConnectionOutgoing {
         }
     }
 
-    onUpstreamConnected() {
+    async onUpstreamConnected() {
         // Reset some state. They will be re-populated when upstream sends its registration burst again
         this.state.connected = true;
         this.state.netRegistered = false;
         this.state.receivedMotd = false;
         this.state.isupports = [];
         this.state.registrationLines = [];
-        this.state.save();
+
+        // tempSet() saves the state
+        await this.state.tempSet('reconnecting', null);
 
         hooks.emit('connection_open', {upstream: this});
 
@@ -139,6 +141,12 @@ class ConnectionOutgoing {
     }
 
     async onUpstreamClosed(err) {
+        // If we were trying to reconnect, continue with that instead
+        if (this.state.tempGet('reconnecting')) {
+            this.reconnect();
+            return;
+        }
+
         let shouldReconnect = this.state.connected &&
             this.state.netRegistered;
 
@@ -147,7 +155,14 @@ class ConnectionOutgoing {
         this.state.receivedMotd = false;
 
         for (let chanName in this.state.buffers) {
-            this.state.buffers[chanName].joined = false;
+            let channel = this.state.buffers[chanName];
+            if (channel.joined) {
+                this.forEachClient(async (client) => {
+                    await client.writeMsgFrom(client.state.nick, 'PART', channel.name);
+                });
+            }
+
+            channel.joined = false;
         }
 
         await this.state.save();
@@ -169,13 +184,21 @@ class ConnectionOutgoing {
         });
 
         if (shouldReconnect) {
-            let reconnectTimeout = rand(500, 5000);
-            l('Reconnecting in ' + reconnectTimeout + 'ms');
-
-            setTimeout(() => {
-                this.open();
-            }, reconnectTimeout);
+            this.reconnect();
         }
+    }
+
+    async reconnect() {
+        let numAttempts = this.state.tempGet('reconnecting') || 0;
+        numAttempts++;
+        await this.state.tempSet('reconnecting', numAttempts);
+
+        let reconnectTimeout = (Math.min(numAttempts ** 2, 60) * 1000) + rand(300, 5000);
+        l('Reconnection attempt ' + numAttempts + ' in ' + reconnectTimeout + 'ms');
+
+        setTimeout(() => {
+            this.open();
+        }, reconnectTimeout);
     }
 
     iSupportToken(tokenName) {

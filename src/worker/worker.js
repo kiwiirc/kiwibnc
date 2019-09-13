@@ -136,7 +136,7 @@ function listenToQueue(app) {
     app.queue.on('connection.open', async (event) => {
         let con = cons.get(event.id);
         if (con) {
-            con.onUpstreamConnected();
+            await con.onUpstreamConnected();
         }
     });
     app.queue.on('connection.close', async (event) => {
