@@ -13,6 +13,7 @@ While KiwiBNC is already in use for single users and some networks it is current
 For general usage it is working and is currently being put to the test in live environments. However, as we learn more on how people use the project things may change at the moment.
 
 ## TODO
+* Single binary downloads
 * Plain text file message logs
 * Web admin interface
 * Websocket support
@@ -20,15 +21,20 @@ For general usage it is working and is currently being put to the test in live e
 ## Installation
 
 ### Prerequisites
+Make sure to have installed on your system:
 * nodejs
 * npm
 
+### Download and install
 ```shell
 $ git clone https://github.com/kiwiirc/kiwibnc.git
 $ cd kiwibnc
+$ npm install
 ```
 
 ## Usage
+After installing, take a glance over `config.ini` and make sure it suits your needs. It should work out of the box for most people.
+
 #### Add a user
 ```shell
 $ npm start adduser
