@@ -81,6 +81,7 @@ Send `help` to `*bnc` for all the commands you can send.
 * account-tag
 * extended-join
 * userhost-in-names
+* message-tags
 
 ### Client <> KiwiBNC spec support:
 * batch
@@ -91,6 +92,7 @@ Send `help` to `*bnc` for all the commands you can send.
 * extended-join
 * multi-prefix
 * userhost-in-names
+* message-tags
 
 ## License
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
