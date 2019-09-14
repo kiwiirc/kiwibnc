@@ -28,9 +28,41 @@ $ cd kiwibnc
 ```
 
 ## Usage
+#### Add a user
+```shell
+$ npm start adduser
+
+> statebnc@1.0.0 start /home/kiwibnc
+> node src/server.js "adduser"
+
+01:09:17 [adduser] l_info ## Starting adduser ##
+01:09:17 [adduser] l_info Using config file ./config.ini
+Username: someuser
+Password: ****
+Admin account? n
+Added new user someuser
+```
+
+#### Starting the bouncer
 ```shell
 $ npm start
 ```
+
+#### Adding networks and controlling your bouncer
+Connect to your bouncer via your IRC client. Your password should be in the form of `username:password`. Once connected you will receive a private message from `*bnc` - this is your bouncer control buffer.
+
+```
+01:12 -!- Irssi: Starting query in localhost with *bnc
+01:12 <*bnc> Welcome to your BNC!
+01:12 <someuser> addnetwork
+01:12 <*bnc> Usage: addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick
+01:12 <*bnc> Available fields: name, server, port, tls, nick, username, realname, password
+01:12 <someuser> addnetwork name=freenode server=irc.freenode.net port=6667 nick=somenick
+01:12 <*bnc> New network saved. You can now login using your_username/freenode:your_password
+```
+
+Send `help` to `*bnc` for all the commands you can send.
+
 
 ## IRCv3 support
 
