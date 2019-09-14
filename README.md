@@ -5,6 +5,7 @@
 * Extensible via javascript plugins
 * Use with older or modern IRCv3 clients
 * Message storage via sqlite database
+* RabbitMQ support for larger deployments
 
 ## Status
 While KiwiBNC is already in use for single users and some networks it is currently in development and may break. If you require 100% uptime and rely on your BNC for your health, do not use it yet.
