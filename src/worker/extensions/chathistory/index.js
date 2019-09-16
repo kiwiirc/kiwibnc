@@ -217,6 +217,12 @@ function dateToTs(str) {
 // Convert 'timestamp=1234' or 'msgid=1234' into an object {type:msgid, value:1234}
 function parseReference(str) {
     let ret = { type: '', value: '' };
+
+    if (str === '*') {
+        ret.type = 'timestamp';
+        ret.value = Date.now();
+    }
+
     let pos = str.indexOf('=');
     if (pos <= 0) {
         return ret;
