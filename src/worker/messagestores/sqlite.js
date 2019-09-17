@@ -85,7 +85,44 @@ class SqliteMessageStore {
         return null;
     }
 
-    async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) { }
+    async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) {
+        let messagesTmr = this.stats.timerStart('lookup.time');
+
+        let stmt = this.db.prepare(`
+            SELECT
+                user_id,
+                network_id,
+                (SELECT data FROM data WHERE id = bufferref) as buffer,
+                time,
+                type,
+                msgid,
+                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
+                (SELECT data FROM data WHERE id = paramsref) as params,
+                (SELECT data FROM data WHERE id = dataref) as data,
+                (SELECT data FROM data WHERE id = prefixref) as prefix
+            FROM logs
+            WHERE
+                user_id = :user_id
+                AND network_id = :network_id
+                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND time > (SELECT time FROM logs WHERE msgid = :msgid)
+            ORDER BY time
+            LIMIT :limit
+        `);
+        let rows = stmt.all({
+            user_id: userId,
+            network_id: networkId,
+            buffer: buffer,
+            msgid: fromMsgId,
+            limit: length || 50,
+        });
+
+        let messages = dbRowsToMessage(rows);
+
+        messagesTmr.stop();
+        return messages;
+    }
+
     async getMessagesFromTime(userId, networkId, buffer, fromTime, length) {
         let messagesTmr = this.stats.timerStart('lookup.time');
 
@@ -118,26 +155,52 @@ class SqliteMessageStore {
             limit: length || 50,
         });
 
-        let messages = rows.map((row) => {
-            let m = new IrcMessage();
-            if (row.type === MSG_TYPE_PRIVMSG) {
-                m.command = 'PRIVMSG';
-            } else if (m.type === MSG_TYPE_NOTICE) {
-                m.command = 'NOTICE'
-            }
-
-            m.prefix = row.prefix;
-            m.tags = JSON.parse(row.msgtags);
-            m.tags.time = m.tags.time || isoTime(new Date(row.time));
-            m.params = row.params.split(' ');
-            m.params.push(row.data);
-
-            return m;
-        });
+        let messages = dbRowsToMessage(rows);
 
         messagesTmr.stop();
         return messages;
     }
+
+    async getMessagesBeforeMsgId(userId, networkId, buffer, msgId, length) {
+        let messagesTmr = this.stats.timerStart('lookup.time');
+
+        let stmt = this.db.prepare(`
+            SELECT
+                user_id,
+                network_id,
+                (SELECT data FROM data WHERE id = bufferref) as buffer,
+                time,
+                type,
+                msgid,
+                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
+                (SELECT data FROM data WHERE id = paramsref) as params,
+                (SELECT data FROM data WHERE id = dataref) as data,
+                (SELECT data FROM data WHERE id = prefixref) as prefix
+            FROM logs
+            WHERE
+                user_id = :user_id
+                AND network_id = :network_id
+                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND time <= (SELECT time FROM logs WHERE msgid = :msgid)
+            ORDER BY time DESC
+            LIMIT :limit
+        `);
+        let rows = stmt.all({
+            user_id: userId,
+            network_id: networkId,
+            buffer: buffer,
+            msgid: msgId,
+            limit: length || 50,
+        });
+        // We ordered the messages DESC in the query, so reverse them back into the correct order
+        rows.reverse();
+
+        let messages = dbRowsToMessage(rows);
+
+        messagesTmr.stop();
+        return messages;
+    }
+
     async getMessagesBeforeTime(userId, networkId, buffer, fromTime, length) {
         let messagesTmr = this.stats.timerStart('lookup.time');
 
@@ -172,22 +235,69 @@ class SqliteMessageStore {
         // We ordered the messages DESC in the query, so reverse them back into the correct order
         rows.reverse();
 
-        let messages = rows.map((row) => {
-            let m = new IrcMessage();
-            if (row.type === MSG_TYPE_PRIVMSG) {
-                m.command = 'PRIVMSG';
-            } else if (m.type === MSG_TYPE_NOTICE) {
-                m.command = 'NOTICE'
-            }
+        let messages = dbRowsToMessage(rows);
 
-            m.prefix = row.prefix;
-            m.tags = JSON.parse(row.msgtags);
-            m.tags.time = m.tags.time || isoTime(new Date(row.time));
-            m.params = row.params.split(' ');
-            m.params.push(row.data);
+        messagesTmr.stop();
+        return messages;
+    }
 
-            return m;
-        });
+    async getMessagesBetween(userId, networkId, buffer, from, to, length) {
+        let messagesTmr = this.stats.timerStart('lookup.time');
+
+        let fromSql = '';
+        let toSql = '';
+        let sqlParams = {
+            user_id: userId,
+            network_id: networkId,
+            buffer: buffer,
+            limit: length || 50,
+        };
+
+        // from is inclusive
+        if (from.type === 'timestamp') {
+            fromSql = 'AND time >= :fromTime';
+            sqlParams.fromTime = from.value;
+        } else if (from.type === 'msgid') {
+            fromSql = 'AND time >= (SELECT time FROM logs WHERE msgid = :fromMsgid)';
+            sqlParams.fromMsgid = from.value;
+        }
+
+        // to is excluding
+        if (to.type === 'timestamp') {
+            toSql = 'AND time < :toTime';
+            sqlParams.toTime = to.value;
+        } else if (to.type === 'msgid') {
+            toql = 'AND time < (SELECT time FROM logs WHERE msgid = :toMsgid)';
+            sqlParams.toMsgid = to.value;
+        }
+
+        let stmt = this.db.prepare(`
+            SELECT
+                user_id,
+                network_id,
+                (SELECT data FROM data WHERE id = bufferref) as buffer,
+                time,
+                type,
+                msgid,
+                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
+                (SELECT data FROM data WHERE id = paramsref) as params,
+                (SELECT data FROM data WHERE id = dataref) as data,
+                (SELECT data FROM data WHERE id = prefixref) as prefix
+            FROM logs
+            WHERE
+                user_id = :user_id
+                AND network_id = :network_id
+                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
+                ${fromSql}
+                ${toSql}
+            ORDER BY time DESC
+            LIMIT :limit
+        `);
+        let rows = stmt.all(sqlParams);
+        // We ordered the messages DESC in the query, so reverse them back into the correct order
+        rows.reverse();
+
+        let messages = dbRowsToMessage(rows);
 
         messagesTmr.stop();
         return messages;
@@ -279,4 +389,23 @@ function bufferNameIfPm(message, nick, messageNickIdx) {
     } else {
         return message.params[messageNickIdx];
     }
+}
+
+function dbRowsToMessage(rows) {
+    return rows.map((row) => {
+        let m = new IrcMessage();
+        if (row.type === MSG_TYPE_PRIVMSG) {
+            m.command = 'PRIVMSG';
+        } else if (m.type === MSG_TYPE_NOTICE) {
+            m.command = 'NOTICE'
+        }
+
+        m.prefix = row.prefix;
+        m.tags = JSON.parse(row.msgtags);
+        m.tags.time = m.tags.time || isoTime(new Date(row.time));
+        m.params = row.params.split(' ');
+        m.params.push(row.data);
+
+        return m;
+    });
 }
