@@ -1,7 +1,7 @@
 {
-  "name": "statebnc",
+  "name": "kiwibnc",
   "version": "1.0.0",
-  "description": "",
+  "description": "Multi user IRC bouncer",
   "main": "src/server.js",
   "dependencies": {
     "amqplib": "^0.5.5",
@@ -26,6 +26,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js"
   },
-  "author": "",
-  "license": "ISC"
+  "bin": {
+    "kiwibnc": "src/server.js"
+  },
+  "author": "Darren WHitlen <darren@kiwiirc.com>",
+  "license": "Apache-2.0"
 }
