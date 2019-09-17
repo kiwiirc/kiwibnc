@@ -1,6 +1,6 @@
 {
   "name": "kiwibnc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Multi user IRC bouncer",
   "main": "src/server.js",
   "dependencies": {

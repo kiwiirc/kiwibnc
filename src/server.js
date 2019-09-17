@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const commander = require('commander');
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
