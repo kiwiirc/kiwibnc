@@ -124,7 +124,12 @@ class ConnectionState {
             this.port = net.port;
             this.tls = !!net.tls;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
-            this.nick = net.nick;
+
+            // We don't update the current nick if we're connected already as that would then
+            // take us out of sync with the current IRC state
+            if (!this.connected) {
+                this.nick = net.nick;
+            }
         } else {
             // This network wasn't found in the database. Maybe it was deleted
             this.bindHost = '';
@@ -132,7 +137,12 @@ class ConnectionState {
             this.port = 0;
             this.tls = false;
             this.sasl = { account: '', password: '' };
-            this.nick = '';
+
+            // We don't update the current nick if we're connected already as that would then
+            // take us out of sync with the current IRC state
+            if (!this.connected) {
+                this.nick = '';
+            }
         }
     }
     async load() {
