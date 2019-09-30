@@ -86,6 +86,7 @@ module.exports = class SocketConnection extends EventEmitter {
             this.sock = tls.connect({
                 socket: this.sock,
                 servername: tlsOpts.servername || undefined,
+                rejectUnauthorized: tlsOpts.tlsverify
             });
 
             bindEvents();
@@ -110,7 +111,7 @@ module.exports = class SocketConnection extends EventEmitter {
         };
 
         sock.connect(connectOpts);
-        this.socketLifecycle(useTls ? { servername: opts.servername } : null);
+        this.socketLifecycle(useTls ? { servername: opts.servername, tlsverify: opts.tlsverify } : null);
     }
 
     close() {

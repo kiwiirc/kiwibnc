@@ -51,6 +51,7 @@ class ConnectionOutgoing {
             host: this.state.host,
             port: this.state.port,
             tls: this.state.tls,
+            tlsverify: this.state.tlsverify,
             id: this.id,
             bindAddress: this.state.bindHost || '',
             family: undefined,

@@ -42,6 +42,7 @@ class ConnectionState {
         this.host = '';
         this.port = 6667;
         this.tls = false;
+        this.tlsverify = true;
         this.bindHost = '';
         this.type = 0; // 0 = outgoing, 1 = incoming, 2 = server
         this.connected = false;
@@ -81,6 +82,7 @@ class ConnectionState {
             host: this.host,
             port: this.port,
             tls: this.tls,
+            tlsverify: this.tlsverify,
             type: this.type,
             account: this.account,
             connected: this.connected,
@@ -123,6 +125,7 @@ class ConnectionState {
             this.host = net.host;
             this.port = net.port;
             this.tls = !!net.tls;
+            this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
 
             // We don't update the current nick if we're connected already as that would then
@@ -161,6 +164,7 @@ class ConnectionState {
             this.host = row.host;
             this.port = row.port;
             this.tls = row.tls;
+            this.tlsverify = row.tlsverify;
             this.type = row.type;
             this.sasl = JSON.parse(row.sasl || '{"account":"","password":""}');
             this.connected = row.connected;

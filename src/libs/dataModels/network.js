@@ -31,6 +31,9 @@ class Network extends DatabaseSavable {
     get tls() { return this.getData('tls'); }
     set tls(newVal) { return this.setData('tls', newVal); }
     
+    get tlsverify() { return this.getData('tlsverify'); }
+    set tlsverify(newVal) { return this.setData('tlsverify', newVal); }
+
     get nick() { return this.getData('nick'); }
     set nick(newVal) { return this.setData('nick', newVal); }
     
