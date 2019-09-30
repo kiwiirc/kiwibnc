@@ -57,6 +57,7 @@ async function run() {
             bindPort: event.bindPort,
             family: event.family,
             servername: event.servername,
+            tlsverify: event.tlsverify,
         });
     });
 

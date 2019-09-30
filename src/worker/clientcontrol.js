@@ -173,6 +173,7 @@ commands.CHANGENETWORK = {
             address: 'host',
             port: {column: 'port', type: 'number'},
             tls: {column: 'tls', type: 'bool'},
+            tlsverify: {column: 'tlsverify', type: 'bool'},
             ssl: {column: 'tls', type: 'bool'},
             secure: {column: 'tls', type: 'bool'},
             nick: 'nick',
@@ -236,7 +237,7 @@ commands.CHANGENETWORK = {
             con.writeStatus(`Updated network`);
         } else {
             con.writeStatus(`Usage: changenetwork server=irc.example.net port=6697 tls=yes`);
-            con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password, account, account_password`);
+            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password`);
         }
     },
 };
@@ -259,6 +260,7 @@ commands.ADDNETWORK = {
             address: 'host',
             port: {column: 'port', type: 'number'},
             tls: {column: 'tls', type: 'bool'},
+            tlsverify: {column: 'tlsverify', type: 'bool'},
             ssl: {column: 'tls', type: 'bool'},
             secure: {column: 'tls', type: 'bool'},
             nick: 'nick',
@@ -323,7 +325,7 @@ commands.ADDNETWORK = {
         if (missingFields.length > 0) {
             con.writeStatus('Missing fields: ' + missingFields.join(', '));
             con.writeStatus(`Usage: addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick`);
-            con.writeStatus(`Available fields: name, server, port, tls, nick, username, realname, password`);
+            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password`);
             return;
         }
 

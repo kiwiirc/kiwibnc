@@ -115,6 +115,7 @@ async function handleBouncerCommand(event) {
             parts.push('host=' + net.host);
             parts.push('port=' + net.port);
             parts.push('tls=' + (net.tls ? '1' : '0'));
+            parts.push('tlsverify=' + (net.tlsverify ? '1' : '0'));
             parts.push('host=' + net.host);
 
             let netCon = con.conDict.findUsersOutgoingConnection(con.state.authUserId, net.id);
@@ -275,6 +276,7 @@ async function handleBouncerCommand(event) {
                 host: tags.host || '',
                 port: port,
                 tls: (tags.tls === '1'),
+                tlsverify: (tags.tlsverify === '1'),
                 nick: tags.nick || '',
                 username: tags.user || '',
                 realname: '-',
@@ -325,6 +327,10 @@ async function handleBouncerCommand(event) {
             netUpdates.tls = (tags.tls === '1');
         }
 
+        if (tags.tlsverify) {
+            netUpdates.tlsverify = (tags.tlsverify === '1');
+        }
+
         if (tags.nick) {
             netUpdates.nick = tags.nick;
         }
@@ -359,6 +365,10 @@ async function handleBouncerCommand(event) {
 
                 if (prop === 'tls') {
                     upstream.state.tls = netUpdates.tls;
+                }
+
+                if (prop === 'tls') {
+                    upstream.state.tlsverify = netUpdates.tlsverify;
                 }
 
                 if (prop === 'user') {
