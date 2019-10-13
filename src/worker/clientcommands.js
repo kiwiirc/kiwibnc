@@ -251,12 +251,7 @@ commands.NOTICE = async function(msg, con) {
     }, con);
 
     if (con.upstream && con.upstream.state.logging) {
-        await con.messages.storeMessage(
-            con.upstream.state.authUserId,
-            con.upstream.state.authNetworkId,
-            msg,
-            con.upstream.state
-        );
+        await con.messages.storeMessage(msg, con.upstream, con);
     }
 };
 
@@ -276,12 +271,7 @@ commands.PRIVMSG = async function(msg, con) {
     }
 
     if (con.upstream && con.upstream.state.logging) {
-        await con.messages.storeMessage(
-            con.upstream.state.authUserId,
-            con.upstream.state.authNetworkId,
-            msg,
-            con.upstream.state
-        );
+        await con.messages.storeMessage(msg, con.upstream, con);
     }
 
     return true;

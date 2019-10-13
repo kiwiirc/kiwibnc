@@ -32,21 +32,20 @@ class FlatfileMessageStore {
     async getMessagesBetween(userId, networkId, buffer, from, to, length) {
     }
 
-    async storeMessage(userId, networkId, message, conState) {
+    async storeMessage(message, upstreamCon, clientCon) {
         if (!this.logsDir) {
             return;
         }
 
         let line = '';
-        let bufferName = bufferNameIfPm(message, conState.nick, 0);
+        let bufferName = bufferNameIfPm(message, upstreamCon.state.nick, 0);
         // Messages such as this we don't want to log
         // :2.chimera.network.irc.com NOTICE * :*** Looking up your hostname...
         if (bufferName === '*') {
             return;
         }
 
-        // If no prefix, it's because we're sending it upstream (from the client)
-        let prefix = message.nick || conState.nick;
+        let prefix = clientCon ? clientCon.state.nick : message.nick;
         let time = message.tags.time ? isoTime(new Date(message.tags.time)) : isoTime();
 
         if (message.command === 'PRIVMSG') {
@@ -73,8 +72,10 @@ class FlatfileMessageStore {
             return;
         }
 
-        let logFile = path.join(this.logsDir, conState.authNetworkName.toLowerCase(), bufferName.toLowerCase() + '.log');
-        fs.mkdirSync(path.join(this.logsDir, conState.authNetworkName.toLowerCase()), {recursive: true});
+        let netName = upstreamCon.state.authNetworkName.toLowerCase();
+        let logsDir = path.join(this.logsDir, netName);
+        let logFile = path.join(logsDir, bufferName.toLowerCase() + '.log');
+        fs.mkdirSync(logsDir, {recursive: true});
         fs.appendFileSync(logFile, line + '\n');
     }
 }

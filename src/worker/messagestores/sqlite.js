@@ -318,7 +318,10 @@ class SqliteMessageStore {
             return;
         }
 
-        let {userId, networkId, message, conState} = args;
+        let {message, upstreamCon, clientCon} = args;
+        let conState = upstreamCon.state;
+        let userId = conState.authUserId;
+        let networkId = conState.authNetworkId;
 
         let bufferName = '';
         let type = 0;
@@ -326,7 +329,7 @@ class SqliteMessageStore {
         let params = '';
         let msgId = '';
         // If no prefix, it's because we're sending it upstream (from the client)
-        let prefix = message.prefix || conState.nick;
+        let prefix = clientCon ? clientCon.state.nick : message.nick;
         let time = new Date(message.tags.time || isoTime());
 
         if (message.command === 'PRIVMSG') {
@@ -377,8 +380,8 @@ class SqliteMessageStore {
         this.storeMessageLoop();
     }
 
-    async storeMessage(userId, networkId, message, conState) {
-        this.storeQueue.push({userId, networkId, message, conState});
+    async storeMessage(message, upstreamCon, clientCon) {
+        this.storeQueue.push({message, upstreamCon, clientCon});
         this.storeMessageLoop();
     }
 }
