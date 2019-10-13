@@ -302,7 +302,7 @@ class ConnectionIncoming {
 
         let con = this.upstream || new ConnectionOutgoing(null, this.db, this.messages, this.queue, this.conDict);
         con.state.authUserId = network.user_id;
-        con.state.authNetworkId = network.id;
+        con.state.setNetwork(network);
         con.state.host = network.host;
         con.state.port = network.port;
         con.state.tls = network.tls;

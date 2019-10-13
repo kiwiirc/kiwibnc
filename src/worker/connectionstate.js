@@ -98,6 +98,7 @@ class ConnectionState {
             net_registered: this.netRegistered,
             auth_user_id: this.authUserId,
             auth_network_id: this.authNetworkId,
+            auth_network_name: this.authNetworkName,
             auth_admin: this.authAdmin,
             linked_con_ids: JSON.stringify([...this.linkedIncomingConIds]),
             logging: this.logging,
@@ -105,6 +106,11 @@ class ConnectionState {
         });
         let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
         await this.db.run(sql);
+    }
+
+    setNetwork(network) {
+        this.authNetworkId = network.id;
+        this.authNetworkName = network.name;
     }
 
     async loadConnectionInfo() {
@@ -185,6 +191,7 @@ class ConnectionState {
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
+            this.authNetworkName = row.auth_network_name;
             this.authAdmin = !!row.auth_admin;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids || '[]'));
             this.logging = !!row.logging;

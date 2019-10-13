@@ -140,7 +140,7 @@ commands.ATTACH = async function(input, con, msg) {
         return;
     }
 
-    con.state.authNetworkId = network.id;
+    con.state.setNetwork(network);
     con.cachedUpstreamId = false;
 
     // Close any active upstream connections we have for this network

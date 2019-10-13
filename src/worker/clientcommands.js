@@ -107,13 +107,13 @@ async function maybeProcessRegistration(con) {
         con.state.authAdmin = !!hook.event.isAdmin;
 
         if (hook.event.network) {
-            con.state.authNetworkId = hook.event.network.id;
+            con.state.setNetwork(hook.event.network);
             network = hook.event.network;
         } else if (networkName) {
             // Extension authed the user but left the network to us
             network = await con.userDb.getNetworkByName(hook.event.userId, networkName);
             if (network) {
-                con.state.authNetworkId = network.id;
+                con.state.setNetwork(network);
             }
         }
 
@@ -131,8 +131,8 @@ async function maybeProcessRegistration(con) {
         }
 
         network = auth.network;
+        con.state.setNetwork(network);
         con.state.authUserId = network.user_id;
-        con.state.authNetworkId = network.id;
         con.state.authAdmin = auth.user && !!auth.user.admin;
     } else {
         // Logging into a user only mode (no attached network)
