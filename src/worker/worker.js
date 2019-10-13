@@ -1,6 +1,9 @@
 const path = require('path');
 const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
+const Koa = require('koa');
+const koaStatic = require('koa-static');
+const KoaRouter = require('koa-router');
 const Database = require('../libs/database');
 const Crypt = require('../libs/crypt');
 const Users = require('./users');
@@ -34,6 +37,7 @@ async function run() {
     // Container for all connection instances
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
+    initWebserver(app);
     initExtensions(app);
     broadcastStats(app);
     listenToQueue(app);
@@ -221,6 +225,25 @@ async function loadConnections(app) {
             });
         }
     });
+}
+
+async function initWebserver(app) {
+    app.webserver = new Koa();
+
+	const router = new KoaRouter();
+	app.webserver.use(router.routes());
+    app.webserver.use(router.allowedMethods());
+
+    app.webserver.use(koaStatic(app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http'))));
+
+    let bindMatch = app.conf.get('webserver.bind', '8080').match(/(?:(.+):)?([0-9]+)/);
+    let host = bindMatch[1] || '0.0.0.0';
+    let port = bindMatch[2] ? parseInt(bindMatch[2], 10) : 8080;
+
+    if (app.conf.get('webserver.enabled')) {
+        l.debug(`Webserver listening on http://${host}:${port}`);
+        app.webserver.listen(port);
+    }
 }
 
 module.exports = run();
