@@ -10,7 +10,10 @@ const MSG_TYPE_NOTICE = 2;
 
 class SqliteMessageStore {
     constructor(conf) {
-        this.db = new sqlite3(conf.db_path || './messages.db');
+        this.supportsWrite = true;
+        this.supportsRead = true;
+
+        this.db = new sqlite3(conf.database);
         this.stats = Stats.instance().makePrefix('messages');
 
         this.storeQueueLooping = false;

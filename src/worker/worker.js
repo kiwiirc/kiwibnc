@@ -4,7 +4,7 @@ const { ircLineParser } = require('irc-framework');
 const Database = require('../libs/database');
 const Crypt = require('../libs/crypt');
 const Users = require('./users');
-const MessageStore = require('./messagestores/sqlite');
+const MessageStores = require('./messagestores/');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
@@ -28,7 +28,7 @@ async function run() {
     app.userDb = new Users(app.db);
     app.db.users = app.userDb;
 
-    app.messages = new MessageStore(app.conf.get('messages', {}));
+    app.messages = new MessageStores(app.conf);
     await app.messages.init();
 
     // Container for all connection instances

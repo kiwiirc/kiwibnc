@@ -56,6 +56,7 @@ class ConnectionState {
         this.receivedMotd = false;
         this.authUserId = 0;
         this.authNetworkId = 0;
+        this.authNetworkName = '';
         this.authAdmin = false;
 
         // When an incoming connection finds its upstream, they add them here
@@ -127,6 +128,7 @@ class ConnectionState {
             this.tls = !!net.tls;
             this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
+            this.authNetworkName = net.name;
 
             // We don't update the current nick if we're connected already as that would then
             // take us out of sync with the current IRC state
