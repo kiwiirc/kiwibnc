@@ -14,7 +14,6 @@ For general usage it is working and is currently being put to the test in live e
 
 ## TODO
 * Single binary downloads
-* Plain text file message logs
 * Web admin interface
 * Websocket support
 
