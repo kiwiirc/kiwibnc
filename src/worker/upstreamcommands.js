@@ -300,6 +300,10 @@ commands.PING = async function(msg, con) {
 };
 
 commands.JOIN = async function(msg, con) {
+    if (con.state.logging) {
+        await con.messages.storeMessage(msg, con, null);
+    }
+
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
         return;
     }
@@ -315,6 +319,10 @@ commands.JOIN = async function(msg, con) {
 };
 
 commands.PART = async function(msg, con) {
+    if (con.state.logging) {
+        await con.messages.storeMessage(msg, con, null);
+    }
+
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
         return;
     }
@@ -380,6 +388,10 @@ commands['433'] = async function(msg, con) {
 };
 
 commands.NICK = async function(msg, con) {
+    if (con.state.logging) {
+        await con.messages.storeMessage(msg, con, null);
+    }
+
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
         // Someone elses nick changed. Update any buffers we have to their new nick
         let buffer = con.state.getBuffer(msg.nick);
@@ -400,7 +412,7 @@ commands.NICK = async function(msg, con) {
 
 commands.PRIVMSG = async function(msg, con) {
     if (con.state.logging) {
-        await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+        await con.messages.storeMessage(msg, con, null);
     }
 
     // Make sure we have this buffer
@@ -409,7 +421,7 @@ commands.PRIVMSG = async function(msg, con) {
 
 commands.NOTICE = async function(msg, con) {
     if (con.state.logging) {
-        await con.messages.storeMessage(con.state.authUserId, con.state.authNetworkId, msg, con.state);
+        await con.messages.storeMessage(msg, con, null);
     }
 
     // Make sure we have this buffer

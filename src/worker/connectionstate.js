@@ -56,6 +56,7 @@ class ConnectionState {
         this.receivedMotd = false;
         this.authUserId = 0;
         this.authNetworkId = 0;
+        this.authNetworkName = '';
         this.authAdmin = false;
 
         // When an incoming connection finds its upstream, they add them here
@@ -97,6 +98,7 @@ class ConnectionState {
             net_registered: this.netRegistered,
             auth_user_id: this.authUserId,
             auth_network_id: this.authNetworkId,
+            auth_network_name: this.authNetworkName,
             auth_admin: this.authAdmin,
             linked_con_ids: JSON.stringify([...this.linkedIncomingConIds]),
             logging: this.logging,
@@ -104,6 +106,11 @@ class ConnectionState {
         });
         let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
         await this.db.run(sql);
+    }
+
+    setNetwork(network) {
+        this.authNetworkId = network.id;
+        this.authNetworkName = network.name;
     }
 
     async loadConnectionInfo() {
@@ -127,6 +134,7 @@ class ConnectionState {
             this.tls = !!net.tls;
             this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
+            this.authNetworkName = net.name;
 
             // We don't update the current nick if we're connected already as that would then
             // take us out of sync with the current IRC state
@@ -183,6 +191,7 @@ class ConnectionState {
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
             this.authNetworkId = row.auth_network_id;
+            this.authNetworkName = row.auth_network_name;
             this.authAdmin = !!row.auth_admin;
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids || '[]'));
             this.logging = !!row.logging;
