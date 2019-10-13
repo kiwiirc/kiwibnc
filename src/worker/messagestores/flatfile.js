@@ -73,7 +73,7 @@ class FlatfileMessageStore {
         }
 
         let netName = upstreamCon.state.authNetworkName.toLowerCase();
-        let logsDir = path.join(this.logsDir, netName);
+        let logsDir = path.join(this.logsDir, String(upstreamCon.state.authUserId), netName);
         let logFile = path.join(logsDir, bufferName.toLowerCase() + '.log');
         fs.mkdirSync(logsDir, {recursive: true});
         fs.appendFileSync(logFile, line + '\n');
