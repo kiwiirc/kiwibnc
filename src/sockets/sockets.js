@@ -85,9 +85,15 @@ async function run() {
             return;
         }
 
-        let srv = event.type === 'ws' ?
-            new SocketServer(event.id, app.queue) :
-            new WsSocketServer(event.id, app.queue);
+        let srv = null;
+        if (!event.type || event.type === 'tcp') {
+            srv = new SocketServer(event.id, app.queue);
+        } else if (event.type === 'ws') {
+            srv = new WsSocketServer(event.id, app.queue);
+        } else {
+            l.error('Invalid server type for connection listen, ' + event.type);
+            return;
+        }
 
         addCon(srv);
         srv.listen(event.host, event.port || 0);

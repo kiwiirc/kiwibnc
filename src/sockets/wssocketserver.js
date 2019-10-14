@@ -8,14 +8,15 @@ module.exports = class WsSocketServer extends EventEmitter {
         this.id = conId;
         this.type = 3;
         this.server = null;
-
-        this.bindSocketEvents();
     }
 
     bindSocketEvents() {
         this.server.on('connection', (socket) => {
+            // Route some events and alias some methods to match what a connection instance expects
             socket.on('message', m => socket.emit('data', m + '\n'));
             socket.write = socket.send;
+            socket.end = socket.close;
+
             this.emit('connection.new', socket);
         });
         this.server.on('close', (withError) => {

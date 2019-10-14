@@ -187,9 +187,15 @@ async function startServers(app) {
     let binds = app.conf.get('listeners.bind', []);
 
     for (let i = 0; i < binds.length; i++) {
-        let parts = binds[i].split(':');
-        let host = parts[0] || '0.0.0.0';
-        let port = parseInt(parts[1] || '6667', 10);
+        let parts = parseBindString(binds[i]);
+        if (!parts) {
+            l.error('Invalid listening server type, ' + binds[i]);
+            return;
+        }
+
+        let host = parts.hostname || '0.0.0.0';
+        let port = parseInt(parts.port || '6667', 10);
+        let type = (parts.proto || 'tcp').toLowerCase();
 
         let exists = existingBinds.find((con) => {
             return con.host === host && con.port === port;
@@ -198,17 +204,29 @@ async function startServers(app) {
         !exists && app.queue.sendToSockets('connection.listen', {
             host: host,
             port: port,
+            type: type,
             id: uuidv4(),
         });
     }
 }
 
+// Parse a string such as tcp://hostname:1234/path into:
+// {proto:'tcp', hostname:'hostname', port:1234, path:'path'}
+function parseBindString(inp) {
+    let m = inp.match(/^(?:(?<proto>[^:]+)?:\/\/)?(?<hostname>[^:]+)(?::(?<port>[0-9]*))?(?<path>.*)$/);
+    if (!m) {
+        return;
+    }
+
+    return m.groups;
+}
+
 async function loadConnections(app) {
-    let rows = await app.db.all('SELECT conid, type, host, port FROM connections');
+    let rows = await app.db.all('SELECT conid, type, bind_host FROM connections');
     l.info(`Loading ${rows.length} connections`);
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
     rows.forEach(async (row) => {
-        l.debug(`connection ${row.conid} ${types[row.type]} ${row.host}:${row.port}`);
+        l.debug(`connection ${row.conid} ${types[row.type]} ${row.bind_host}`);
 
         if (row.type === ConnectionDict.TYPE_INCOMING) {
             app.cons.loadFromId(row.conid, row.type);
@@ -218,9 +236,19 @@ async function loadConnections(app) {
                 con.open();
             }
         } else if (row.type === ConnectionDict.TYPE_LISTENING) {
+            let parts = parseBindString(row.bind_host);
+            if (!parts) {
+                l.error('Invalid listening server type, ' + row.bind_host);
+                return;
+            }
+            let host = parts.hostname || '0.0.0.0';
+            let port = parseInt(parts.port || '6667', 10);
+            let type = (parts.proto || 'tcp').toLowerCase();
+
             app.queue.sendToSockets('connection.listen', {
-                host: row.host,
-                port: row.port,
+                host: host,
+                port: port,
+                type: type,
                 id: row.conid,
             });
         }
