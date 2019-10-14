@@ -258,7 +258,7 @@ async function loadConnections(app) {
 async function initWebserver(app) {
     app.webserver = new Koa();
 
-	const router = new KoaRouter();
+	let router = app.webserver.router = new KoaRouter();
 	app.webserver.use(router.routes());
     app.webserver.use(router.allowedMethods());
 
