@@ -14,6 +14,15 @@ module.exports = class Config extends EventEmitter {
         this.c = {};
     }
 
+    relativePath(pathInp) {
+        // Keep absolute paths as absolute
+        if (pathInp[0] === '/') {
+            return pathInp;
+        }
+
+        return path.join(this.baseDir, pathInp);
+    }
+
     load() {
         let confContent = fs.readFileSync(this.filePath);
         let confObj = toml.parse(confContent.toString());

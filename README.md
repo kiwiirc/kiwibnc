@@ -4,8 +4,9 @@
 * Zero downtime updates and restarts. Don't knock everyone offline because an update is available
 * Extensible via javascript plugins
 * Use with older or modern IRCv3 clients
-* Message storage via sqlite database
+* Message storage via sqlite database or plain text files
 * RabbitMQ support for larger deployments
+* Websocket support for direct web clients
 
 ## Status
 While KiwiBNC is already in use for single users and some networks it is currently in development and may break. If you require 100% uptime and rely on your BNC for your health, do not use it yet.
@@ -15,7 +16,6 @@ For general usage it is working and is currently being put to the test in live e
 ## TODO
 * Single binary downloads
 * Web admin interface
-* Websocket support
 
 ## Installation
 
