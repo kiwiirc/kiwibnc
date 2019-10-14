@@ -1,5 +1,6 @@
 const SocketConnection = require('./connection');
 const SocketServer = require('./socketserver');
+const WsSocketServer = require('./wssocketserver');
 const Throttler = require('../libs/throttler');
 
 // Wrapper around a connections connect() function so that connections to the
@@ -84,7 +85,10 @@ async function run() {
             return;
         }
 
-        let srv = new SocketServer(event.id, app.queue);
+        let srv = event.type === 'ws' ?
+            new SocketServer(event.id, app.queue) :
+            new WsSocketServer(event.id, app.queue);
+
         addCon(srv);
         srv.listen(event.host, event.port || 0);
 
