@@ -11,11 +11,15 @@ module.exports = class WsSocketServer extends EventEmitter {
     }
 
     bindSocketEvents() {
-        this.server.on('connection', (socket) => {
+        this.server.on('connection', (socket, req) => {
             // Route some events and alias some methods to match what a connection instance expects
             socket.on('message', m => socket.emit('data', m + '\n'));
             socket.write = socket.send;
             socket.end = socket.close;
+
+            socket.remoteAddress = req.connection.remoteAddress;
+            socket.remotePort = req.connection.remotePort;
+            socket.remoteFamily = req.connection.remoteFamily;
 
             this.emit('connection.new', socket);
         });
