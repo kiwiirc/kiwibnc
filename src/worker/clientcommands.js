@@ -250,7 +250,7 @@ commands.NOTICE = async function(msg, con) {
         client.writeMsg(m);
     }, con);
 
-    if (con.upstream && con.upstream.state.logging) {
+    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
         await con.messages.storeMessage(msg, con.upstream, con);
     }
 };
@@ -270,7 +270,7 @@ commands.PRIVMSG = async function(msg, con) {
         return false;
     }
 
-    if (con.upstream && con.upstream.state.logging) {
+    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
         await con.messages.storeMessage(msg, con.upstream, con);
     }
 

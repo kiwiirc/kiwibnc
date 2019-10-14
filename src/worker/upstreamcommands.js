@@ -300,7 +300,7 @@ commands.PING = async function(msg, con) {
 };
 
 commands.JOIN = async function(msg, con) {
-    if (con.state.logging) {
+    if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
@@ -319,7 +319,7 @@ commands.JOIN = async function(msg, con) {
 };
 
 commands.PART = async function(msg, con) {
-    if (con.state.logging) {
+    if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
@@ -388,7 +388,7 @@ commands['433'] = async function(msg, con) {
 };
 
 commands.NICK = async function(msg, con) {
-    if (con.state.logging) {
+    if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
@@ -411,7 +411,7 @@ commands.NICK = async function(msg, con) {
 };
 
 commands.PRIVMSG = async function(msg, con) {
-    if (con.state.logging) {
+    if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
@@ -420,7 +420,7 @@ commands.PRIVMSG = async function(msg, con) {
 };
 
 commands.NOTICE = async function(msg, con) {
-    if (con.state.logging) {
+    if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
