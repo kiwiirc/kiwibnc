@@ -104,6 +104,7 @@ async function run() {
                 host: socket.remoteAddress,
                 port: socket.remotePort,
                 family: socket.remoteFamily,
+                origin: socket.httpOrigin,
                 server: srv.id,
             });
         });

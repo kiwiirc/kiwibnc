@@ -119,6 +119,20 @@ function listenToQueue(app) {
 
     // When the socket layer accepts a new incoming connection
     app.queue.on('connection.new', async (event) => {
+        // If we have an origin from a websocket, make sure we have it whitelisted
+        let origins = app.conf.get('listeners.websocket_origins', []);
+        if (origins && origins.length > 0 && event.origin) {
+            let foundOrigin = origins.find(o => (
+                o.toLowerCase() === event.origin.toLowerCase()
+            ));
+
+            if (!foundOrigin) {
+                l.error('Incoming connection from unknown origin.', event.origin);
+                app.queue.sendToSockets('connection.close', {id: event.id});
+                return;
+            }
+        }
+
         l.debug('New incoming connection', event.id);
         let c = await app.cons.loadFromId(event.id, ConnectionDict.TYPE_INCOMING);
         c.state.host = event.host;

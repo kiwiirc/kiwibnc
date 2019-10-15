@@ -76,6 +76,7 @@ function patchWebsocket(ws, req) {
     ws.remoteAddress = req.connection.remoteAddress;
     ws.remotePort = req.connection.remotePort;
     ws.remoteFamily = req.connection.remoteFamily;
+    ws.httpOrigin = req.headers['origin'];
 }
 
 class SocketTypeChecker extends EventEmitter {
