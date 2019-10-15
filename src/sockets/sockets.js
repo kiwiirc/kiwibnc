@@ -1,6 +1,5 @@
 const SocketConnection = require('./connection');
 const SocketServer = require('./socketserver');
-const WsSocketServer = require('./wssocketserver');
 const Throttler = require('../libs/throttler');
 
 // Wrapper around a connections connect() function so that connections to the
@@ -86,10 +85,8 @@ async function run() {
         }
 
         let srv = null;
-        if (!event.type || event.type === 'tcp') {
+        if (!event.type || event.type === 'tcp' || event.type === 'ws') {
             srv = new SocketServer(event.id, app.queue);
-        } else if (event.type === 'ws') {
-            srv = new WsSocketServer(event.id, app.queue);
         } else {
             l.error('Invalid server type for connection listen, ' + event.type);
             return;
