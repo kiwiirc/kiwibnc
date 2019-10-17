@@ -348,6 +348,7 @@ class SqliteMessageStore {
         }
         
         if (!type) {
+            this.storeQueueLooping = false;
             return;
         }
 
