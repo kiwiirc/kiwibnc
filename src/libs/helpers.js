@@ -24,3 +24,15 @@ module.exports.validUsername = validUsername;
 function validUsername(username) {
     return (/^[^0-9\-][0-9a-z[\]^_`{|}\-]+$/i).test(username);
 }
+
+// Parse a string such as tcp://hostname:1234/path into:
+// {proto:'tcp', hostname:'hostname', port:1234, path:'path'}
+module.exports.parseBindString = parseBindString;
+function parseBindString(inp) {
+    let m = inp.match(/^(?:(?<proto>[^:]+)?:\/\/)?(?<hostname>[^:]+)(?::(?<port>[0-9]*))?(?<path>.*)$/);
+    if (!m) {
+        return;
+    }
+
+    return m.groups;
+}

@@ -12,6 +12,7 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
+const { parseBindString } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker', {type: 'worker'});
@@ -222,17 +223,6 @@ async function startServers(app) {
             id: uuidv4(),
         });
     }
-}
-
-// Parse a string such as tcp://hostname:1234/path into:
-// {proto:'tcp', hostname:'hostname', port:1234, path:'path'}
-function parseBindString(inp) {
-    let m = inp.match(/^(?:(?<proto>[^:]+)?:\/\/)?(?<hostname>[^:]+)(?::(?<port>[0-9]*))?(?<path>.*)$/);
-    if (!m) {
-        return;
-    }
-
-    return m.groups;
 }
 
 async function loadConnections(app) {

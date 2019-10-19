@@ -4,7 +4,6 @@ const commander = require('commander');
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
 const actionUpdateDb = require('./actions/updatedb');
-const actionDownloadKiwiirc = require('./actions/download_kiwiirc');
 
 (async function() {
     // Make the args available globally
@@ -24,11 +23,6 @@ const actionDownloadKiwiirc = require('./actions/download_kiwiirc');
         .command('updatedb')
         .description('Update the database schema to the latest')
         .action(actionUpdateDb);
-
-    commander
-        .command('download_kiwiirc')
-        .description('Download the KiwiIRC client as a web interface')
-        .action(actionDownloadKiwiirc);
 
     commander
         .command('run')
