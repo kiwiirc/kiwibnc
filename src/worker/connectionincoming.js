@@ -285,8 +285,14 @@ class ConnectionIncoming {
     async messageFromClient(message, raw) {
         await this.state.maybeLoad();
         let passUpstream = await ClientCommands.run(message, this);
-        if (passUpstream !== false && this.upstream) {
+        if (!passUpstream) {
+            return;
+        }
+        
+        if (this.upstream && this.upstream.state.connected) {
             this.upstream.write(raw + '\n');
+        } else {
+            l.debug('No connected upstream, not forwarding client data');
         }
     }
 
