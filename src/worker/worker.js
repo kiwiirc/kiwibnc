@@ -95,6 +95,8 @@ function listenToQueue(app) {
     app.queue.listenForEvents();
 
     app.queue.on('reset', async (event) => {
+        l.info('Sockets server was reset, flushing all connections');
+
         // Wipe out all incoming connection states. Incoming connections need to manually reconnect
         await app.db.run('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
 

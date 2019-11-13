@@ -45,10 +45,6 @@ class ConnectionOutgoing {
     }
 
     async open() {
-        if (this.state.connected) {
-            return;
-        }
-
         await this.state.loadConnectionInfo();
 
         let connection = {
