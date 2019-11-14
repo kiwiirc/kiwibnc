@@ -15,15 +15,12 @@ class Users {
         }
 
         try {
-            let row = await this.db.dbUsers.raw(`
-                SELECT
-                    nets.*,
-                    users.password as _pass,
-                    users.admin as user_admin
-                FROM user_networks nets
-                INNER JOIN users ON users.id = nets.user_id
-                WHERE users.username LIKE ? AND nets.name LIKE ?
-            `, [username, network]).then(rows => rows[0]);
+            let row = await this.db.dbUsers('user_networks')
+                .innerJoin('users', 'users.id', 'user_networks.user_id')
+                .where('users.username', 'LIKE', username)
+                .where('user_networks.name', 'LIKE', network)
+                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin')
+                .first();
             
             if (row) {
                 let correctHash = await bcrypt.compare(password, row._pass);
@@ -59,15 +56,9 @@ class Users {
     }
 
     async authUserToken(token) {
-        let sql = `
-            SELECT
-                users.*
-            FROM users
-            INNER JOIN user_tokens ON users.id = user_tokens.user_id
-            WHERE user_tokens.token = ?
-        `;
-        let user = await this.db.dbUsers.raw(sql, [token])
-            .then(rows => rows[0])
+        let user = this.db.dbUsers('users')
+            .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
+            .where('user_tokens.token', token)
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {

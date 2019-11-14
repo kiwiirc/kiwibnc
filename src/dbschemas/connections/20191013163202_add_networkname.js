@@ -1,9 +1,9 @@
-exports.up = function(knex) {
-    return knex.schema.raw(`
-        ALTER TABLE connections ADD COLUMN auth_network_name TEXT
-    `);
+exports.up = async function(knex) {
+    await knex.schema.table('connections', async (table) => {
+        table.text('auth_network_name');
+    });
 };
 
 exports.down = function(knex) {
-    // sqlite doesn't support removing columns
+    // Never go backwards in the db
 };

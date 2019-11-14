@@ -1,6 +1,7 @@
-exports.up = function(knex) {
-    return knex.schema.raw(`DROP TABLE connections`);
+exports.up = async function(knex) {
+    await knex.schema.dropTable('connections');
 };
 
 exports.down = function(knex) {
+    // Never go backwards in the db
 };
