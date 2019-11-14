@@ -73,7 +73,7 @@ class Users {
         await this.db.dbUsers('user_tokens').insert({
             user_id: id,
             token: token,
-            created_at: Date.now(),
+            created_at: Helpers.now(),
         });
         return token;
     }
@@ -94,7 +94,7 @@ class Users {
         let user = this.db.factories.User();
         user.username = username;
         user.password = password;
-        user.created_at = Date.now();
+        user.created_at = Helpers.now();
         if (isAdmin === true) {
             user.admin = true;
         }

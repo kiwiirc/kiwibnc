@@ -1,3 +1,5 @@
+const Helpers = require('../libs/helpers');
+
 class IrcBuffer {
     constructor(name, upstreamCon) {
         this.name = name;
@@ -78,7 +80,7 @@ class ConnectionState {
     async save() {
         let query = this.db.dbConnections('connections').insert({
             conid: this.conId,
-            last_statesave: Date.now(),
+            last_statesave: Helpers.now(),
             bind_host: '',
             host: this.host,
             port: this.port,
@@ -104,6 +106,8 @@ class ConnectionState {
             logging: this.logging,
             temp: JSON.stringify(this.tempData),
         });
+
+        // Connection state is only in sqlite so we can use sqlite specific syntax here
         let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
         await this.db.dbConnections.raw(sql);
     }

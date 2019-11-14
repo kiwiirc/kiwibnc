@@ -23,8 +23,13 @@ async function run() {
     }
     app.crypt = new Crypt(cryptKey);
 
-    app.db = new Database(app.conf.get('database.path', './connections.db'));
-    await app.db.init();
+    app.db = new Database(app.conf.get('database', {}));
+    try {
+        await app.db.init();
+    } catch (err) {
+        l.error('Error initialising database:', err.message);
+        process.exit();
+    }
 
     initModelFactories(app);
 

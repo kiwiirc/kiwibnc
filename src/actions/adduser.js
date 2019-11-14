@@ -13,7 +13,7 @@ module.exports = async function(env, options) {
     }
     app.crypt = new Crypt(cryptKey);
 
-    app.db = new Database(app.conf.get('database.path', './connections.db'));
+    app.db = new Database(app.conf.get('database', {}));
     await app.db.init();
 
     initModelFactories(app);

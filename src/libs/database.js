@@ -12,13 +12,23 @@ module.exports = class Database {
 			useNullAsDefault: true,
         });
 
-		this.dbUsers = knex({
+        let usersConStr = config.users || 'users.db';
+        let usersDbCon = {
 			client: 'sqlite3',
-			connection: {
-				filename: config.users || 'users.db',
-			},
-			useNullAsDefault: true,
-        });
+			connection: null,
+        };
+        if (usersConStr.indexOf('://') > -1) {
+            // postgres://someuser:somepassword@somehost:381/somedatabase
+            usersDbCon.client = 'pg';
+            usersDbCon.connection = usersConStr;
+        } else {
+            // No scheme:// part in the connection string, assume it's an sqlite filename
+            usersDbCon.client = 'sqlite3';
+            usersDbCon.useNullAsDefault = true;
+            usersDbCon.connection = { filename: usersConStr };
+        }
+
+		this.dbUsers = knex(usersDbCon);
 
         // Some older extensions make use of .db for user data access
         this.db = this.dbUsers;
