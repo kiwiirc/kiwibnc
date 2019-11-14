@@ -65,7 +65,7 @@ exports.up = function(knex) {
     `)
     .raw(`CREATE UNIQUE INDEX IF NOT EXISTS user_tokens_token_uindex ON user_tokens (token)`)
 };
-  
+
 exports.down = function(knex) {
     return knex.schema
         .dropTable("connections")

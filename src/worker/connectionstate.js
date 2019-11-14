@@ -76,7 +76,7 @@ class ConnectionState {
     }
 
     async save() {
-        let query = this.db.db('connections').insert({
+        let query = this.db.dbConnections('connections').insert({
             conid: this.conId,
             last_statesave: Date.now(),
             bind_host: '',
@@ -105,7 +105,7 @@ class ConnectionState {
             temp: JSON.stringify(this.tempData),
         });
         let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
-        await this.db.run(sql);
+        await this.db.dbConnections.raw(sql);
     }
 
     setNetwork(network) {
@@ -157,8 +157,7 @@ class ConnectionState {
         }
     }
     async load() {
-        let sql = `SELECT * FROM connections WHERE conid = ? LIMIT 1`;
-        let row = await this.db.get(sql, [this.conId]);
+        let row = await this.db.dbConnections('connections').where('conid', this.conId).first();
 
         if (!row) {
             this.registrationLines = [];
@@ -202,7 +201,7 @@ class ConnectionState {
     }
 
     async destroy() {
-        await this.db.run(`DELETE FROM connections WHERE conid = ?`, [this.conId]);
+        await this.db.dbConnections('connections').where('conid', this.conId).delete();
     }
 
     tempGet(key) {

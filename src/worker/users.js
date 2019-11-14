@@ -15,7 +15,7 @@ class Users {
         }
 
         try {
-            let row = await this.db.get(`
+            let row = await this.db.dbUsers.raw(`
                 SELECT
                     nets.*,
                     users.password as _pass,
@@ -23,7 +23,7 @@ class Users {
                 FROM user_networks nets
                 INNER JOIN users ON users.id = nets.user_id
                 WHERE users.username LIKE ? AND nets.name LIKE ?
-            `, [username, network]);
+            `, [username, network]).then(rows => rows[0]);
             
             if (row) {
                 let correctHash = await bcrypt.compare(password, row._pass);
@@ -47,7 +47,8 @@ class Users {
             return null;
         }
 
-        let user = await this.db.get(`SELECT * from users WHERE username LIKE ?`, [username])
+        let user = await this.db.dbUsers('users').where('username', 'LIKE', username)
+            .first()
             .then(this.db.factories.User.fromDbResult);
 
         if (user && await user.checkPassword(password)) {
@@ -65,7 +66,8 @@ class Users {
             INNER JOIN user_tokens ON users.id = user_tokens.user_id
             WHERE user_tokens.token = ?
         `;
-        let user = await this.db.get(sql, [token])
+        let user = await this.db.dbUsers.raw(sql, [token])
+            .then(rows => rows[0])
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {
@@ -77,7 +79,7 @@ class Users {
 
     async generateUserToken(id) {
         let token = uuidv4().replace(/\-/g, '');
-        await this.db.db('user_tokens').insert({
+        await this.db.dbUsers('user_tokens').insert({
             user_id: id,
             token: token,
             created_at: Date.now(),

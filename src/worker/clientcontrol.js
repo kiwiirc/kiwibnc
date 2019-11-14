@@ -374,7 +374,7 @@ commands.DELNETWORK = {
         }
 
 
-        await con.db.db('user_networks').where('id', network.id).delete();
+        await con.db.dbUsers('user_networks').where('id', network.id).delete();
         con.writeStatus(`Network ${network.name} deleted`);
     },
 };

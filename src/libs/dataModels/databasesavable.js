@@ -56,7 +56,7 @@ class DatabaseSavable {
         }
 
         if (!this.getData('id')) {
-            let id = await this._db.db(this._table).insert(cols);
+            let id = await this._db.dbUsers(this._table).insert(cols);
             // knexjs returns the inserted ID within an array
             id = id[0];
             if (id) {
@@ -67,7 +67,7 @@ class DatabaseSavable {
             let id = this.getData('id');
             let updateCols = { ...cols };
             delete updateCols.id;
-            await this._db.db(this._table).where('id', id).update(updateCols);
+            await this._db.dbUsers(this._table).where('id', id).update(updateCols);
             this._dirty = false;
         }
     }
@@ -82,7 +82,7 @@ class DatabaseSavable {
         };
 
         factory.query = function query() {
-            let query = db.db(table);
+            let query = db.dbUsers(table);
             // Wrap the queries .then() with our own so that we can return a model
             let originalThen = query.then;
             query.then = (...args) => {
