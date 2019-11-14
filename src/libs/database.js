@@ -21,6 +21,10 @@ module.exports = class Database {
             // postgres://someuser:somepassword@somehost:381/somedatabase
             usersDbCon.client = 'pg';
             usersDbCon.connection = usersConStr;
+            let searchPathM = usersConStr.match(/searchPath=([^&]+)/);
+            if (searchPathM) {
+                usersDbCon.searchPath = searchPathM[1];
+            }
         } else {
             // No scheme:// part in the connection string, assume it's an sqlite filename
             usersDbCon.client = 'sqlite3';
