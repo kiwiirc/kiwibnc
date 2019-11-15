@@ -1,6 +1,6 @@
 exports.up = async function(knex) {
     await knex.schema.createTable('connections', async (table) => {
-        table.text('conid').primary();
+        table.string('conid', 40).primary();
         table.integer('last_statesave');
         table.text('bind_host');
         table.text('host');
@@ -28,34 +28,34 @@ exports.up = async function(knex) {
 
     await knex.schema.createTable('users', function (table) {
         table.increments('id');
-        table.text('username').unique();
-        table.text('password');
+        table.string('username', 50).unique();
+        table.string('password', 100);
         table.integer('created_at');
         table.boolean('admin');
-        table.text('bind_host');
+        table.string('bind_host', 100);
     });
 
 
     await knex.schema.createTable('user_networks', function (table) {
         table.increments('id');
-        table.text('name');
+        table.string('name', 100);
         table.integer('user_id');
-        table.text('host');
+        table.string('host', 100);
         table.integer('port');
         table.boolean('tls');
-        table.text('nick');
-        table.text('username');
-        table.text('realname');
-        table.text('password');
-        table.text('sasl_account');
-        table.text('sasl_pass');
-        table.text('bind_host');
+        table.string('nick', 50);
+        table.string('username', 50);
+        table.string('realname', 100);
+        table.string('password', 100);
+        table.string('sasl_account', 50);
+        table.string('sasl_pass', 100);
+        table.string('bind_host', 100);
 
         table.unique(['name', 'user_id']);
     });
 
     await knex.schema.createTable('user_tokens', function (table) {
-        table.text('token').primary();
+        table.string('token', 100).primary();
         table.integer('user_id');
         table.integer('created_at');
     });

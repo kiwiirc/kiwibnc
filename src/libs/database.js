@@ -17,7 +17,7 @@ module.exports = class Database {
 			client: 'sqlite3',
 			connection: null,
         };
-        if (usersConStr.indexOf('://') > -1) {
+        if (usersConStr.indexOf('postgres://') > -1) {
             // postgres://someuser:somepassword@somehost:381/somedatabase
             usersDbCon.client = 'pg';
             usersDbCon.connection = usersConStr;
@@ -25,6 +25,10 @@ module.exports = class Database {
             if (searchPathM) {
                 usersDbCon.searchPath = searchPathM[1];
             }
+        } else if (usersConStr.indexOf('mysql://') > -1) {
+            // mysql://user:password@127.0.0.1:3306/database
+            // knex handles this connection string internally
+            usersDbCon = usersConStr;
         } else {
             // No scheme:// part in the connection string, assume it's an sqlite filename
             usersDbCon.client = 'sqlite3';
@@ -32,7 +36,7 @@ module.exports = class Database {
             usersDbCon.connection = { filename: usersConStr };
         }
 
-		this.dbUsers = knex(usersDbCon);
+        this.dbUsers = knex(usersDbCon);
 
         // Some older extensions make use of .db for user data access
         this.db = this.dbUsers;

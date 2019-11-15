@@ -1,6 +1,6 @@
 exports.up = async function(knex) {
     await knex.schema.table('connections', async (table) => {
-        table.text('auth_network_name');
+        table.string('auth_network_name', 100);
     });
 };
 
