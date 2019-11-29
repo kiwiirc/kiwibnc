@@ -39,6 +39,7 @@ class ConnectionOutgoing {
     }
 
     close() {
+        this.state.tempSet('requested_close', true);
         this.queue.sendToSockets('connection.close', {
             id: this.id,
         });
@@ -150,6 +151,11 @@ class ConnectionOutgoing {
 
         let shouldReconnect = this.state.connected &&
             this.state.netRegistered;
+
+        if (this.state.tempGet('requested_close')) {
+            shouldReconnect = false;
+            await this.state.tempSet('requested_close', null);
+        }
 
         this.state.connected = false;
         this.state.netRegistered = false;

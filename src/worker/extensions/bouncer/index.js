@@ -270,7 +270,7 @@ async function handleBouncerCommand(event) {
         }
 
         try {
-            await con.db.db('user_networks').insert({
+            await con.db.dbUsers('user_networks').insert({
                 user_id: con.state.authUserId,
                 name: tags.network,
                 host: tags.host || '',
@@ -341,7 +341,7 @@ async function handleBouncerCommand(event) {
 
         if (Object.keys(netUpdates).length > 0) {
             try {
-                await con.db.db('user_networks')
+                await con.db.dbUsers('user_networks')
                     .where('id', network.id)
                     .update(netUpdates);
             } catch (err) {
@@ -400,7 +400,7 @@ async function handleBouncerCommand(event) {
         }
 
 
-        await con.db.db('user_networks').where('id', network.id).delete();
+        await con.db.dbUsers('user_networks').where('id', network.id).delete();
         con.writeMsg('BOUNCER', 'delnetwork', netName, 'RPL_OK');
     }
 };

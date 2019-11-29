@@ -264,7 +264,7 @@ commands['376'] = async function(msg, con) {
     
         for (let buffName in con.state.buffers) {
             let b = con.state.buffers[buffName];
-            if (b.isChannel && b.joined) {
+            if (b.isChannel) {
                 b.joined = false;
                 con.writeLine('JOIN', b.name);
             }

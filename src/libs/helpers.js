@@ -7,6 +7,11 @@ function isoTime(date) {
         strftime('%Y-%m-%dT%H:%M:%S.%LZ');
 }
 
+module.exports.now = now;
+function now() {
+    return Math.floor(Date.now() / 1000);
+}
+
 // Get a message param or return a default
 module.exports.mParam = mParam;
 function mParam(msg, idx, def) {

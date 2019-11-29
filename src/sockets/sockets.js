@@ -37,7 +37,7 @@ async function run() {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
-            l.notice('Connection already open, ignoring');
+            l.debug('Connection already open, ignoring');
             return;
         }
 
@@ -75,7 +75,7 @@ async function run() {
             // A connection can only be open once.
             // This also prevents a worker from restarting and syncing its connection states,
             // which may request socket opens when they already exist
-            l.notice('Connection already open, ignoring');
+            l.debug('Connection already open, ignoring');
             return;
         }
 

@@ -16,7 +16,9 @@
     "koa-static": "^5.0.0",
     "lodash": "^4.17.15",
     "lru-cache": "^5.1.1",
+    "mysql": "^2.17.1",
     "node-cleanup": "^2.1.2",
+    "pg": "^7.12.1",
     "readline-sync": "^1.4.10",
     "request-promise": "^4.2.4",
     "sqlite3": "^4.0.9",
@@ -36,6 +38,6 @@
   "bin": {
     "kiwibnc": "src/server.js"
   },
-  "author": "Darren WHitlen <darren@kiwiirc.com>",
+  "author": "Darren Whitlen <darren@kiwiirc.com>",
   "license": "Apache-2.0"
 }

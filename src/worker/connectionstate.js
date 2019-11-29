@@ -1,3 +1,5 @@
+const Helpers = require('../libs/helpers');
+
 class IrcBuffer {
     constructor(name, upstreamCon) {
         this.name = name;
@@ -76,9 +78,9 @@ class ConnectionState {
     }
 
     async save() {
-        let query = this.db.db('connections').insert({
+        let query = this.db.dbConnections('connections').insert({
             conid: this.conId,
-            last_statesave: Date.now(),
+            last_statesave: Helpers.now(),
             bind_host: '',
             host: this.host,
             port: this.port,
@@ -104,8 +106,10 @@ class ConnectionState {
             logging: this.logging,
             temp: JSON.stringify(this.tempData),
         });
+
+        // Connection state is only in sqlite so we can use sqlite specific syntax here
         let sql = query.toString().replace(/^insert into /, 'insert or replace into ');
-        await this.db.run(sql);
+        await this.db.dbConnections.raw(sql);
     }
 
     setNetwork(network) {
@@ -157,8 +161,7 @@ class ConnectionState {
         }
     }
     async load() {
-        let sql = `SELECT * FROM connections WHERE conid = ? LIMIT 1`;
-        let row = await this.db.get(sql, [this.conId]);
+        let row = await this.db.dbConnections('connections').where('conid', this.conId).first();
 
         if (!row) {
             this.registrationLines = [];
@@ -202,7 +205,7 @@ class ConnectionState {
     }
 
     async destroy() {
-        await this.db.run(`DELETE FROM connections WHERE conid = ?`, [this.conId]);
+        await this.db.dbConnections('connections').where('conid', this.conId).delete();
     }
 
     tempGet(key) {

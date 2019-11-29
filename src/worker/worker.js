@@ -24,8 +24,13 @@ async function run() {
     }
     app.crypt = new Crypt(cryptKey);
 
-    app.db = new Database(app.conf.get('database.path', './connections.db'));
-    await app.db.init();
+    app.db = new Database(app.conf.get('database', {}));
+    try {
+        await app.db.init();
+    } catch (err) {
+        l.error('Error initialising database:', err.message);
+        process.exit();
+    }
 
     initModelFactories(app);
 
@@ -96,11 +101,13 @@ function listenToQueue(app) {
     app.queue.listenForEvents();
 
     app.queue.on('reset', async (event) => {
+        l.info('Sockets server was reset, flushing all connections');
+
         // Wipe out all incoming connection states. Incoming connections need to manually reconnect
-        await app.db.run('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
+        await app.db.dbConnections.raw('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
 
         // Since there are now no incoming connections, clear all incoming<>outgoing links
-        await app.db.run('UPDATE connections SET linked_con_ids = "[]"');
+        await app.db.dbConnections.raw('UPDATE connections SET linked_con_ids = "[]"');
 
         // If we don't have any connections then we have nothing to clear out. We do
         // need to start our servers again though
@@ -196,7 +203,7 @@ function listenToQueue(app) {
 // Start any listening servers on interfaces specified in the config if they do not
 // exist as an active connection already
 async function startServers(app) {
-    let existingBinds = await app.db.all('SELECT host, port FROM connections WHERE type = ?', [
+    let existingBinds = await app.db.dbConnections.raw('SELECT host, port FROM connections WHERE type = ?', [
         ConnectionDict.TYPE_LISTENING
     ]);
     let binds = app.conf.get('listeners.bind', []);
@@ -226,7 +233,7 @@ async function startServers(app) {
 }
 
 async function loadConnections(app) {
-    let rows = await app.db.all('SELECT conid, type, bind_host FROM connections');
+    let rows = await app.db.dbConnections.raw('SELECT conid, type, bind_host FROM connections');
     l.info(`Loading ${rows.length} connections`);
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
     rows.forEach(async (row) => {

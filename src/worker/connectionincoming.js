@@ -256,7 +256,7 @@ class ConnectionIncoming {
         // Now the client has a channel list, send any messages we have for them
         for (let buffName in upstream.state.buffers) {
             let buffer = upstream.state.buffers[buffName];
-            if (!buffer.isChannel || !buffer.joined) {
+            if (buffer.isChannel && !buffer.joined) {
                 continue;
             }
 
@@ -285,8 +285,14 @@ class ConnectionIncoming {
     async messageFromClient(message, raw) {
         await this.state.maybeLoad();
         let passUpstream = await ClientCommands.run(message, this);
-        if (passUpstream !== false && this.upstream) {
+        if (!passUpstream) {
+            return;
+        }
+        
+        if (this.upstream && this.upstream.state.connected) {
             this.upstream.write(raw + '\n');
+        } else {
+            l.debug('No connected upstream, not forwarding client data');
         }
     }
 

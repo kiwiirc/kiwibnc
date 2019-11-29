@@ -15,15 +15,12 @@ class Users {
         }
 
         try {
-            let row = await this.db.get(`
-                SELECT
-                    nets.*,
-                    users.password as _pass,
-                    users.admin as user_admin
-                FROM user_networks nets
-                INNER JOIN users ON users.id = nets.user_id
-                WHERE users.username LIKE ? AND nets.name LIKE ?
-            `, [username, network]);
+            let row = await this.db.dbUsers('user_networks')
+                .innerJoin('users', 'users.id', 'user_networks.user_id')
+                .where('users.username', 'LIKE', username)
+                .where('user_networks.name', 'LIKE', network)
+                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin')
+                .first();
             
             if (row) {
                 let correctHash = await bcrypt.compare(password, row._pass);
@@ -47,7 +44,8 @@ class Users {
             return null;
         }
 
-        let user = await this.db.get(`SELECT * from users WHERE username LIKE ?`, [username])
+        let user = await this.db.dbUsers('users').where('username', 'LIKE', username)
+            .first()
             .then(this.db.factories.User.fromDbResult);
 
         if (user && await user.checkPassword(password)) {
@@ -58,14 +56,9 @@ class Users {
     }
 
     async authUserToken(token) {
-        let sql = `
-            SELECT
-                users.*
-            FROM users
-            INNER JOIN user_tokens ON users.id = user_tokens.user_id
-            WHERE user_tokens.token = ?
-        `;
-        let user = await this.db.get(sql, [token])
+        let user = this.db.dbUsers('users')
+            .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
+            .where('user_tokens.token', token)
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {
@@ -77,10 +70,10 @@ class Users {
 
     async generateUserToken(id) {
         let token = uuidv4().replace(/\-/g, '');
-        await this.db.db('user_tokens').insert({
+        await this.db.dbUsers('user_tokens').insert({
             user_id: id,
             token: token,
-            created_at: Date.now(),
+            created_at: Helpers.now(),
         });
         return token;
     }
@@ -101,7 +94,7 @@ class Users {
         let user = this.db.factories.User();
         user.username = username;
         user.password = password;
-        user.created_at = Date.now();
+        user.created_at = Helpers.now();
         if (isAdmin === true) {
             user.admin = true;
         }
