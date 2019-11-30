@@ -4,6 +4,7 @@ const { ircLineParser } = require('irc-framework');
 const Koa = require('koa');
 const koaStatic = require('koa-static');
 const KoaRouter = require('koa-router');
+const koaBody = require('koa-body');
 const Database = require('../libs/database');
 const Crypt = require('../libs/crypt');
 const Users = require('./users');
@@ -268,6 +269,8 @@ async function loadConnections(app) {
 
 async function initWebserver(app) {
     app.webserver = new Koa();
+
+    app.webserver.use(koaBody({ multipart: true }));
 
 	let router = app.webserver.router = new KoaRouter();
 	app.webserver.use(router.routes());

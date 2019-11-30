@@ -9,8 +9,7 @@ module.exports.init = async function init(hooks, app) {
     if (!app.conf.get('webserver.enabled') || !app.conf.get('webserver.public_dir')) {
         return;
     }
-
-    let publicPath = app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http/'));
+    let publicPath = app.conf.relativePath(app.conf.get('webserver.public_dir'));
 
     await downloadKiwiIrc(publicPath);
 
@@ -41,9 +40,54 @@ module.exports.init = async function init(hooks, app) {
             channel: '',
             bouncer: true,
             remember_buffers: false,
+            public_register : app.conf.get('webchat.public_register', false),
         };
 
+        // Add our kiwi plugin to the config
+        config.plugins = config.plugins || [];
+        config.plugins.push({
+            name: 'kiwibnc',
+            url: '/kiwibnc_plugin.html',
+        });
+
+        let extraConf = app.conf.get('webchat');
+        for (let prop in extraConf) {
+            config[prop] = extraConf[prop];
+        }
+
         ctx.body = config;
+    });
+
+    app.webserver.router.post('kiwi.config', '/api/register', async (ctx, next) => {
+        if (!app.conf.get('webchat.public_register', false)) {
+            ctx.body = {error: 'forbidden'};
+            return;
+        }
+
+        let body = ctx.request.body;
+        if (!body.username || !body.email || !body.password) {
+            ctx.body = {error: 'missing_params'};
+            return;
+        }
+
+        if (await app.userDb.getUser(body.username)) {
+            ctx.body = {error: 'username_in_use'};
+            return;
+        }
+
+        try {
+            let user = await app.userDb.addUser(body.username, body.password);
+        } catch (err) {
+            if (err.message === 'Invalid username') {
+                ctx.body = {error: 'invalid_username'};
+            } else {
+                ctx.body = {error: 'unknown_error'};
+            }
+
+            return;
+        }
+
+        ctx.body = {error: false};
     });
 };
 
@@ -54,7 +98,7 @@ async function downloadKiwiIrc(publicPath) {
     try {
         let dir = await fs.readdir(publicPath);
         if (dir.length > 0) {
-            l.info('The public web folder is not empty, not download the KiwiIRC client.', publicPath);
+            l.info('The public web folder is not empty, not downloading the KiwiIRC client.', publicPath);
             return;
         }
     } catch (err) {
