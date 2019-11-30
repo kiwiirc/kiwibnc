@@ -1,0 +1,125 @@
+<template id="kiwibnc-register">
+    <div class="kiwibnc-register">
+        <form class="u-form u-form--big" @submit.prevent="onSubmit">
+            <h2>Create an account</h2>
+
+            <div v-if="error" class="kiwibnc-error">
+                {{ friendlyErrorMessage(error) }}
+            </div>
+
+            <input-text v-model="username" :label="'Username'"></input-text>
+            <input-text v-model="email" :label="'Email'"></input-text>
+            <input-text v-model="password" :label="'Password'" :type="'password'"></input-text>
+
+            <button
+                :disabled="!completedForm || loading"
+                type="submit"
+                class="u-button u-button-primary u-submit"
+            >Create my account</button>
+
+            <a @click="$emit('close', {})" class="u-link"><i class="fa fa-chevron-left"></i> I already have an account</a>
+        </form>
+    </div>
+</template>
+
+<script>
+    kiwi.plugin('kiwibnc', function(kiwi, log) {
+        var InputText = kiwi.require('components/utils/InputText');
+
+        var RegisterScreen = {
+            components: {
+                InputText: InputText,
+            },
+            template: '#kiwibnc-register',
+            computed: {
+                completedForm: function() {
+                    return this.username && this.email && this.password;
+                },
+            },
+            data: function() {
+                return {
+                    username: '',
+                    email: '',
+                    password: '',
+                    loading: false,
+                    error: '',
+                };
+            },
+            methods: {
+                onSubmit() {
+                    var data = new FormData();
+                    data.append('username', this.username);
+                    data.append('email', this.email);
+                    data.append('password', this.password);
+
+                    this.loading = true;
+                    this.error = '';
+
+                    fetch('/api/register', {
+                        method: 'POST',
+                        body: data,
+                    })
+                    .then(res => res.json())
+                    .then(resp => {
+                        this.loading = false;
+
+                        if (resp.error) {
+                            this.error = resp.error;
+                            return;
+                        }
+
+                        this.$emit('close', {
+                            nick: this.username,
+                            password: this.password,
+                        });
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        this.error = 'unknown_error';
+                        this.loading = false;
+                    });
+                },
+                friendlyErrorMessage(err_code) {
+                    let errs = {
+                        missing_params: 'All options are required',
+                        username_in_use: 'Unavailable username',
+                        invalid_username: 'Invalid username. Use only letters and numbers',
+                        forbidden: 'Registrations are not allowed on this server',
+                        unknown_error: 'An unknown error happened :(',
+                    };
+
+                    return errs[err_code] || errs.unknown_error;
+                },
+            },
+        };
+
+        // Add the register link to the footer of the startup screen
+        if (kiwi.state.settings.startupOptions.public_register) {
+            kiwi.state.settings.startupOptions.footerText = '<a class="u-link kiwibnc-registeropen">Create an account</a>';
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('kiwibnc-registeropen')) {
+                    kiwi.state.$set(kiwi.state.settings.startupOptions, 'altComponent', RegisterScreen);
+                }
+            });
+        }
+    });
+</script>
+
+<style>
+.kiwibnc-register {
+    width: 70%;
+}
+
+.kiwibnc-error {
+    color: var(--brand-error);
+    border: 1px solid var(--brand-error);
+    text-align: center;
+    padding: 0.5em;
+    margin: 1em;
+}
+
+.kiwibnc-register button[disabled] {
+    cursor: not-allowed;
+    opacity: .65;
+}
+</style>

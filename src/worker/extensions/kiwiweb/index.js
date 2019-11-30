@@ -21,6 +21,13 @@ module.exports.init = async function init(hooks, app) {
         port = parseInt(bind.port, 10);
     }
 
+    app.webserver.router.get('kiwi.config', '/kiwibnc_plugin.html', async (ctx, next) => {
+        ctx.body = await fs.readFile(
+            path.join(__dirname, 'kiwibnc_plugin.html'),
+            { encoding: 'utf8' },
+        );
+    });
+
     app.webserver.router.get('kiwi.config', '/static/config.json', async (ctx, next) => {
         let config = await fs.readFile(path.join(publicPath, 'static', 'config.json'));
         config = JSON.parse(config);
