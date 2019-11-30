@@ -8,7 +8,6 @@
             </div>
 
             <input-text v-model="username" :label="'Username'"></input-text>
-            <input-text v-model="email" :label="'Email'"></input-text>
             <input-text v-model="password" :label="'Password'" :type="'password'"></input-text>
 
             <button
@@ -22,6 +21,71 @@
     </div>
 </template>
 
+<template id="kiwibnc-admin">
+        <div class="kiwibnc-admin">
+
+            <div class="kiwi-appsettings-block" style="max-width:750px;">
+                <h3>Bouncer</h3>
+
+                <div class="kiwi-appsettings-section">
+                    <label class="u-checkbox-wrapper">
+                        <span>Allow public user registrations </span>
+                        <input type="checkbox" >
+                    </label>
+
+                    <h4>Restart the bouncer</h4>
+                    Restarting will restart all worker processes, reloading any extensions and configuration. No IRC connections will be disconnected.
+                    <br />
+                    <button>Restart</button>
+                </div>
+            </div>
+
+            <div class="kiwi-appsettings-block" style="max-width:750px;">
+                <h3>Users</h3>
+
+                <div class="kiwi-appsettings-section">
+                    <a class="u-link" @click="refreshUsers" style="float:left;" >Refresh userlist</a>
+                    <a class="u-link" @click="showAddUser" style="float:right;" >Add user</a>
+
+                    <div v-if="usersLoading">Loading user list...</div>
+                    <table v-else style="clear:left;">
+                        <tr>
+                            <th>Username</th>
+                            <th>Created</th>\
+                            <th>Num. Networks</th>
+                            <th></th>
+                            <th></th>
+                        </tr>
+                        <template v-for="user in users" :key="user.id">
+                        <tr style="border-bottom:1px solid rgba(0,0,0,0.2);">
+                            <td>{{user.username}}</td>
+                            <td>{{user.created_at}}</td>
+                            <td>{{user.num_networks || 0}}</td>
+                            <td>{{user.admin ? 'Admin' : ''}} {{user.locked ? 'Locked' : ''}}</td>
+                            <td><a class="u-link" @click="editingUserId=user.id">Edit <i class="fa fa-cog"></i></a></td>
+                        </tr>
+                        <tr v-if="editingUserId === user.id">
+                            <td colspan="5">
+                                <button v-if="user.locked" @click.prevent="unlockUser(user)">Unlock</button>
+                                <button v-else @click.prevent="lockUser(user)">Lock</button>
+
+                                <button @click.prevent="showEditPassword=true">Change password</button>
+                                <button>Delete</button>
+
+                                <div v-if="showEditPassword">
+                                    <input v-model="newPassword" />
+                                    <button @click.prevent="changePass(user);newPassword='';showEditPassword=false;">Save</button>
+                                    <button @click.prevent="newPassword='';showEditPassword=false;">Cancel</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </template>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </template>
+
 <script>
     kiwi.plugin('kiwibnc', function(kiwi, log) {
         var InputText = kiwi.require('components/utils/InputText');
@@ -33,13 +97,12 @@
             template: '#kiwibnc-register',
             computed: {
                 completedForm: function() {
-                    return this.username && this.email && this.password;
+                    return this.username && this.password;
                 },
             },
             data: function() {
                 return {
                     username: '',
-                    email: '',
                     password: '',
                     loading: false,
                     error: '',
@@ -49,7 +112,6 @@
                 onSubmit() {
                     var data = new FormData();
                     data.append('username', this.username);
-                    data.append('email', this.email);
                     data.append('password', this.password);
 
                     this.loading = true;
@@ -92,6 +154,72 @@
                 },
             },
         };
+
+        kiwi.addTab('settings', 'KiwiBNC Admin', {
+            template: '#kiwibnc-admin',
+            data: function() {
+                return {
+                    usersLoading: false,
+                    users: [],
+                    editingUserId: 0,
+                    showEditPassword: false,
+                    newPassword: '',
+                };
+            },
+            methods: {
+                apiCall(path, data) {
+                    let opts = {};
+                    if (data) {
+                        opts.method = 'POST';
+                        opts.body = new FormData();
+                        for (let prop in data) {
+                            opts.body.append(prop, data[prop]);
+                        }
+                    }
+                    console.log(opts);
+                    return fetch('/api' + path, opts).then(resp => resp.json());
+                },
+                refreshUsers() {
+                    this.apiCall('/admin/users')
+                    .then(resp => {
+                        this.users = {};
+                        resp.users.forEach(u => {
+                            this.users[u.id] = u;
+                        });
+                    });
+                },
+                showAddUser() {
+                },
+                lockUser(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'lock',
+                        username: user.username,
+                    })
+                    .then(resp => {
+                        this.refreshUsers();
+                    });
+                },
+                unlockUser(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'unlock',
+                        username: user.username,
+                    })
+                    .then(resp => {
+                        this.refreshUsers();
+                    });
+                },
+                changePass(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'changepass',
+                        username: user.username,
+                        password: this.newPassword,
+                    })
+                    .then(resp => {
+                        this.refreshUsers();
+                    });
+                }
+            },
+        });
 
         // Add the register link to the footer of the startup screen
         if (kiwi.state.settings.startupOptions.public_register) {
