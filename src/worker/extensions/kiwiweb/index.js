@@ -16,6 +16,14 @@ module.exports.init = async function init(hooks, app) {
 
     routesAdmin(app);
     routesClient(app);
+
+    // Add an admin auth token to admin clients
+    hooks.on('available_isupports', async event => {
+        if (event.client.state.authAdmin) {
+            let token = app.crypt.encrypt('userid='+event.client.state.authUserId);
+            event.tokens.push('kiwibnc/admin=' + token);
+        }
+    });
 };
 
 async function downloadKiwiIrc(publicPath) {

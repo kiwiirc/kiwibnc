@@ -5,7 +5,26 @@ module.exports = function(app) {
     // Used to check if the worker has actually been restarted from the client
     let started = Date.now();
 
-    router.post('admin.info', '/api/admin/info', async (ctx, next) => {
+    async function adminAuth(ctx, next) {
+        if (!ctx.headers['x-auth']) {
+            ctx.response.status = 403;
+            return;
+        }
+
+        try {
+            let token = app.crypt.decrypt(ctx.headers['x-auth']) || '';
+            if (!token.match(/^userid=/)) {
+                throw new Error('invalid token');
+            }
+        } catch (err) {
+            ctx.response.status = 403;
+            return;
+        }
+
+        await next();
+    };
+
+    router.post('admin.info', '/api/admin/info', adminAuth, async (ctx, next) => {
         let body = ctx.request.body;
         if (body.allowregistrations) {
             app.conf.set('webchat.public_register', body.allowregistrations === 'true');
@@ -13,7 +32,7 @@ module.exports = function(app) {
         ctx.body = {};
     });
 
-    router.get('admin.info', '/api/admin/info', async (ctx, next) => {
+    router.get('admin.info', '/api/admin/info', adminAuth, async (ctx, next) => {
         let db = userDb.db.dbUsers;
         let r = db('user_networks')
             .where('user_id', db.ref('users.id'))
@@ -32,7 +51,7 @@ module.exports = function(app) {
         };
     });
 
-    router.post('admin.restart', '/api/admin/restart', async (ctx, next) => {
+    router.post('admin.restart', '/api/admin/restart', adminAuth, async (ctx, next) => {
         setTimeout(() => {
             app.prepareShutdown();
         }, 100);
@@ -40,7 +59,7 @@ module.exports = function(app) {
         ctx.body = {};
     });
 
-    router.post('admin.users', '/api/admin/users', async (ctx, next) => {
+    router.post('admin.users', '/api/admin/users', adminAuth, async (ctx, next) => {
         let body = ctx.request.body;
 
         let acts = ['lock', 'unlock', 'changepass', 'newuser'];

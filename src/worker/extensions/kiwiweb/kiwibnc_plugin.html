@@ -104,9 +104,10 @@
 
 <script>
     kiwi.plugin('kiwibnc', function(kiwi, log) {
-        var InputText = kiwi.require('components/utils/InputText');
+        let adminToken = '';
+        let InputText = kiwi.require('components/utils/InputText');
 
-        var RegisterScreen = {
+        let RegisterScreen = {
             components: {
                 InputText: InputText,
             },
@@ -171,7 +172,7 @@
             },
         };
 
-        kiwi.addTab('settings', 'KiwiBNC Admin', {
+        let AdminScreen = {
             template: '#kiwibnc-admin',
             data: function() {
                 return {
@@ -216,7 +217,9 @@
             },
             methods: {
                 apiCall(path, data) {
-                    let opts = {};
+                    let opts = {
+                        headers: new Headers({ 'x-auth': adminToken }),
+                    };
                     if (data) {
                         opts.method = 'POST';
                         opts.body = new FormData();
@@ -322,6 +325,17 @@
                     });
                 },
             },
+        };
+
+        let adminAdded = false;
+        kiwi.on('irc.motd', function(event, network) {
+            // kiwibnc admin users get a kiwibnc/admin=token ISUPPORTs token added. The token
+            // is used for the HTTP admin interface for auth
+            let token = network.ircClient.network.supports('kiwibnc/admin');
+            if (token && !adminAdded) {
+                adminToken = token;
+                kiwi.addTab('settings', 'KiwiBNC Admin', AdminScreen);
+            }
         });
 
         // Add the register link to the footer of the startup screen
