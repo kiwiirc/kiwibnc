@@ -48,10 +48,23 @@
 
             <div class="kiwi-appsettings-section">
                 <a class="u-link" @click="refreshData" style="float:left;" >Refresh userlist</a>
-                <a class="u-link" @click="showAddUser" style="float:right;" >Add user</a>
+                <a class="u-link" @click="adduser.visible=!adduser.visible" style="float:right;" >Add user</a>
+
+                <form v-if="adduser.visible" class="kiwibnc-adduser" @submit.prevent="addUserSave">
+                    <div v-if="adduser.error" class="kiwibnc-error">
+                        {{ adduser.error }}
+                    </div>
+                    <input-text v-focus v-model="adduser.username" :label="'Username'"></input-text>
+                    <input-text v-model="adduser.password" :label="'Password'"></input-text>
+                    <label class="u-checkbox-wrapper">
+                        <span>Admin </span>
+                        <input type="checkbox" v-model="adduser.admin">
+                    </label>
+                    <button type="submit" class="u-button u-button-primary">Save</button>
+                </form>
 
                 <div v-if="usersLoading">Loading user list...</div>
-                <table v-else style="clear:left;">
+                <table v-else style="clear:left;width:100%;">
                     <tr>
                         <th>Username</th>
                         <th>Created</th>\
@@ -76,8 +89,8 @@
                             <button>Delete</button>
 
                             <div v-if="showEditPassword">
-                                <input v-model="newPassword" />
-                                <button @click.prevent="changePass(user);newPassword='';showEditPassword=false;">Save</button>
+                                <input-text v-focus v-model="newPassword" :label="'New password'"></input-text>
+                                <button :disabled="!newPassword.trim()" @click.prevent="changePass(user);newPassword='';showEditPassword=false;">Save</button>
                                 <button @click.prevent="newPassword='';showEditPassword=false;">Cancel</button>
                             </div>
                         </td>
@@ -171,6 +184,13 @@
                     isRestarting: false,
                     workerLastStarted: 0,
                     allowRegistrations: false,
+                    adduser: {
+                        visible: false,
+                        error: '',
+                        username: '',
+                        password: '',
+                        admin: false,
+                    },
                 };
             },
             created() {
@@ -222,7 +242,28 @@
                         this.workerLastStarted = resp.started;
                     });
                 },
-                showAddUser() {
+                addUserSave() {
+                    this.apiCall('/admin/users', {
+                        act: 'newuser',
+                        username: this.adduser.username,
+                        password: this.adduser.password,
+                        admin: this.adduser.admin,
+                    }).then(resp => {
+                        if (resp.error) {
+                            if (resp.error === 'user_exists') {
+                                this.adduser.error = 'That username is unavailable';
+                            } else {
+                                this.adduser.error = `Unknown error (${resp.error})`;
+                            }
+                        } else {
+                            this.adduser.error = '';
+                            this.adduser.username = '';
+                            this.adduser.password = '';
+                            this.adduser.admin = false;
+                            this.adduser.visible = false;
+                            this.refreshData();
+                        }
+                    });
                 },
                 lockUser(user) {
                     this.apiCall('/admin/users', {
@@ -311,5 +352,12 @@
 .kiwibnc-register button[disabled] {
     cursor: not-allowed;
     opacity: .65;
+}
+
+.kiwibnc-adduser {
+    clear: left;
+    border: 1px solid rgba(0,0,0,0.1);
+    padding: 1em;
+    margin: 1em 0;
 }
 </style>
