@@ -28,6 +28,9 @@ class User extends DatabaseSavable {
     get admin() { return this.getData('admin'); }
     set admin(newVal) { return this.setData('admin', newVal); }
 
+    get locked() { return this.getData('locked'); }
+    set locked(newVal) { return this.setData('locked', newVal); }
+
     get bind_host() { return this.getData('bind_host'); }
     set bind_host(newVal) { return this.setData('bind_host', newVal); }
 

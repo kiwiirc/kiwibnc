@@ -44,6 +44,8 @@ async function run() {
     // Container for all connection instances
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
+    app.prepareShutdown = () => prepareShutdown(app);
+
     initWebserver(app);
     initExtensions(app);
     broadcastStats(app);
@@ -97,6 +99,16 @@ function broadcastStats(app) {
     broadcast();
 }
 
+function prepareShutdown(app) {
+    // Give some time for the queue to process some internal stuff then just exit. This worker
+    // will get restarted by the sockets process automatically
+    app.queue.stopListening().then(async () => {
+        setTimeout(() => {
+            process.exit();
+        }, 2000);
+    });
+}
+
 function listenToQueue(app) {
     let cons = app.cons;
     app.queue.listenForEvents();
@@ -117,13 +129,7 @@ function listenToQueue(app) {
             return;
         }
 
-        // Give some time for the queue to process some internal stuff then just exit. This worker
-        // will get restarted by the sockets process automatically
-        app.queue.stopListening().then(async () => {
-            setTimeout(() => {
-                process.exit();
-            }, 2000);
-        });
+        app.prepareShutdown();
     });
 
     // When the socket layer accepts a new incoming connection

@@ -22,69 +22,72 @@
 </template>
 
 <template id="kiwibnc-admin">
-        <div class="kiwibnc-admin">
+    <div class="kiwibnc-admin">
 
-            <div class="kiwi-appsettings-block" style="max-width:750px;">
-                <h3>Bouncer</h3>
+        <div class="kiwi-appsettings-block" style="max-width:750px;">
+            <h3>Bouncer <span v-if="apiLoading" style="float:right;font-size:0.8em;">Loading..</span></h3>
 
-                <div class="kiwi-appsettings-section">
-                    <label class="u-checkbox-wrapper">
-                        <span>Allow public user registrations </span>
-                        <input type="checkbox" >
-                    </label>
+            <div class="kiwi-appsettings-section">
+                <label class="u-checkbox-wrapper">
+                    <span>Allow public user registrations </span>
+                    <input type="checkbox" v-model="allowRegistrationsWrap">
+                </label>
+                <small>Note: This temporarily changes the setting. To make it permanent over bouncer restarts you must edit your bouncers config file.</small>
 
-                    <h4>Restart the bouncer</h4>
-                    Restarting will restart all worker processes, reloading any extensions and configuration. No IRC connections will be disconnected.
-                    <br />
-                    <button>Restart</button>
-                </div>
-            </div>
-
-            <div class="kiwi-appsettings-block" style="max-width:750px;">
-                <h3>Users</h3>
-
-                <div class="kiwi-appsettings-section">
-                    <a class="u-link" @click="refreshUsers" style="float:left;" >Refresh userlist</a>
-                    <a class="u-link" @click="showAddUser" style="float:right;" >Add user</a>
-
-                    <div v-if="usersLoading">Loading user list...</div>
-                    <table v-else style="clear:left;">
-                        <tr>
-                            <th>Username</th>
-                            <th>Created</th>\
-                            <th>Num. Networks</th>
-                            <th></th>
-                            <th></th>
-                        </tr>
-                        <template v-for="user in users" :key="user.id">
-                        <tr style="border-bottom:1px solid rgba(0,0,0,0.2);">
-                            <td>{{user.username}}</td>
-                            <td>{{user.created_at}}</td>
-                            <td>{{user.num_networks || 0}}</td>
-                            <td>{{user.admin ? 'Admin' : ''}} {{user.locked ? 'Locked' : ''}}</td>
-                            <td><a class="u-link" @click="editingUserId=user.id">Edit <i class="fa fa-cog"></i></a></td>
-                        </tr>
-                        <tr v-if="editingUserId === user.id">
-                            <td colspan="5">
-                                <button v-if="user.locked" @click.prevent="unlockUser(user)">Unlock</button>
-                                <button v-else @click.prevent="lockUser(user)">Lock</button>
-
-                                <button @click.prevent="showEditPassword=true">Change password</button>
-                                <button>Delete</button>
-
-                                <div v-if="showEditPassword">
-                                    <input v-model="newPassword" />
-                                    <button @click.prevent="changePass(user);newPassword='';showEditPassword=false;">Save</button>
-                                    <button @click.prevent="newPassword='';showEditPassword=false;">Cancel</button>
-                                </div>
-                            </td>
-                        </tr>
-                        </template>
-                    </table>
-                </div>
+                <h4>Restart the bouncer</h4>
+                Restarting will restart all worker processes, reloading any extensions and configuration. No IRC connections will be disconnected.
+                <br />
+                <button :disabled="apiLoading" @click.prevent="restartBouncer">
+                    {{ isRestarting ? 'Restarting..' : 'Restart' }}
+                </button>
             </div>
         </div>
-    </template>
+
+        <div class="kiwi-appsettings-block" style="max-width:750px;">
+            <h3>Users</h3>
+
+            <div class="kiwi-appsettings-section">
+                <a class="u-link" @click="refreshData" style="float:left;" >Refresh userlist</a>
+                <a class="u-link" @click="showAddUser" style="float:right;" >Add user</a>
+
+                <div v-if="usersLoading">Loading user list...</div>
+                <table v-else style="clear:left;">
+                    <tr>
+                        <th>Username</th>
+                        <th>Created</th>\
+                        <th>Num. Networks</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    <template v-for="user in users" :key="user.id">
+                    <tr style="border-bottom:1px solid rgba(0,0,0,0.2);">
+                        <td>{{user.username}}</td>
+                        <td>{{user.created_at}}</td>
+                        <td>{{user.num_networks || 0}}</td>
+                        <td>{{user.admin ? 'Admin' : ''}} {{user.locked ? 'Locked' : ''}}</td>
+                        <td><a class="u-link" @click="editingUserId=user.id">Edit <i class="fa fa-cog"></i></a></td>
+                    </tr>
+                    <tr v-if="editingUserId === user.id">
+                        <td colspan="5">
+                            <button v-if="user.locked" @click.prevent="unlockUser(user)">Unlock</button>
+                            <button v-else @click.prevent="lockUser(user)">Lock</button>
+
+                            <button @click.prevent="showEditPassword=true">Change password</button>
+                            <button>Delete</button>
+
+                            <div v-if="showEditPassword">
+                                <input v-model="newPassword" />
+                                <button @click.prevent="changePass(user);newPassword='';showEditPassword=false;">Save</button>
+                                <button @click.prevent="newPassword='';showEditPassword=false;">Cancel</button>
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
+                </table>
+            </div>
+        </div>
+    </div>
+</template>
 
 <script>
     kiwi.plugin('kiwibnc', function(kiwi, log) {
@@ -164,7 +167,32 @@
                     editingUserId: 0,
                     showEditPassword: false,
                     newPassword: '',
+                    apiLoading: false,
+                    isRestarting: false,
+                    workerLastStarted: 0,
+                    allowRegistrations: false,
                 };
+            },
+            created() {
+                this.refreshData();
+            },
+            computed: {
+                allowRegistrationsWrap: {
+                    get() {
+                        return this.allowRegistrations;
+                    },
+                    set(newVal) {
+                        let oldVal = this.allowRegistrations;
+                        this.apiCall('/admin/info', {
+                            allowregistrations: newVal,
+                        })
+                        .then(resp => {
+                            if (!resp.error) {
+                                this.allowRegistrations = newVal;
+                            }
+                        });
+                    },
+                },
             },
             methods: {
                 apiCall(path, data) {
@@ -176,16 +204,22 @@
                             opts.body.append(prop, data[prop]);
                         }
                     }
-                    console.log(opts);
-                    return fetch('/api' + path, opts).then(resp => resp.json());
+                    this.apiLoading = true;
+                    return fetch('/api' + path, opts)
+                    .then(resp => {
+                        this.apiLoading = false;
+                        return resp.json();
+                    });
                 },
-                refreshUsers() {
-                    this.apiCall('/admin/users')
+                refreshData() {
+                    this.apiCall('/admin/info')
                     .then(resp => {
                         this.users = {};
                         resp.users.forEach(u => {
                             this.users[u.id] = u;
                         });
+                        this.allowRegistrations = resp.allowRegistrations;
+                        this.workerLastStarted = resp.started;
                     });
                 },
                 showAddUser() {
@@ -196,7 +230,7 @@
                         username: user.username,
                     })
                     .then(resp => {
-                        this.refreshUsers();
+                        this.refreshData();
                     });
                 },
                 unlockUser(user) {
@@ -205,7 +239,7 @@
                         username: user.username,
                     })
                     .then(resp => {
-                        this.refreshUsers();
+                        this.refreshData();
                     });
                 },
                 changePass(user) {
@@ -215,9 +249,37 @@
                         password: this.newPassword,
                     })
                     .then(resp => {
-                        this.refreshUsers();
+                        this.refreshData();
                     });
-                }
+                },
+                restartBouncer() {
+                    this.isRestarting = true;
+
+                    this.apiCall('/admin/restart', {})
+                    .then(() => {
+                        // Check each second if it's back up yet
+                        this.apiLoading = true;
+                        let check = () => {
+                            this.apiCall('/admin/info')
+                            .then(resp => {
+                                // If resp.started hasn't changed since the last time we refreshed
+                                // data then the server hasn't restarted yet. It could be slow at
+                                // shutting down for some reason.
+                                if (resp.started === this.workerLastStarted) {
+                                    throw new Error('not restarted');
+                                }
+
+                                this.isRestarting = false;
+                                this.refreshData();
+                            })
+                            .catch(() => {
+                                setTimeout(check, 1000);
+                            });
+                        };
+
+                        setTimeout(check, 2000);
+                    });
+                },
             },
         });
 

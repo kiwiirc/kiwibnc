@@ -51,6 +51,10 @@ module.exports = class Config extends EventEmitter {
         return def;
     }
 
+    set(key, val) {
+        _.set(this.c, key, val);
+    }
+
     static instance(...args) {
         if (!singletonInstance) {
             singletonInstance = new Config(...args);

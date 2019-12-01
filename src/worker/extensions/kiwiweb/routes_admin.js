@@ -2,7 +2,18 @@ module.exports = function(app) {
     let router = app.webserver.router;
     let userDb = app.userDb;
 
-    router.get('kiwi.config', '/api/admin/users', async (ctx, next) => {
+    // Used to check if the worker has actually been restarted from the client
+    let started = Date.now();
+
+    router.post('admin.info', '/api/admin/info', async (ctx, next) => {
+        let body = ctx.request.body;
+        if (body.allowregistrations) {
+            app.conf.set('webchat.public_register', body.allowregistrations === 'true');
+        }
+        ctx.body = {};
+    });
+
+    router.get('admin.info', '/api/admin/info', async (ctx, next) => {
         let db = userDb.db.dbUsers;
         let r = db('user_networks')
             .where('user_id', db.ref('users.id'))
@@ -13,10 +24,22 @@ module.exports = function(app) {
         let users = await db('users')
             .select('id', 'username', 'created_at', 'admin', 'locked', r);
 
-        ctx.body = { users };
+        ctx.body = {
+            started,
+            users,
+            allowRegistrations: app.conf.get('webchat.public_register', false),
+        };
     });
 
-    router.post('kiwi.config', '/api/admin/users', async (ctx, next) => {
+    router.post('admin.restart', '/api/admin/restart', async (ctx, next) => {
+        setTimeout(() => {
+            app.prepareShutdown();
+        }, 100);
+
+        ctx.body = {};
+    });
+
+    router.post('admin.users', '/api/admin/users', async (ctx, next) => {
         let body = ctx.request.body;
 
         let acts = ['lock', 'unlock', 'changepass'];
