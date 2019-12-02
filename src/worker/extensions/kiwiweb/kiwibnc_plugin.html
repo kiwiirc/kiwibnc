@@ -79,7 +79,7 @@
                     <template v-for="user in users" :key="user.id">
                     <tr style="border-bottom:1px solid rgba(0,0,0,0.2);">
                         <td>{{user.username}}</td>
-                        <td>{{user.created_at}}</td>
+                        <td>{{ new Date(user.created_at * 1000).toLocaleString()}}</td>
                         <td>{{user.num_networks || 0}}</td>
                         <td>{{user.admin ? 'Admin' : ''}} {{user.locked ? 'Locked' : ''}}</td>
                         <td><a class="u-link" @click="editingUserId=user.id">Edit <i class="fa fa-cog"></i></a></td>
