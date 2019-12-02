@@ -12,7 +12,7 @@ module.exports.init = async function init(hooks, app) {
     }
     let publicPath = app.conf.relativePath(app.conf.get('webserver.public_dir'));
 
-    await downloadKiwiIrc(publicPath);
+    await downloadKiwiIrc(publicPath, app.conf.get('webchat.download_url', ''));
 
     routesAdmin(app);
     routesClient(app);
@@ -26,8 +26,7 @@ module.exports.init = async function init(hooks, app) {
     });
 };
 
-async function downloadKiwiIrc(publicPath) {
-    let downloadUrl = 'https://builds.kiwiirc.com/zips/kiwiirc_master.zip';
+async function downloadKiwiIrc(publicPath, downloadUrl) {
     let downloadPath = path.join(os.tmpdir(), 'kiwiirc_download');
 
     try {
@@ -41,6 +40,11 @@ async function downloadKiwiIrc(publicPath) {
             reportError(err);
             return;
         }
+    }
+
+    if (!downloadUrl) {
+        l.error('Missing download URL for the webchat client', publicPath);
+        return;
     }
 
     https.get(downloadUrl, async (response) => {
