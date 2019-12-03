@@ -341,6 +341,7 @@
             // is used for the HTTP admin interface for auth
             let token = network.ircClient.network.supports('kiwibnc/admin');
             if (token && !adminAdded) {
+                adminAdded = true;
                 adminToken = token;
                 kiwi.addTab('settings', 'KiwiBNC Admin', AdminScreen);
             }
