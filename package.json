@@ -22,13 +22,13 @@
     "pg": "^7.12.1",
     "readline-sync": "^1.4.10",
     "request-promise": "^4.2.4",
+    "rpc-over-ipc": "^1.0.0",
     "sqlite3": "^4.0.9",
     "strftime": "^0.10.0",
     "toml": "^2.3.6",
     "unzipper": "^0.10.5",
     "uuid": "^3.3.2",
-    "ws": "^7.1.2",
-    "zerorpc": "^0.9.8"
+    "ws": "^7.1.2"
   },
   "devDependencies": {},
   "scripts": {

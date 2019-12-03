@@ -127,7 +127,9 @@ module.exports = class SocketConnection extends EventEmitter {
     }
 
     forceWrite(data) {
-        l.debug(`[out ${this.id}]`, [data.trimEnd()]);
-        this.sock.write(data);
+        l.debug(`[out ${this.id}]`, [data]);
+        this.sock.write(data, () => {
+            l.trace(`[out ${this.id} complete]`);
+        });
     }
 }

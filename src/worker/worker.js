@@ -56,6 +56,8 @@ async function run() {
         await startServers(app);
         loadConnections(app);
     }, 1000);
+
+    return app;
 }
 
 async function initExtensions(app) {

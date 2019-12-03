@@ -162,6 +162,8 @@ async function run() {
 
         l(`Incoming:${incoming} Outgoing:${outgoing} Listening:${listening} Unknown:${unknown}`);
     }
+
+    return app;
 }
 
 module.exports = run();
