@@ -1,42 +1,15 @@
 const crypto = require('crypto')
-const zerorpc = require('zerorpc');
+const rpc = require('rpc-over-ipc');
 const Stats = require('./stats');
 const EventEmitter = require('./eventemitter');
 
 module.exports = class IpcQueue extends EventEmitter {
     constructor(conf) {
         super();
+        this.isWorker = false;
         this.toWorkerQueue = [];
         this.toWorkerQueueWaits = [];
-        this.server = null;
-        this.client = null;
         this.stats = Stats.instance().makePrefix('queue');
-
-        // If a queue channel hasn't specifically been set, auto generate them
-        if (!conf.get('queue.ipc_bind')) {
-            // Use the database crypt_key setting to seed any queue names. This must
-            // be done so that multiple instances of kiwibnc do not clash
-            let cryptKey = conf.get('database.crypt_key', 'kiwibnc');
-            let ipcChannelSeed = crypto.createHash('md5')
-                .update(cryptKey + 'random string')
-                .digest('hex');
-
-            if (process.platform === 'win32') {
-                // IPC on windows isn't supported, fall back to TCP
-                // Generate the port from the hash. Using the first 3 chars as a hex value
-                // and adding 2000 to ensure it is above the 1024 port value
-                let port = parseInt(ipcChannelSeed.substr(0, 3), 16) + 2000
-                this.serverBind = 'tcp://127.0.0.1:' + port;
-                this.serverAddr = 'tcp://127.0.0.1:' + port;
-            } else {
-                let ipcChannel = ipcChannelSeed;
-                this.serverBind = 'ipc://kiwibnc_' + ipcChannel;
-                this.serverAddr = 'ipc://kiwibnc_' + ipcChannel;
-            }
-        } else {
-            this.serverBind = conf.get('queue.ipc_bind', '');
-            this.serverAddr = conf.get('queue.ipc_addr', this.serverBind);
-        }
     }
 
     sendToWorker(type, data) {
@@ -45,9 +18,11 @@ module.exports = class IpcQueue extends EventEmitter {
         this.stats.increment('sendtoworker');
 
         if (this.toWorkerQueueWaits.length > 0) {
+            // There are promises waiting for worker data, resolve one of them with the payload
             let pResolve = this.toWorkerQueueWaits.shift();
             pResolve(payload);
         } else {
+            // Nothing waiting for worker data yet, add payload to the queue ready to be picked up
             this.toWorkerQueue.push(payload);
         }
     }
@@ -56,9 +31,9 @@ module.exports = class IpcQueue extends EventEmitter {
         l.trace('Queue sending to sockets: ' + payload);
         this.stats.increment('sendtosockets');
 
-        this.client.invoke('message', payload, (error, result, more) => {
+        rpc.call(process, 'message', [payload], (error, result) => {
             if (error) {
-                l.error('zeroMQ error:', error);
+                l.error('RPC error:', error);
             }
         });
     }
@@ -87,58 +62,75 @@ module.exports = class IpcQueue extends EventEmitter {
     }
 
     async initServer() {
-        let that = this;
-        this.server = new zerorpc.Server({
-            getMessage: function(arg1, reply) {
-                that.getNextWorkerQueueItem()
+        let failedReplies = [];
+        this.on('_workerProcess', event => {
+            let workerClosed = false;
+            let workerProc = event.workerProc;
+
+            workerProc.on('exit', () => {
+                workerClosed = true;
+            });
+
+            rpc.register(workerProc, 'getMessage', (reply) => {
+                if (failedReplies.length > 0) {
+                    let item = failedReplies.shift();
+                    reply(null, item);
+                    return;
+                }
+
+                this.getNextWorkerQueueItem()
                 .then(item => {
+                    if (workerClosed) {
+                        l.debug('Worker process closed, queing up reply for next worker');
+                        failedReplies.push(item);
+                        return;
+                    }
+
                     reply(null, item);
                 })
                 .catch(err => {
+                    // timeout = no new messages for a worker yet. not a bad thing
                     if (err !== 'timeout') {
                         l.error('getNextWorkerQueueItem() error', err);
                     }
 
-                    reply(null, '');
+                    // It doesn't matter if a worker doesn't get this reply as there's no data in it
+                    if (!workerClosed) {
+                        reply(null, '');
+                    }
                 });
-            },
-            message: function(payload, reply) {
+            });
+            
+            rpc.register(workerProc, 'message', (payload, reply) => {
                 // message from a worker
-                that.triggerPayload(payload).then(() => {
+                this.triggerPayload(payload).then(() => {
                     reply(null);
                 });
-            },
+            });
         });
 
-        l.debug('initServer() using zeroMQ channel', this.serverBind);
-        this.stats.increment('connecting');
-        this.server.bind(this.serverBind);
+        l.debug('initServer()');
     }
 
     async initWorker() {
-        this.client = new zerorpc.Client();
-        l.debug('initWorker() using zeroMQ channel', this.serverAddr);
-        this.stats.increment('connecting');
-        this.client.connect(this.serverAddr);
+        this.isWorker = true;
     }
 
     async listenForEvents() {
-        // initServer() already bound server RPC handlers so we only need to start
-        // listening for the worker. Workers have a this.client zeroMQ client instance
-        if (!this.client) {
+        if (!this.isWorker) {
             return;
         }
 
         let getNextItem = () => {
-            this.client.invoke('getMessage', '', (error, res, more) => {
+            rpc.call(process, 'getMessage', (error, message) => {
                 // message from a sockets server
                 if (error) {
-                    l.error('zeroMQ getMessage() error', error);
+                    l.error('RPC getMessage() error', error);
                     process.nextTick(getNextItem);
                     return;
                 }
 
-                this.triggerPayload(res).then(() => {
+                this.triggerPayload(message).then(() => {
                     process.nextTick(getNextItem);
                 });
             });
@@ -178,16 +170,6 @@ module.exports = class IpcQueue extends EventEmitter {
     stopListening() {
         l.trace('stopListening()');
         return new Promise((resolve) => {
-            this.stats.increment('stopping');
-
-            if (this.client) {
-                this.client.close();
-            }
-
-            if (this.server) {
-                this.server.close();
-            }
-
             resolve();
         });
     }

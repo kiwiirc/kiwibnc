@@ -8,9 +8,11 @@
     "bcrypt": "^3.0.6",
     "better-sqlite3": "^5.4.2",
     "commander": "^2.20.0",
+    "fs-extra": "^8.1.0",
     "irc-framework": "^4.4.0",
     "knex": "^0.16.5",
     "koa": "^2.10.0",
+    "koa-body": "^4.1.1",
     "koa-router": "^7.4.0",
     "koa-static": "^5.0.0",
     "lodash": "^4.17.15",
@@ -20,12 +22,13 @@
     "pg": "^7.12.1",
     "readline-sync": "^1.4.10",
     "request-promise": "^4.2.4",
+    "rpc-over-ipc": "^1.0.0",
     "sqlite3": "^4.0.9",
     "strftime": "^0.10.0",
     "toml": "^2.3.6",
+    "unzipper": "^0.10.5",
     "uuid": "^3.3.2",
-    "ws": "^7.1.2",
-    "zerorpc": "^0.9.8"
+    "ws": "^7.1.2"
   },
   "devDependencies": {},
   "scripts": {

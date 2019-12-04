@@ -30,7 +30,6 @@ class Crypt {
             decrypted = Buffer.concat([decrypted, decipher.final()]);
             decrypted = decrypted.toString();
         } catch (err) {
-            console.error('Error decrypting:', err);
             decrypted = '';
         }
 

@@ -41,6 +41,11 @@ async function run() {
             return;
         }
 
+        if (con && con.connecting) {
+            l.debug('Connection already connecting, ignoring');
+            return;
+        }
+
         if (!event.host || !event.port) {
             l.error('Missing hort or port for connection.open');
             return;
@@ -162,6 +167,8 @@ async function run() {
 
         l(`Incoming:${incoming} Outgoing:${outgoing} Listening:${listening} Unknown:${unknown}`);
     }
+
+    return app;
 }
 
 module.exports = run();

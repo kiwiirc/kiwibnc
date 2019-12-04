@@ -1,0 +1,387 @@
+<template id="kiwibnc-register">
+    <div class="kiwibnc-register">
+        <form class="u-form u-form--big" @submit.prevent="onSubmit">
+            <h2>Create an account</h2>
+
+            <div v-if="error" class="kiwibnc-error">
+                {{ friendlyErrorMessage(error) }}
+            </div>
+
+            <input-text v-model="username" :label="'Username'"></input-text>
+            <input-text v-model="password" :label="'Password'" :type="'password'"></input-text>
+
+            <button
+                :disabled="!completedForm || loading"
+                type="submit"
+                class="u-button u-button-primary u-submit"
+            >Create my account</button>
+
+            <a @click="$emit('close', {})" class="u-link"><i class="fa fa-chevron-left"></i> I already have an account</a>
+        </form>
+    </div>
+</template>
+
+<template id="kiwibnc-admin">
+    <div class="kiwibnc-admin">
+
+        <div class="kiwi-appsettings-block" style="max-width:750px;">
+            <h3>Bouncer <span v-if="apiLoading" style="float:right;font-size:0.8em;">Loading..</span></h3>
+
+            <div class="kiwi-appsettings-section">
+                <label class="u-checkbox-wrapper">
+                    <span>Allow public user registrations </span>
+                    <input type="checkbox" v-model="allowRegistrationsWrap">
+                </label>
+                <small>Note: This temporarily changes the setting. To make it permanent over bouncer restarts you must edit your bouncers config file.</small>
+
+                <h4>Restart the bouncer</h4>
+                Restarting will restart all worker processes, reloading any extensions and configuration. No IRC connections will be disconnected.
+                <br />
+                <button :disabled="apiLoading" @click.prevent="restartBouncer" class="u-button u-button-secondary">
+                    {{ isRestarting ? 'Restarting..' : 'Restart' }}
+                </button>
+            </div>
+        </div>
+
+        <div class="kiwi-appsettings-block" style="max-width:750px;">
+            <h3>Users</h3>
+
+            <div class="kiwi-appsettings-section">
+                <a class="u-link" @click="refreshData" style="float:left;" >Refresh userlist</a>
+                <a class="u-link" @click="adduser.visible=true" style="float:right;" >Add user</a>
+
+                <form v-if="adduser.visible" class="kiwibnc-adduser" @submit.prevent="addUserSave">
+                    <div v-if="adduser.error" class="kiwibnc-error">
+                        {{ adduser.error }}
+                    </div>
+                    <input-text v-focus v-model="adduser.username" :label="'Username'"></input-text>
+                    <input-text v-model="adduser.password" :label="'Password'"></input-text>
+                    <label class="u-checkbox-wrapper">
+                        <span>Admin </span>
+                        <input type="checkbox" v-model="adduser.admin">
+                    </label>
+
+                    <div style="text-align:right;">
+                        <button type="submit" class="u-button u-button-primary">Save</button>
+                        <button @click="closeAddUser" class="u-button u-button-secondary">Cancel</button>
+                    </div>
+                </form>
+
+                <div v-if="usersLoading">Loading user list...</div>
+                <table v-else style="clear:left;width:100%;">
+                    <tr>
+                        <th>Username</th>
+                        <th>Created</th>\
+                        <th>Num. Networks</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    <template v-for="user in users" :key="user.id">
+                    <tr style="border-bottom:1px solid rgba(0,0,0,0.2);">
+                        <td>{{user.username}}</td>
+                        <td>{{ new Date(user.created_at * 1000).toLocaleString()}}</td>
+                        <td>{{user.num_networks || 0}}</td>
+                        <td>{{user.admin ? 'Admin' : ''}} {{user.locked ? 'Locked' : ''}}</td>
+                        <td><a class="u-link" @click="editingUserId=user.id">Edit <i class="fa fa-cog"></i></a></td>
+                    </tr>
+                    <tr v-if="editingUserId === user.id">
+                        <td colspan="5">
+                            <button v-if="user.locked" @click.prevent="unlockUser(user)" class="u-button u-button-secondary">Unlock</button>
+                            <button v-else @click.prevent="lockUser(user)" class="u-button u-button-secondary">Lock</button>
+
+                            <button @click.prevent="showEditPassword=true" class="u-button u-button-secondary">Change password</button>
+
+                            <div v-if="showEditPassword">
+                                <input-text v-focus v-model="newPassword" :label="'New password'"></input-text>
+                                <button :disabled="!newPassword.trim()" @click.prevent="changePass(user);newPassword='';showEditPassword=false;" class="u-button u-button-primary">Save</button>
+                                <button @click.prevent="newPassword='';showEditPassword=false;" class="u-button u-button-secondary">Cancel</button>
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
+                </table>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    kiwi.plugin('kiwibnc', function(kiwi, log) {
+        let adminToken = '';
+        let InputText = kiwi.require('components/utils/InputText');
+
+        let RegisterScreen = {
+            components: {
+                InputText: InputText,
+            },
+            template: '#kiwibnc-register',
+            computed: {
+                completedForm: function() {
+                    return this.username && this.password;
+                },
+            },
+            data: function() {
+                return {
+                    username: '',
+                    password: '',
+                    loading: false,
+                    error: '',
+                };
+            },
+            methods: {
+                onSubmit() {
+                    var data = new FormData();
+                    data.append('username', this.username);
+                    data.append('password', this.password);
+
+                    this.loading = true;
+                    this.error = '';
+
+                    fetch('/api/register', {
+                        method: 'POST',
+                        body: data,
+                    })
+                    .then(res => res.json())
+                    .then(resp => {
+                        this.loading = false;
+
+                        if (resp.error) {
+                            this.error = resp.error;
+                            return;
+                        }
+
+                        this.$emit('close', {
+                            nick: this.username,
+                            password: this.password,
+                            error: 'New account created :)',
+                        });
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        this.error = 'unknown_error';
+                        this.loading = false;
+                    });
+                },
+                friendlyErrorMessage(err_code) {
+                    let errs = {
+                        missing_params: 'All options are required',
+                        username_in_use: 'Unavailable username',
+                        invalid_username: 'Invalid username. Use only letters and numbers',
+                        forbidden: 'Registrations are not allowed on this server',
+                        unknown_error: 'An unknown error happened :(',
+                    };
+
+                    return errs[err_code] || errs.unknown_error;
+                },
+            },
+        };
+
+        let AdminScreen = {
+            template: '#kiwibnc-admin',
+            data: function() {
+                return {
+                    usersLoading: false,
+                    users: [],
+                    editingUserId: 0,
+                    showEditPassword: false,
+                    newPassword: '',
+                    apiLoading: false,
+                    isRestarting: false,
+                    workerLastStarted: 0,
+                    allowRegistrations: false,
+                    adduser: {
+                        visible: false,
+                        error: '',
+                        username: '',
+                        password: '',
+                        admin: false,
+                    },
+                };
+            },
+            created() {
+                this.refreshData();
+            },
+            computed: {
+                allowRegistrationsWrap: {
+                    get() {
+                        return this.allowRegistrations;
+                    },
+                    set(newVal) {
+                        let oldVal = this.allowRegistrations;
+                        this.apiCall('/admin/info', {
+                            allowregistrations: newVal,
+                        })
+                        .then(resp => {
+                            if (!resp.error) {
+                                this.allowRegistrations = newVal;
+                            }
+                        });
+                    },
+                },
+            },
+            methods: {
+                apiCall(path, data) {
+                    let opts = {
+                        headers: new Headers({ 'x-auth': adminToken }),
+                    };
+                    if (data) {
+                        opts.method = 'POST';
+                        opts.body = new FormData();
+                        for (let prop in data) {
+                            opts.body.append(prop, data[prop]);
+                        }
+                    }
+                    this.apiLoading = true;
+                    return fetch('/api' + path, opts)
+                    .then(resp => {
+                        this.apiLoading = false;
+                        return resp.json();
+                    });
+                },
+                refreshData() {
+                    this.apiCall('/admin/info')
+                    .then(resp => {
+                        this.users = {};
+                        resp.users.forEach(u => {
+                            this.users[u.id] = u;
+                        });
+                        this.allowRegistrations = resp.allowRegistrations;
+                        this.workerLastStarted = resp.started;
+                    });
+                },
+                addUserSave() {
+                    this.apiCall('/admin/users', {
+                        act: 'newuser',
+                        username: this.adduser.username,
+                        password: this.adduser.password,
+                        admin: this.adduser.admin,
+                    }).then(resp => {
+                        if (resp.error) {
+                            if (resp.error === 'missing_params') {
+                                this.adduser.error = 'You must provide both a username and password!';
+                            } else if (resp.error === 'user_exists') {
+                                this.adduser.error = 'That username is unavailable';
+                            } else {
+                                this.adduser.error = `Unknown error (${resp.error})`;
+                            }
+                        } else {
+                            this.closeAddUser();
+                            this.refreshData();
+                        }
+                    });
+                },
+                closeAddUser() {
+                    this.adduser.error = '';
+                    this.adduser.username = '';
+                    this.adduser.password = '';
+                    this.adduser.admin = false;
+                    this.adduser.visible = false;
+                },
+                lockUser(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'lock',
+                        username: user.username,
+                    })
+                    .then(resp => {
+                        this.refreshData();
+                    });
+                },
+                unlockUser(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'unlock',
+                        username: user.username,
+                    })
+                    .then(resp => {
+                        this.refreshData();
+                    });
+                },
+                changePass(user) {
+                    this.apiCall('/admin/users', {
+                        act: 'changepass',
+                        username: user.username,
+                        password: this.newPassword,
+                    })
+                    .then(resp => {
+                        this.refreshData();
+                    });
+                },
+                restartBouncer() {
+                    this.isRestarting = true;
+
+                    this.apiCall('/admin/restart', {})
+                    .then(() => {
+                        // Check each second if it's back up yet
+                        this.apiLoading = true;
+                        let check = () => {
+                            this.apiCall('/admin/info')
+                            .then(resp => {
+                                // If resp.started hasn't changed since the last time we refreshed
+                                // data then the server hasn't restarted yet. It could be slow at
+                                // shutting down for some reason.
+                                if (resp.started === this.workerLastStarted) {
+                                    throw new Error('not restarted');
+                                }
+
+                                this.isRestarting = false;
+                                this.refreshData();
+                            })
+                            .catch(() => {
+                                setTimeout(check, 1000);
+                            });
+                        };
+
+                        setTimeout(check, 2000);
+                    });
+                },
+            },
+        };
+
+        let adminAdded = false;
+        kiwi.on('irc.motd', function(event, network) {
+            // kiwibnc admin users get a kiwibnc/admin=token ISUPPORTs token added. The token
+            // is used for the HTTP admin interface for auth
+            let token = network.ircClient.network.supports('kiwibnc/admin');
+            if (token && !adminAdded) {
+                adminAdded = true;
+                adminToken = token;
+                kiwi.addTab('settings', 'KiwiBNC Admin', AdminScreen);
+            }
+        });
+
+        // Add the register link to the footer of the startup screen
+        if (kiwi.state.settings.startupOptions.public_register) {
+            kiwi.state.settings.startupOptions.footerText = '<a class="u-link kiwibnc-registeropen">Create an account</a>';
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('kiwibnc-registeropen')) {
+                    kiwi.state.$set(kiwi.state.settings.startupOptions, 'altComponent', RegisterScreen);
+                }
+            });
+        }
+    });
+</script>
+
+<style>
+.kiwibnc-register {
+    width: 70%;
+}
+
+.kiwibnc-error {
+    color: var(--brand-error);
+    border: 1px solid var(--brand-error);
+    text-align: center;
+    padding: 0.5em;
+    margin: 1em;
+}
+
+.kiwibnc-register button[disabled] {
+    cursor: not-allowed;
+    opacity: .65;
+}
+
+.kiwibnc-adduser {
+    clear: left;
+    border: 1px solid rgba(0,0,0,0.1);
+    padding: 1em;
+    margin: 1em 0;
+}
+</style>

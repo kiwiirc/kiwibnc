@@ -1,21 +1,24 @@
 const readline = require('readline');
-const { spawn } = require('child_process');
+const path = require('path');
+const { fork } = require('child_process');
 const nodeCleanup = require('node-cleanup');
 
 module.exports = async function(env, options) {
     // Start the socket layer first so that it's ready for the worker to connect to
-    await require('../sockets/sockets');
+    let socketsApp = await require('../sockets/sockets');
 
     // The worker should restart itself if it crashes
     let workerProc;
     let spawnWorker = () => {
-        let nodeBin = process.argv[0];
-        let nodeArgs = [...process.argv.slice(1), 'worker'];
+        let nodeArgs = [...process.argv.slice(2), 'worker'];
         nodeArgs.splice(nodeArgs.indexOf('run'), 1);
-        workerProc = spawn(nodeBin, nodeArgs, {
-            stdio: [process.stdin, process.stdout, process.stderr],
+
+        workerProc = fork(path.resolve(__dirname, '../server.js'), nodeArgs, {
+            stdio: [process.stdin, process.stdout, process.stderr, 'ipc'],
+            //stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
             env: process.env,
         });
+        socketsApp.queue.emit('_workerProcess', {workerProc});
         workerProc.on('exit', spawnWorker);
     };
 

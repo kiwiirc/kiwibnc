@@ -44,7 +44,9 @@ class Users {
             return null;
         }
 
-        let user = await this.db.dbUsers('users').where('username', 'LIKE', username)
+        let user = await this.db.dbUsers('users')
+            .where('username', 'LIKE', username)
+            .where('locked', '!=', true)
             .first()
             .then(this.db.factories.User.fromDbResult);
 

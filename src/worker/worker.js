@@ -4,6 +4,7 @@ const { ircLineParser } = require('irc-framework');
 const Koa = require('koa');
 const koaStatic = require('koa-static');
 const KoaRouter = require('koa-router');
+const koaBody = require('koa-body');
 const Database = require('../libs/database');
 const Crypt = require('../libs/crypt');
 const Users = require('./users');
@@ -12,6 +13,7 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
+const { parseBindString } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker', {type: 'worker'});
@@ -42,6 +44,8 @@ async function run() {
     // Container for all connection instances
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
+    app.prepareShutdown = () => prepareShutdown(app);
+
     initWebserver(app);
     initExtensions(app);
     broadcastStats(app);
@@ -52,6 +56,8 @@ async function run() {
         await startServers(app);
         loadConnections(app);
     }, 1000);
+
+    return app;
 }
 
 async function initExtensions(app) {
@@ -95,6 +101,16 @@ function broadcastStats(app) {
     broadcast();
 }
 
+function prepareShutdown(app) {
+    // Give some time for the queue to process some internal stuff then just exit. This worker
+    // will get restarted by the sockets process automatically
+    app.queue.stopListening().then(async () => {
+        setTimeout(() => {
+            process.exit();
+        }, 2000);
+    });
+}
+
 function listenToQueue(app) {
     let cons = app.cons;
     app.queue.listenForEvents();
@@ -115,13 +131,7 @@ function listenToQueue(app) {
             return;
         }
 
-        // Give some time for the queue to process some internal stuff then just exit. This worker
-        // will get restarted by the sockets process automatically
-        app.queue.stopListening().then(async () => {
-            setTimeout(() => {
-                process.exit();
-            }, 2000);
-        });
+        app.prepareShutdown();
     });
 
     // When the socket layer accepts a new incoming connection
@@ -231,17 +241,6 @@ async function startServers(app) {
     }
 }
 
-// Parse a string such as tcp://hostname:1234/path into:
-// {proto:'tcp', hostname:'hostname', port:1234, path:'path'}
-function parseBindString(inp) {
-    let m = inp.match(/^(?:(?<proto>[^:]+)?:\/\/)?(?<hostname>[^:]+)(?::(?<port>[0-9]*))?(?<path>.*)$/);
-    if (!m) {
-        return;
-    }
-
-    return m.groups;
-}
-
 async function loadConnections(app) {
     let rows = await app.db.dbConnections.raw('SELECT conid, type, bind_host FROM connections');
     l.info(`Loading ${rows.length} connections`);
@@ -278,6 +277,8 @@ async function loadConnections(app) {
 
 async function initWebserver(app) {
     app.webserver = new Koa();
+
+    app.webserver.use(koaBody({ multipart: true }));
 
 	let router = app.webserver.router = new KoaRouter();
 	app.webserver.use(router.routes());
