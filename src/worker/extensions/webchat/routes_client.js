@@ -76,8 +76,16 @@ module.exports = function(app) {
             return;
         }
 
+        let admin = false;
+
+        // If this is the first user, make them an admin
+        let usersExist = await app.db.factories.User.query().first();
+        if (!usersExist) {
+            admin = true;
+        }
+
         try {
-            let user = await app.userDb.addUser(body.username, body.password);
+            let user = await app.userDb.addUser(body.username, body.password, admin);
         } catch (err) {
             if (err.message === 'Invalid username') {
                 ctx.body = {error: 'invalid_username'};
