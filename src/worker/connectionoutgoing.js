@@ -111,6 +111,12 @@ class ConnectionOutgoing {
             }
 
             hook.event.clients.forEach(async client => {
+                // Keep track of any changes to our user in this client instance
+                if (message.command.toUpperCase() === 'NICK') {
+                    client.state.nick = message.params[0];
+                    await client.state.save();
+                }
+
                 await client.writeMsg(message);
             });
         }
