@@ -65,8 +65,8 @@ async function initExtensions(app) {
     extensions.forEach(async extName => {
         try {
             let extPath = (extName[0] === '.' || extName[0] === '/') ?
-                path.join(app.conf.baseDir, extName) :
-                `./extensions/${extName}/`;
+                app.conf.relativePath(extName) :
+                `../extensions/${extName}/`;
 
             l.info('Loading extension ' + extPath);
             let ext = require(extPath);

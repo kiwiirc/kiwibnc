@@ -1,5 +1,5 @@
 const Irc = require('irc-framework');
-const { mParam, mParamU } = require('../../../libs/helpers');
+const { mParam, mParamU } = require('../../libs/helpers');
 
 const MAX_MESSAGES = 50;
 

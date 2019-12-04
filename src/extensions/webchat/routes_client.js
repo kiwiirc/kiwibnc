@@ -1,6 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { parseBindString } = require('../../../libs/helpers');
+const { parseBindString } = require('../../libs/helpers');
 
 module.exports = function(app) {
     let router = app.webserver.router;

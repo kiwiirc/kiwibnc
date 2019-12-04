@@ -1,5 +1,5 @@
 const messageTags = require('irc-framework/src/messagetags');
-const { mParam, mParamU, isoTime } = require('../../../libs/helpers');
+const { mParam, mParamU, isoTime } = require('../../libs/helpers');
 
 module.exports.init = async function init(hooks, app) {
     let sendConnectionState = async (upstream, state) => {
