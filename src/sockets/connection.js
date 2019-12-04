@@ -13,6 +13,8 @@ module.exports = class SocketConnection extends EventEmitter {
         this.buffer = [];
         this.readBuffer = '';
         this.connectedEvent = 'connect';
+        this.connected = false;
+        this.connecting = false;
 
         if (sock) {
             this.sock = sock;
@@ -26,6 +28,7 @@ module.exports = class SocketConnection extends EventEmitter {
 
         let completeConnection = () => {
             this.connected = true;
+            this.connecting = false;
             this.sock.setEncoding('utf8');
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
@@ -97,9 +100,14 @@ module.exports = class SocketConnection extends EventEmitter {
     }
 
     connect(host, port, useTls, opts={}) {
+        if (this.connecting || this.connected) {
+            return;
+        }
+
         l.info('connecting ' + this.id);
 
         this.connected = false;
+        this.connecting = true;
 
         let sock = this.sock = new net.Socket({allowHalfOpen: false});
         let connectOpts = {
