@@ -17,6 +17,7 @@ const { parseBindString } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker', {type: 'worker'});
+    global.config = app.conf;
 
     let cryptKey = app.conf.get('database.crypt_key', '');
     if (cryptKey.length !== 32) {

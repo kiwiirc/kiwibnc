@@ -123,7 +123,9 @@ module.exports = class SocketConnection extends EventEmitter {
     }
 
     close() {
-        this.sock.end();
+        if (this.sock) {
+            this.sock.end();
+        }
     }
 
     write(data) {

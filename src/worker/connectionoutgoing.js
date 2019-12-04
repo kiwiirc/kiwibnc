@@ -48,6 +48,21 @@ class ConnectionOutgoing {
     async open() {
         await this.state.loadConnectionInfo();
 
+        let whitelist = config.get('connections.whitelist', []);
+        if (whitelist.length > 0 && !whitelist.includes(this.state.host.toLowerCase())) {
+            l.info('Attempted connection to forbidden network, ' + this.state.host);
+            this.forEachClient((client) => {
+                if (client.state.netRegistered) {
+                    client.writeStatus('This network is forbidden');
+                } else {
+                    client.write('ERROR :This network is forbidden\r\n');
+                    client.close();
+                }
+            });
+
+            return;
+        }
+
         let connection = {
             host: this.state.host,
             port: this.state.port,
