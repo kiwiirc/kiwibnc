@@ -153,6 +153,7 @@
                         this.$emit('close', {
                             nick: this.username,
                             password: this.password,
+                            error: 'New account created :)',
                         });
                     })
                     .catch(err => {
