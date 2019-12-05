@@ -116,6 +116,13 @@ class Users {
         return user.save();
     };
 
+    async getUserNetwork(userId, networkId) {
+        return this.db.factories.Network.query()
+            .where('user_id', userId)
+            .where('id', networkId)
+            .first();
+    }
+
     async getUserNetworks(userId) {
         return this.db.factories.Network.query()
             .where('user_id', userId);

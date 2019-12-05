@@ -42,7 +42,7 @@ module.exports.init = async function init(hooks, app) {
         if (upstream) {
             let network = await event.client.userDb.getNetwork(upstream.state.authNetworkId);
             if (network) {
-                token += `=network=${network.name};`;
+                token += `=network=${network.name};netid=${network.id}`;
             }
         }
 
@@ -61,13 +61,13 @@ async function handleBouncerCommand(event) {
     let encodeTags = require('irc-framework/src/messagetags').encode;
 
     if (subCmd === 'CONNECT') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
+        let netId = mParam(msg, 1, '');
+        if (!netId) {
             con.writeMsg('BOUNCER', 'connect', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
             con.writeMsg('BOUNCER', 'connect', '*', 'ERR_NETNOTFOUND');
             return;
@@ -83,15 +83,15 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DISCONNECT') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
+        let netId = mParam(msg, 1, '');
+        if (!netId) {
             con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
-            con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_NETNOTFOUND');
+            con.writeMsg('BOUNCER', 'disconnect', netId, 'ERR_NETNOTFOUND');
             return;
         }
 
@@ -127,20 +127,20 @@ async function handleBouncerCommand(event) {
                 parts.push('state=disconnect');
             }
 
-            con.writeMsg('BOUNCER', 'listnetworks', parts.join(';'));
+            con.writeMsg('BOUNCER', 'listnetworks', net.id, parts.join(';'));
         });
 
         con.writeMsg('BOUNCER', 'listnetworks', 'RPL_OK');
     }
 
     if (subCmd === 'LISTBUFFERS') {
-        let netName = mParam(msg, 1, '');
-        if (!netName) {
+        let netId = mParam(msg, 1, '');
+        if (!netId) {
             con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
             con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_NETNOTFOUND');
             return;
@@ -165,22 +165,22 @@ async function handleBouncerCommand(event) {
                         topic: buffer.topic,
                     };
                 }
-                con.writeMsg('BOUNCER', 'listbuffers', network.name, encodeTags(chan));
+                con.writeMsg('BOUNCER', 'listbuffers', network.id, encodeTags(chan));
             }
         }
 
-        con.writeMsg('BOUNCER', 'listbuffers', network.name, 'RPL_OK');
+        con.writeMsg('BOUNCER', 'listbuffers', network.id, 'RPL_OK');
     }
 
     if (subCmd === 'DELBUFFER') {
-        let netName = mParam(msg, 1, '');
+        let netId = mParam(msg, 1, '');
         let bufferName = mParam(msg, 2, '');
-        if (!netName || !bufferName) {
+        if (!netId || !bufferName) {
             con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
             con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_NETNOTFOUND');
             return;
@@ -190,7 +190,7 @@ async function handleBouncerCommand(event) {
         upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
         if (!upstream) {
             // TODO: If no upstream loaded, check if its in the db (network) and remove it from there
-            con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
+            con.writeMsg('BOUNCER', 'delbuffer', network.id, bufferName, 'RPL_OK');
             return;
         }
 
@@ -198,7 +198,7 @@ async function handleBouncerCommand(event) {
         let buffer = upstream.state.getBuffer(bufferName);
         if (!buffer) {
             // No buffer? No need to delete anything
-            con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
+            con.writeMsg('BOUNCER', 'delbuffer', network.id, bufferName, 'RPL_OK');
             return;
         }
 
@@ -207,18 +207,18 @@ async function handleBouncerCommand(event) {
             upstream.writeLine('PART', buffer.name);
         }
 
-        con.writeMsg('BOUNCER', 'delbuffer', network.name, bufferName, 'RPL_OK');
+        con.writeMsg('BOUNCER', 'delbuffer', network.id, bufferName, 'RPL_OK');
     }
 
     if (subCmd === 'CHANGEBUFFER') {
-        let netName = mParam(msg, 1, '');
+        let netId = mParam(msg, 1, '');
         let bufferName = mParam(msg, 2, '');
-        if (!netName || !bufferName) {
+        if (!netId || !bufferName) {
             con.writeMsg('BOUNCER', 'changebuffer', '*', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
             con.writeMsg('BOUNCER', 'changebuffer', '*', '*', 'ERR_NETNOTFOUND');
             return;
@@ -228,13 +228,13 @@ async function handleBouncerCommand(event) {
         upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
         if (!upstream) {
             // TODO: If no upstream loaded, check if its in the db (network) and remove it from there
-            con.writeMsg('BOUNCER', 'changebuffer', network.name, bufferName, 'ERR_BUFFERNOTFOUND');
+            con.writeMsg('BOUNCER', 'changebuffer', network.id, bufferName, 'ERR_BUFFERNOTFOUND');
             return;
         }
 
         let buffer = upstream.state.getBuffer(bufferName);
         if (!buffer) {
-            con.writeMsg('BOUNCER', 'changebuffer', network.name, bufferName, 'ERR_BUFFERNOTFOUND');
+            con.writeMsg('BOUNCER', 'changebuffer', network.id, bufferName, 'ERR_BUFFERNOTFOUND');
             return;
         }
 
@@ -270,7 +270,7 @@ async function handleBouncerCommand(event) {
         }
 
         try {
-            await con.userDb.addNetwork(con.state.authUserId, {
+            network = await con.userDb.addNetwork(con.state.authUserId, {
                 name: tags.network,
                 host: tags.host || '',
                 port: port,
@@ -291,24 +291,22 @@ async function handleBouncerCommand(event) {
             return;
         }
 
-        con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'RPL_OK');
+        con.writeMsg('BOUNCER', 'addnetwork', network.id, network.name, 'RPL_OK');
     }
 
     if (subCmd === 'CHANGENETWORK') {
-        let netName = mParam(msg, 1);
+        let netId = mParam(msg, 1);
         let tags = messageTags.decode(mParam(msg, 2));
-        if (!netName || !tags) {
+        if (!netId || !tags) {
             con.writeMsg('BOUNCER', 'changenetwork', '*', 'ERR_INVALIDARGS');
             return;
         }
 
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
-            con.writeMsg('BOUNCER', 'changenetwork', netName, 'ERR_NETNOTFOUND');
+            con.writeMsg('BOUNCER', 'changenetwork', netId, 'ERR_NETNOTFOUND');
             return;
         }
-
-        let netUpdates = {};
 
         if (tags.port) {
             let port = tags.port ?
@@ -316,83 +314,55 @@ async function handleBouncerCommand(event) {
                 6667;
             port = parseInt(tags.port, 10);
             if (isNaN(port) || port <= 0 || port > 65535) {
-                con.writeMsg('BOUNCER', 'changenetwork', netName, 'ERR_INVALIDPORT');
+                con.writeMsg('BOUNCER', 'changenetwork', netId, 'ERR_INVALIDPORT');
                 return;
             }
 
-            netUpdates.port = port;
+            network.port = port;
         }
 
         if (tags.host) {
-            netUpdates.host = tags.host;
+            network.host = tags.host;
         }
 
         if (tags.tls) {
-            netUpdates.tls = (tags.tls === '1');
+            network.tls = (tags.tls === '1');
         }
 
         if (tags.tlsverify) {
-            netUpdates.tlsverify = (tags.tlsverify === '1');
+            network.tlsverify = (tags.tlsverify === '1');
         }
 
         if (tags.nick) {
-            netUpdates.nick = tags.nick;
+            network.nick = tags.nick;
         }
 
         if (tags.user) {
-            netUpdates.username = tags.user;
+            network.username = tags.user;
         }
 
-        if (Object.keys(netUpdates).length > 0) {
-            try {
-                await con.db.dbUsers('user_networks')
-                    .where('id', network.id)
-                    .update(netUpdates);
-            } catch (err) {
-                l.error('[BOUNCER] Error adding network to user', err.stack);
-                con.writeMsg('BOUNCER', 'changenetwork', netName, 'ERR_UNKNOWN', 'Error saving the network');
-                return;
-            }
+        if (tags.network) {
+            network.name = tags.network;
         }
 
-        let upstream = null;
-        upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-        if (upstream) {
-            for (let prop in netUpdates) {
-                if (prop === 'port') {
-                    upstream.state.port = netUpdates.port;
-                }
-
-                if (prop === 'host') {
-                    upstream.state.host = netUpdates.host;
-                }
-
-                if (prop === 'tls') {
-                    upstream.state.tls = netUpdates.tls;
-                }
-
-                if (prop === 'tls') {
-                    upstream.state.tlsverify = netUpdates.tlsverify;
-                }
-
-                if (prop === 'user') {
-                    upstream.state.username = netUpdates.user;
-                }
-            }
-
-            await upstream.state.save();
+        try {
+            await network.save();
+        } catch (err) {
+            l.error('[BOUNCER] Error changing network', err.stack);
+            con.writeMsg('BOUNCER', 'changenetwork', netId, 'ERR_UNKNOWN', 'Error saving the network');
+            return;
         }
 
-        con.writeMsg('BOUNCER', 'changenetwork', netName, 'RPL_OK');
+        con.writeMsg('BOUNCER', 'changenetwork', netId, 'RPL_OK');
     }
 
     if (subCmd === 'DELNETWORK') {
-        let netName = mParam(msg, 1);
+        let netId = mParam(msg, 1);
 
         // Make sure the network exists
-        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
-            con.writeMsg('BOUNCER', 'delnetwork', netName, 'ERR_NETNOTFOUND');
+            con.writeMsg('BOUNCER', 'delnetwork', netId, 'ERR_NETNOTFOUND');
             return;
         }
 
@@ -405,6 +375,6 @@ async function handleBouncerCommand(event) {
 
 
         await con.db.dbUsers('user_networks').where('id', network.id).delete();
-        con.writeMsg('BOUNCER', 'delnetwork', netName, 'RPL_OK');
+        con.writeMsg('BOUNCER', 'delnetwork', netId, 'RPL_OK');
     }
 };
