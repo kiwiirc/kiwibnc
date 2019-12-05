@@ -165,6 +165,7 @@ class Users {
         network.sasl_pass = netInf.sasl_pass || '';
 
         await network.save();
+        return network;
     }
 }
 
