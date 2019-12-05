@@ -336,14 +336,23 @@ commands.ADDNETWORK = {
             return;
         }
 
-        let network = await con.db.factories.Network();
-        network.user_id = con.state.authUserId;
-        for (let prop in toUpdate) {
-            network[prop] = toUpdate[prop];
-        }
-        await network.save();
+        try {
+            await con.userDb.addNetwork(con.state.authUserId, toUpdate);
+            con.writeStatus(`New network saved. You can now login using your_username/${toUpdate.name}:your_password`);
 
-        con.writeStatus(`New network saved. You can now login using your_username/${toUpdate.name}:your_password`);
+        } catch (err) {
+            if (err.code === 'max_networks') {
+                con.writeStatus(`No more networks can be added to this account`);
+                return;
+            } else if (err.code === 'missing_name') {
+                // Should never get here, but lets be safe
+                con.writeStatus(`A network name must be given`);
+                return;
+            } else {
+                l.error(err);
+                con.writeStatus(`An error occured trying to save your network`);
+            }
+        }
     },
 };
 

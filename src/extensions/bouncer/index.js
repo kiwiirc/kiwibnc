@@ -270,8 +270,7 @@ async function handleBouncerCommand(event) {
         }
 
         try {
-            await con.db.dbUsers('user_networks').insert({
-                user_id: con.state.authUserId,
+            await con.userDb.addNetwork(con.state.authUserId, {
                 name: tags.network,
                 host: tags.host || '',
                 port: port,
@@ -282,8 +281,13 @@ async function handleBouncerCommand(event) {
                 realname: '-',
             });
         } catch (err) {
-            l.error('[BOUNCER] Error adding network to user', err.stack);
-            con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
+            if (err.code === 'max_networks') {
+                con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_UNKNOWN', 'No more networks can be added to this account');
+            } else {
+                l.error('[BOUNCER] Error adding network to user', err);
+                con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
+            }
+            
             return;
         }
 

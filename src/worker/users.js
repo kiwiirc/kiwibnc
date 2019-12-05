@@ -1,6 +1,7 @@
 const uuidv4 = require('uuid/v4');
 const bcrypt = require('bcrypt');
 const Helpers = require('../libs/helpers');
+const { BncError } = require('../libs/errors');
 
 class Users {
     constructor(db) {
@@ -131,6 +132,39 @@ class Users {
             .where('user_id', userId)
             .where('name', 'LIKE', netName)
             .first();
+    }
+
+    async addNetwork(userId, netInf) {
+        let maxNetworks = config.get('users.max_networks', -1);
+        if (maxNetworks > -1) {
+            let nets = await this.db.factories.Network.query()
+                .where('user_id', userId);
+            
+            if (nets.length >= maxNetworks) {
+                throw new BncError('UserError', 'max_networks', 'Max number of networks reached for user');
+            }
+        }
+
+        if (!(netInf.name || '').trim()) {
+            throw new BncError('UserError', 'missing_name', 'A network must have a name');
+        }
+
+        let network = await this.db.factories.Network();
+        network.user_id = userId;
+        network.name = netInf.name;
+        network.bind_host = netInf.bind_host || '';
+        network.host = netInf.host || '';
+        network.port = netInf.port || 6667;
+        network.tls = !!netInf.tls;
+        network.tlsverify = !!netInf.tlsverify;
+        network.nick = netInf.nick || '';
+        network.username = netInf.username || '';
+        network.realname = netInf.realname || '';
+        network.password = netInf.password || '';
+        network.sasl_account = netInf.sasl_account || '';
+        network.sasl_pass = netInf.sasl_pass || '';
+
+        await network.save();
     }
 }
 
