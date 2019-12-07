@@ -72,26 +72,7 @@ Send `help` to `*bnc` for all the commands you can send.
 
 ## IRCv3 support
 
-### KiwiBNC <> server spec support:
-* server-time
-* multi-prefix
-* away-notify
-* account-notify
-* account-tag
-* extended-join
-* userhost-in-names
-* message-tags
-
-### Client <> KiwiBNC spec support:
-* batch
-* server-time
-* away-notify
-* account-notify
-* account-tag
-* extended-join
-* multi-prefix
-* userhost-in-names
-* message-tags
+IRCv3 capable IRC servers and clients are both supported. For a full capabilities list, see https://ircv3.net/software/clients#bouncers
 
 ## License
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
