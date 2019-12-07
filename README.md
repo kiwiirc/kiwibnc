@@ -7,15 +7,13 @@
 * Message storage via sqlite database or plain text files
 * RabbitMQ support for larger deployments
 * Websocket support for direct web clients
+* Built in web client
+* Web admin interface
 
 ## Status
 While KiwiBNC is already in use for single users and some networks it is currently in development and may break. If you require 100% uptime and rely on your BNC for your health, do not use it yet.
 
 For general usage it is working and is currently being put to the test in live environments. However, as we learn more on how people use the project things may change at the moment.
-
-## TODO
-* Single binary downloads
-* Web admin interface
 
 ## Installation
 
@@ -72,26 +70,7 @@ Send `help` to `*bnc` for all the commands you can send.
 
 ## IRCv3 support
 
-### KiwiBNC <> server spec support:
-* server-time
-* multi-prefix
-* away-notify
-* account-notify
-* account-tag
-* extended-join
-* userhost-in-names
-* message-tags
-
-### Client <> KiwiBNC spec support:
-* batch
-* server-time
-* away-notify
-* account-notify
-* account-tag
-* extended-join
-* multi-prefix
-* userhost-in-names
-* message-tags
+IRCv3 capable IRC servers and clients are both supported. For a full capabilities list, see https://ircv3.net/software/clients#bouncers
 
 ## License
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
