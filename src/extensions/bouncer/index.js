@@ -8,9 +8,9 @@ module.exports.init = async function init(hooks, app) {
             return;
         }
 
-        upstream.forEachClient(client => {
+        app.cons.findAllUsersClients(upstream.state.authUserId).forEach(client => {
             if (client.state.caps.has('bouncer')) {
-                client.writeMsg('BOUNCER', 'state', network.name, state);
+                client.writeMsg('BOUNCER', 'state', network.id, network.name, state);
             }
         });
     };
