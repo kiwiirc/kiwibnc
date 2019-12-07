@@ -7,15 +7,13 @@
 * Message storage via sqlite database or plain text files
 * RabbitMQ support for larger deployments
 * Websocket support for direct web clients
+* Built in web client
+* Web admin interface
 
 ## Status
 While KiwiBNC is already in use for single users and some networks it is currently in development and may break. If you require 100% uptime and rely on your BNC for your health, do not use it yet.
 
 For general usage it is working and is currently being put to the test in live environments. However, as we learn more on how people use the project things may change at the moment.
-
-## TODO
-* Single binary downloads
-* Web admin interface
 
 ## Installation
 
