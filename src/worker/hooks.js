@@ -61,6 +61,16 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         event.caps.add('account-tag');
     });
 
+    // invite-notify support
+    commandHooks.on('message_to_client', event => {
+        if (!event.client.state.caps.has('invite-notify') && event.message.command === 'INVITE') {
+            event.preventDefault();
+        }
+    });
+    commandHooks.on('available_caps', event => {
+        event.caps.add('invite-notify');
+    });
+
     // extended-join support
     commandHooks.on('available_caps', event => {
         if (!event.client.upstream) {

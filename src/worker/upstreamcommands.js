@@ -25,6 +25,7 @@ commands['CAP'] = async function(msg, con) {
         'away-notify',
         'account-notify',
         'account-tag',
+        'invite-notify',
         'extended-join',
         'userhost-in-names',
         'cap-notify',
