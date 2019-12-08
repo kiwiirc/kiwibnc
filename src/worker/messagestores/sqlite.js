@@ -390,8 +390,11 @@ class SqliteMessageStore {
 module.exports = SqliteMessageStore;
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
-    if (nick.toLowerCase() === message.params[messageNickIdx]) {
-        // It's a PM
+    if (!message.nick) {
+        // A client sent a message
+        return message.params[messageNickIdx];
+    } else if (nick.toLowerCase() === message.params[messageNickIdx].toLowerCase()) {
+        // We are the target so it's a PM
         return message.nick;
     } else {
         return message.params[messageNickIdx];

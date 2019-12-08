@@ -430,7 +430,7 @@ commands.NOTICE = async function(msg, con) {
 };
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
-    if (nick.toLowerCase() === message.params[messageNickIdx]) {
+    if (nick.toLowerCase() === (message.params[messageNickIdx] || '').toLowerCase()) {
         // It's a PM
         return message.nick;
     } else {
