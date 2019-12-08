@@ -251,8 +251,10 @@ class ConnectionState {
     addBuffer(chan, upstreamCon) {
         let buffer = null;
         if (typeof chan === 'string') {
+            l.debug(`Adding buffer '${chan}'`);
             buffer = new IrcBuffer(chan, upstreamCon);
         } else {
+            l.debug(`Adding buffer '${chan.name}'`);
             buffer = IrcBuffer.fromObj(chan);
         }
 
@@ -261,10 +263,12 @@ class ConnectionState {
     }
 
     delBuffer(name) {
+        l.debug(`Removing buffer '${name}'`);
         delete this.buffers[name.toLowerCase()];
     }
 
     renameBuffer(oldName, newName) {
+        l.debug(`Renaming buffer '${oldName}' => '${newName}'`);
         let oldBuffer = this.getBuffer(oldName);
         if (!oldBuffer){
             return;
