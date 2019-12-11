@@ -62,6 +62,7 @@ class Users {
         let user = this.db.dbUsers('users')
             .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
             .where('user_tokens.token', token)
+            .first()
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {
