@@ -1,5 +1,6 @@
 const { ircLineParser, Message } = require('irc-framework');
-const { mParam, mParamU } = require('../libs/helpers');
+const { mParam, mParamU, cloneIrcMessage } = require('../libs/helpers');
+const msgIdGenerator = require('../libs/msgIdGenerator');
 const ClientControl = require('./clientcontrol');
 const hooks = require('./hooks');
 
@@ -242,24 +243,35 @@ commands.USER = async function(msg, con) {
 };
 
 commands.NOTICE = async function(msg, con) {
+    let msgId = msgIdGenerator.generateId();
+
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
         let m = new Message('NOTICE', msg.params[0], msg.params[1]);
         m.prefix = con.upstream.state.nick;
+        m.tags.msgid = msgId;
         m.source = 'client';
         client.writeMsg(m);
     }, con);
 
     if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
-        await con.messages.storeMessage(msg, con.upstream, con);
+        // Add a msgid tag to the message before it's stored. We don't add it to the original
+        // message because we don't want it being sent upstream.
+        // TODO: If labeled-response+msgid+echo-message is enabled upstream, dont store the message
+        let m = cloneIrcMessage(msg);
+        m.tags.msgid = msgId;
+        await con.messages.storeMessage(m, con.upstream, con);
     }
 };
 
 commands.PRIVMSG = async function(msg, con) {
+    let msgId = msgIdGenerator.generateId();
+
     // Send this message to other connected clients
     con.upstream && con.upstream.forEachClient((client) => {
         let m = new Message('PRIVMSG', msg.params[0], msg.params[1]);
         m.prefix = con.upstream.state.nick;
+        m.tags.msgid = msgId;
         m.source = 'client';
         client.writeMsg(m);
     }, con);
@@ -271,7 +283,12 @@ commands.PRIVMSG = async function(msg, con) {
     }
 
     if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
-        await con.messages.storeMessage(msg, con.upstream, con);
+        // Add a msgid tag to the message before it's stored. We don't add it to the original
+        // message because we don't want it being sent upstream.
+        // TODO: If labeled-response+msgid+echo-message is enabled upstream, dont store the message
+        let m = cloneIrcMessage(msg);
+        m.tags.msgid = msgId;
+        await con.messages.storeMessage(m, con.upstream, con);
     }
 
     return true;

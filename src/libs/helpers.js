@@ -41,3 +41,17 @@ function parseBindString(inp) {
 
     return m.groups;
 }
+
+// Clone an IRC message
+module.exports.cloneIrcMessage = cloneIrcMessage;
+function cloneIrcMessage(srcMsg) {
+    let msg = new srcMsg.constructor(srcMsg.command);
+    msg.tags = srcMsg.tags;
+    msg.prefix = srcMsg.prefix;
+    msg.nick = srcMsg.nick;
+    msg.ident = srcMsg.ident;
+    msg.hostname = srcMsg.hostname;
+    msg.command = srcMsg.command;
+    msg.params = srcMsg.params;
+    return msg;
+}
