@@ -37,21 +37,25 @@ class ConnectionIncoming {
     get upstream() {
         // Not logged in = no upstream connection possible
         if (!this.state.authUserId) {
+            l.trace('upstream() no authUserId');
             return null;
         }
 
         // Not authed into a network = user mode only
         if (!this.state.authNetworkId) {
+            l.trace('upstream() no authNetworkId');
             return null;
         }
 
         if (this.cachedUpstreamId) {
             let con = this.conDict.get(this.cachedUpstreamId);
             if (con) {
+                l.trace('upstream() Found cached upstream');
                 return con;
             }
 
             // this.conDict may no longer contain cachedUpstreamId if that con was disconnected
+            l.trace('upstream() Clearing cached upstream');
             this.cachedUpstreamId = false;
         }
 
@@ -59,8 +63,11 @@ class ConnectionIncoming {
 
         // If we found an upstream, add this incoming connection to it
         if (upstream) {
+            l.trace('upstream() Found upstream, caching');
             this.cachedUpstreamId = upstream.id;
             upstream.state.linkIncomingConnection(this.id);
+        } else {
+            l.trace('upstream() Upstream not found');
         }
 
         return upstream;
