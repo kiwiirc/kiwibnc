@@ -332,6 +332,15 @@ class SqliteMessageStore {
         let prefix = clientCon ? clientCon.state.nick : message.nick;
         let time = new Date(message.tags.time || isoTime());
 
+        // Ignore CTCP request/responses
+        if (
+            (message.command === 'PRIVMSG' || message.command === 'NOTICE') &&
+            message.params[1] && message.params[1][0] === '\x01'
+        ) {
+            this.storeQueueLooping = false;
+            return;
+        }
+
         if (message.command === 'PRIVMSG') {
             type = MSG_TYPE_PRIVMSG;
             bufferName = bufferNameIfPm(message, conState.nick, 0);
