@@ -88,6 +88,9 @@ class ConnectionState {
             tlsverify: this.tlsverify,
             type: this.type,
             account: this.account,
+            username: this.username,
+            realname: this.realname,
+            password: this.password,
             connected: this.connected,
             sasl: JSON.stringify(this.sasl),
             server_prefix: this.serverPrefix,
@@ -145,6 +148,10 @@ class ConnectionState {
             if (!this.connected) {
                 this.nick = net.nick;
             }
+
+            this.username = net.username || 'kiwibnc'
+            this.realname = net.realname || 'kiwibnc';
+            this.password = net.password || '';
         } else {
             // This network wasn't found in the database. Maybe it was deleted
             this.bindHost = '';
@@ -158,6 +165,10 @@ class ConnectionState {
             if (!this.connected) {
                 this.nick = '';
             }
+
+            this.username = '';
+            this.realname = '';
+            this.password = '';
         }
     }
     async load() {
@@ -190,6 +201,9 @@ class ConnectionState {
             }
             this.nick = row.nick;
             this.account = row.account;
+            this.username = row.username,
+            this.realname = row.realname,
+            this.password = row.password,
             this.receivedMotd = row.received_motd;
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
