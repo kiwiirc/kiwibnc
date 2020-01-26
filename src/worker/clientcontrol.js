@@ -100,7 +100,7 @@ commands.LISTNETWORKS = async function(input, con, msg) {
     nets.forEach((net) => {
         let netCon = con.conDict.findUsersOutgoingConnection(
             con.state.authUserId,
-            con.state.authNetworkId,
+            net.id,
         );
         let activeNick = netCon ?
             netCon.state.nick :
@@ -109,8 +109,8 @@ commands.LISTNETWORKS = async function(input, con, msg) {
             'Yes' :
             'No';
         let info = [
-            `Network: ${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
-            `Active nick: ${activeNick}`,
+            `${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
+            `Nick: ${activeNick}`,
             `Connected? ${connected}`,
         ];
         con.writeStatus(info.join('. '));
