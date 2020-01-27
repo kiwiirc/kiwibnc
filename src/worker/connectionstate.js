@@ -149,7 +149,7 @@ class ConnectionState {
                 this.nick = net.nick;
             }
 
-            this.username = net.username || 'kiwibnc'
+            this.username = net.username || 'kiwibnc';
             this.realname = net.realname || 'kiwibnc';
             this.password = net.password || '';
         } else {
@@ -201,9 +201,9 @@ class ConnectionState {
             }
             this.nick = row.nick;
             this.account = row.account;
-            this.username = row.username,
-            this.realname = row.realname,
-            this.password = row.password,
+            this.username = row.username;
+            this.realname = row.realname;
+            this.password = row.password;
             this.receivedMotd = row.received_motd;
             this.netRegistered = row.net_registered;
             this.authUserId = row.auth_user_id;
