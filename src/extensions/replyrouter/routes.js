@@ -55,6 +55,7 @@ let routes = [
         { cmd: numerics.RPL_WHOREPLY, ending: false },
         { cmd: numerics.RPL_WHOSPCRPL, ending: false }, // whox 
         { cmd: numerics.RPL_ENDOFWHO, ending: true },
+        { cmd: numerics.ERR_NOTENOUGHPARAMS, ending: true },
     ]},
     { cmd: 'WHOIS', params: [], expect: [
         { cmd: numerics.ERR_NOSUCHSERVER, ending: true },
@@ -68,6 +69,7 @@ let routes = [
         { cmd: numerics.RPL_WHOISSERVER, ending: false },
         { cmd: numerics.RPL_WHOISOPERATOR, ending: false },
         { cmd: numerics.ERR_NOSUCHNICK, ending: true },
+        { cmd: numerics.ERR_NOTENOUGHPARAMS, ending: true },
     ]},
     { cmd: 'WHOWAS', params: [], expect: [
         { cmd: numerics.ERR_NONICKNAMEGIVEN, ending: true },
@@ -75,6 +77,7 @@ let routes = [
         { cmd: numerics.RPL_ENDOFWHOWAS, ending: true },
         { cmd: numerics.ERR_WASNOSUCHNICK, ending: true },
         { cmd: numerics.RPL_WHOISSERVER, ending: false },
+        { cmd: numerics.ERR_NOTENOUGHPARAMS, ending: true },
     ]},
     { cmd: 'LIST', params: [], expect: [
         { cmd: numerics.ERR_TOOMANYMATCHES, ending: true },
