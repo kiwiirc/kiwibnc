@@ -24,11 +24,12 @@ module.exports = class SocketConnection extends EventEmitter {
     }
 
     socketLifecycle(tlsOpts) {
-        let lastError;
+        let lastError = null;
 
         let completeConnection = () => {
             this.connected = true;
             this.connecting = false;
+            lastError = null;
             this.sock.setEncoding('utf8');
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
@@ -36,12 +37,12 @@ module.exports = class SocketConnection extends EventEmitter {
             });
         };
 
-        let onClose = (withError) => {
+        let onClose = () => {
             l.debug(`[end ${this.id}]`);
             this.connected = false;
             this.queue.sendToWorker('connection.close', {
                 id: this.id,
-                error: withError && lastError ? lastError.toString() : null,
+                error: lastError ? lastError.toString() : null,
             });
             this.emit('dispose');
         };
@@ -60,25 +61,37 @@ module.exports = class SocketConnection extends EventEmitter {
             }
     
             lines.forEach((line) => {
-                l.debug(`[in  ${this.id}]`, [line.trimEnd()]);
+                l.debug(`[in ${this.id}]`, [line.trimEnd()]);
                 this.queue.sendToWorker('connection.data', {id: this.id, data: line.trimEnd()});
             });            
+        };
+        let onTimeout = () => {
+            l.debug(`[timeout ${this.id}]`);
+            lastError = new Error('Connection timeout');
+            this.sock.destroy();
         };
 
         let bindEvents = () => {
             this.sock.on('close', onClose);
             this.sock.on('error', onError);
             this.sock.on('data', onData);
+            this.sock.on('timeout', onTimeout);
         };
         let unbindEvents = () => {
             this.sock.off('close', onClose);
             this.sock.off('error', onError);
             this.sock.off('data', onData);
+            this.sock.off('timeout', onTimeout);
         };
 
         // Bind the socket events before we connect so that we catch any end/close events
         bindEvents();
         this.sock.once('connect', () => {
+            // We only use the timeout to determine connection timeouts so stop handling that now
+            this.sock.off('timeout', onTimeout);
+
+            // If we don't need any TLS handshakes, then this connection is done and
+            // we are ready to go
             if (!tlsOpts) {
                 completeConnection();
                 return;
@@ -118,6 +131,7 @@ module.exports = class SocketConnection extends EventEmitter {
             family: opts.family || undefined,
         };
 
+        sock.setTimeout(opts.connectTimeout || 5000);
         sock.connect(connectOpts);
         this.socketLifecycle(useTls ? { servername: opts.servername, tlsverify: opts.tlsverify } : null);
     }

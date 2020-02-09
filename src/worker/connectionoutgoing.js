@@ -73,6 +73,7 @@ class ConnectionOutgoing {
             family: undefined,
             // servername - force a specific TLS servername
             servername: undefined,
+            connectTimeout: 5000,
         };
 
         let hook = await hooks.emit('connection_to_open', {upstream: this, connection });

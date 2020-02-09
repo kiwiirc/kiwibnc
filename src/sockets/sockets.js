@@ -63,6 +63,7 @@ async function run() {
             family: event.family,
             servername: event.servername,
             tlsverify: event.tlsverify,
+            connectTimeout: event.connectTimeout || 5000,
         });
     });
 
