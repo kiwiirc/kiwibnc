@@ -148,6 +148,7 @@ class ConnectionOutgoing {
 
         // tempSet() saves the state
         await this.state.tempSet('reconnecting', null);
+        await this.state.tempSet('irc_error', null);
 
         hooks.emit('connection_open', {upstream: this});
 
@@ -198,13 +199,20 @@ class ConnectionOutgoing {
 
         hooks.emit('connection_close', {upstream: this});
 
-        this.forEachClient((client) => {
+        this.forEachClient(async (client) => {
             let msg = 'Network disconnected';
             if (err && err.code) {
-                msg += ' ' + err.code;
+                msg += ` (${err.code})`;
             } else if (err && typeof err === 'string') {
-                msg += ' ' + err;
+                msg += ` (${err})`;
             }
+
+            // Include any ERROR lines the ircd sent down
+            let ircErr = await this.state.tempGet('irc_error');
+            if (ircErr) {
+                msg += ` (${ircErr})`;
+            }
+
             client.writeStatus(msg);
 
             if (!client.state.netRegistered) {

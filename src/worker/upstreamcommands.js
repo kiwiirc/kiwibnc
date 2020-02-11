@@ -429,6 +429,12 @@ commands.NOTICE = async function(msg, con) {
     con.state.getOrAddBuffer(bufferNameIfPm(msg, con.state.nick, 0), con);
 };
 
+commands.ERROR = async function(msg, con) {
+    if (msg.params[0]) {
+        await con.state.tempSet('irc_error', msg.params[0]);
+    }
+};
+
 function bufferNameIfPm(message, nick, messageNickIdx) {
     if (nick.toLowerCase() === (message.params[messageNickIdx] || '').toLowerCase()) {
         // It's a PM
