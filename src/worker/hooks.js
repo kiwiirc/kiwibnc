@@ -113,6 +113,14 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
                 } else if (key.toLowerCase() == 'msgid' && m.tags[key]) {
                     delete m.tags[key];
                 }
+
+                // Some caps when enabled signify that the client can handle message-tags.
+                // If none of these have been requested then assume that the client cannot
+                // handle message-tags at all.
+                if (!event.client.state.caps.has('server-time')) {
+                    m.tags = {};
+                }
+
                 //TODO: move all the specific tag-blocking done by other handlers
                 //  into this one or something similar, since message-tags allows
                 //  any c2c or regular tag
