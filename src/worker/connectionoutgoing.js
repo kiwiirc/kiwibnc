@@ -86,6 +86,10 @@ class ConnectionOutgoing {
         }
     }
 
+    throttle(interval) {
+        this.queue.sendToSockets('connection.throttle', {id: this.id, interval});
+    }
+
     write(data) {
         this.queue.sendToSockets('connection.data', {id: this.id, data: data});
     }

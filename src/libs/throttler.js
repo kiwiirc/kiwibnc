@@ -1,8 +1,14 @@
 class Throttler {
-    constructor(interval) {
-        this.interval = interval || 1000;
+    constructor(interval, wrapFn=null) {
+        this.interval = typeof interval === 'number' ?
+            interval :
+            1000;
         this.labels = new Object(null);
         this.tick();
+
+        if (wrapFn) {
+            return this.wrap(wrapFn);
+        }
     }
 
     async waitUntilReady(label) {
@@ -25,6 +31,31 @@ class Throttler {
         }
 
         this.ticker = setTimeout(this.tick.bind(this), this.interval);
+    }
+
+    stop() {
+        clearTimeout(this.ticker);
+    }
+
+    wrap(fn) {
+        let wrapLabel = (Math.random()*1e17).toString(36);
+        let wrappedFn = async function throttledFunction(...args) {
+            await wrappedFn.throttler.waitUntilReady('_wrapped' + wrapLabel);
+            fn(...args);
+        };
+
+        wrappedFn.stop = () => this.stop();
+        wrappedFn.throttler = this;
+        Object.defineProperty(wrappedFn, 'interval', {
+            get() {
+                return wrappedFn.throttler.interval;
+            },
+            set(newVal) {
+                wrappedFn.throttler.interval = newVal;
+            },
+        });
+
+        return wrappedFn;
     }
 }
 

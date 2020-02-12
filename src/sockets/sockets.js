@@ -31,6 +31,22 @@ async function run() {
         }
     });
 
+    app.queue.on('connection.throttle', async (event) => {
+        let con = cons.get(event.id);
+        if (!con) {
+            l.warn('Couldn\'t find connection to throttle.', event.id);
+            return;
+        }
+
+        let newInterval = parseInt(event.interval, 10);
+        if (isNaN(newInterval)) {
+            l.warn('Invalid interval for throttle', newInterval);
+            return;
+        }
+
+        con.throttledWrite.interval = newInterval;
+    });
+
     app.queue.on('connection.open', async (event) => {
         let con = cons.get(event.id);
         if (con && con.connected) {

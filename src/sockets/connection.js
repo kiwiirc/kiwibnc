@@ -2,6 +2,7 @@ const net = require('net');
 const tls = require('tls');
 const { EventEmitter } = require('events');
 const uuidv4 = require('uuid/v4');
+const Throttler = require('../libs/throttler');
 
 module.exports = class SocketConnection extends EventEmitter {
     constructor(conId, queue, sock) {
@@ -15,6 +16,7 @@ module.exports = class SocketConnection extends EventEmitter {
         this.connectedEvent = 'connect';
         this.connected = false;
         this.connecting = false;
+        this.throttledWrite = new Throttler(0, this.forceWrite.bind(this));
 
         if (sock) {
             this.sock = sock;
@@ -33,7 +35,7 @@ module.exports = class SocketConnection extends EventEmitter {
             this.sock.setEncoding('utf8');
             this.queue.sendToWorker('connection.open', {id: this.id});
             this.buffer.forEach((data)=> {
-                this.forceWrite(data);
+                this.throttledWrite(data);
             });
         };
 
@@ -44,6 +46,7 @@ module.exports = class SocketConnection extends EventEmitter {
                 id: this.id,
                 error: lastError ? lastError.toString() : null,
             });
+            this.throttledWrite.stop();
             this.emit('dispose');
         };
         let onError = (err) => {
@@ -146,7 +149,7 @@ module.exports = class SocketConnection extends EventEmitter {
         if (!this.connected) {
             this.buffer.push(data);
         } else {
-            this.forceWrite(data);
+            this.throttledWrite(data);
         }
     }
 

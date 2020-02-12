@@ -209,6 +209,9 @@ commands['001'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     await con.state.save();
 
+    // Start throttling messages sent to the server so we don't get flooded off
+    con.throttle(config.get('connections.write_throttle', 500));
+
     return false;
 };
 commands['002'] = async function(msg, con) {
