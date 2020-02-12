@@ -108,10 +108,14 @@ commands.LISTNETWORKS = async function(input, con, msg) {
         let connected = netCon && netCon.state.connected ?
             'Yes' :
             'No';
+        let lastErr = netCon && netCon.state.tempGet('irc_error') ?
+            'Error: ' + netCon.state.tempGet('irc_error') :
+            undefined;
         let info = [
             `${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
             `Nick: ${activeNick}`,
             `Connected? ${connected}`,
+            lastErr,
         ];
         con.writeStatus(info.join('. '));
     });
