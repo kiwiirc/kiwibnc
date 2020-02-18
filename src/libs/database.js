@@ -23,7 +23,7 @@ module.exports = class Database {
             usersDbCon.connection = usersConStr;
             let searchPathM = usersConStr.match(/searchPath=([^&]+)/);
             if (searchPathM) {
-                usersDbCon.searchPath = searchPathM[1];
+                usersDbCon.searchPath = searchPathM[1].split(',');
             }
         } else if (usersConStr.indexOf('mysql://') > -1) {
             // mysql://user:password@127.0.0.1:3306/database
