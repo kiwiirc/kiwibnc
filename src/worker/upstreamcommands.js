@@ -397,6 +397,8 @@ commands.NICK = async function(msg, con) {
     }
 
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        l.trace(`Someone changed their nick from ${msg.nick} to ${msg.params[0]}`);
+
         // Someone elses nick changed. Update any buffers we have to their new nick
         let buffer = con.state.getBuffer(msg.nick);
         if (!buffer) {
@@ -408,6 +410,8 @@ commands.NICK = async function(msg, con) {
         con.state.save();
 
     } else {
+        l.trace(`Our nick changed from ${msg.nick} to ${msg.params[0]}`);
+
         // Our nick changed, keep track of it
         con.state.nick = msg.params[0];
         con.state.save();

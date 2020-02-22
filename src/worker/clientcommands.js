@@ -8,7 +8,7 @@ let commands = Object.create(null);
 
 module.exports.run = async function run(msg, con) {
     let command = msg.command.toUpperCase();
-    l.debug('run() state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source]);
+    l.debug('run() state:', [command, con.state.netRegistered, con.state.tempGet('capping'), con.state.tempGet('reg.state'), msg.source, con.state.nick]);
     if (command === 'DEB' || command === 'RELOAD' || command === 'PING') {
         return await runCommand(command, msg, con);
     }
