@@ -329,7 +329,7 @@ commands.ADDNETWORK = {
         if (missingFields.length > 0) {
             con.writeStatus('Missing fields: ' + missingFields.join(', '));
             con.writeStatus(`Usage: addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick`);
-            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password`);
+            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password`);
             return;
         }
 
