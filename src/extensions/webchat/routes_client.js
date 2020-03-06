@@ -7,7 +7,7 @@ module.exports = function(app) {
 
     let publicPath = app.conf.relativePath(app.conf.get('webserver.public_dir'));
 
-    router.get('kiwi.config', '/kiwibnc_plugin.html', async (ctx, next) => {
+    router.get('kiwi.bnc_plugin', '/kiwibnc_plugin.html', async (ctx, next) => {
         ctx.body = await fs.readFile(
             path.join(__dirname, 'kiwibnc_plugin.html'),
             { encoding: 'utf8' },
@@ -41,7 +41,8 @@ module.exports = function(app) {
         config.plugins = config.plugins || [];
         config.plugins.push({
             name: 'kiwibnc',
-            url: '/kiwibnc_plugin.html',
+            url: router.url('kiwi.bnc_plugin', {}),
+            basePath: ctx.basePath,
         });
 
         let extraConf = app.conf.get('webchat');

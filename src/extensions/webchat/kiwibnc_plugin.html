@@ -107,6 +107,7 @@
 
 <script>
     kiwi.plugin('kiwibnc', function(kiwi, log) {
+        let basePath = kiwi.state.settings.plugins.find(p => p.name === 'kiwibnc').basePath;
         let adminToken = '';
         let InputText = kiwi.require('components/utils/InputText');
 
@@ -232,7 +233,7 @@
                         }
                     }
                     this.apiLoading = true;
-                    return fetch('/api' + path, opts)
+                    return fetch(basePath + '/api' + path, opts)
                     .then(resp => {
                         this.apiLoading = false;
                         return resp.json();

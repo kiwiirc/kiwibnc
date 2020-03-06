@@ -3,7 +3,8 @@ const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
 const Koa = require('koa');
 const koaStatic = require('koa-static');
-const KoaRouter = require('koa-router');
+const KoaRouter = require('@koa/router');
+const KoaMount = require('koa-mount');
 const koaBody = require('koa-body');
 const Database = require('../libs/database');
 const Crypt = require('../libs/crypt');
@@ -277,15 +278,26 @@ async function loadConnections(app) {
 }
 
 async function initWebserver(app) {
+    let basePath = app.conf.get('webserver.base_path', '/')
+        .replace(/\/$/, ''); // strip trailing slashes
+    if (basePath && basePath[0] !== '/') {
+        // Base path must always be absolute
+        basePath = '/' + basePath;
+    }
+
     app.webserver = new Koa();
+    app.webserver.context.basePath = basePath;
+
+	let router = app.webserver.router = new KoaRouter({
+        prefix: basePath, 
+    });
 
     app.webserver.use(koaBody({ multipart: true }));
-
-	let router = app.webserver.router = new KoaRouter();
-	app.webserver.use(router.routes());
+    app.webserver.use(router.routes());
     app.webserver.use(router.allowedMethods());
 
-    app.webserver.use(koaStatic(app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http'))));
+    let staticServ = koaStatic(app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http')));
+    app.webserver.use(KoaMount(basePath || '/', staticServ));
 
     let sockPath = app.conf.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
     if (app.conf.get('webserver.enabled') && sockPath) {  
