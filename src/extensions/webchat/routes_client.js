@@ -5,14 +5,6 @@ const { parseBindString } = require('../../libs/helpers');
 module.exports = function(app) {
     let router = app.webserver.router;
 
-    // Get our listener port so that we can automatically put it into the kiwiirc config on the fly
-    let port = 80;
-    let binds = app.conf.get('listeners.bind', []);
-    let bind = parseBindString(binds[0] || '');
-    if (bind && bind.port) {
-        port = parseInt(bind.port, 10);
-    }
-
     let publicPath = app.conf.relativePath(app.conf.get('webserver.public_dir'));
 
     router.get('kiwi.config', '/kiwibnc_plugin.html', async (ctx, next) => {
@@ -34,8 +26,9 @@ module.exports = function(app) {
 
         config.startupOptions = {
             ...config.startupOptions,
-            port: port,
+            port: '{{port}}',
             server: '{{hostname}}',
+            direct_path: '/',
             tls: false,
             direct: true,
             channel: '',

@@ -1,4 +1,4 @@
-const path = require('path');
+const fs = require('fs');
 const uuidv4 = require('uuid/v4');
 const { ircLineParser } = require('irc-framework');
 const Koa = require('koa');
@@ -287,13 +287,16 @@ async function initWebserver(app) {
 
     app.webserver.use(koaStatic(app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http'))));
 
-    let bindMatch = app.conf.get('webserver.bind', '8080').match(/(?:(.+):)?([0-9]+)/);
-    let host = bindMatch[1] || '0.0.0.0';
-    let port = bindMatch[2] ? parseInt(bindMatch[2], 10) : 8080;
+    let sockPath = app.conf.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
+    if (app.conf.get('webserver.enabled') && sockPath) {  
+        try {
+            // Make sure the socket doesn't already exist
+            fs.unlinkSync(sockPath);
+        } catch (err) {
+        }
 
-    if (app.conf.get('webserver.enabled')) {
-        l.debug(`Webserver listening on http://${host}:${port}`);
-        app.webserver.listen(port);
+        app.webserver.listen(sockPath);
+        l.debug(`Webserver running`);
     }
 }
 

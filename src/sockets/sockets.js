@@ -108,7 +108,7 @@ async function run() {
 
         let srv = null;
         if (!event.type || event.type === 'tcp' || event.type === 'ws') {
-            srv = new SocketServer(event.id, app.queue);
+            srv = new SocketServer(event.id, app.queue, app.conf);
         } else {
             l.error('Invalid server type for connection listen, ' + event.type);
             return;

@@ -1,12 +1,14 @@
 const net = require('net');
 const { EventEmitter } = require('events');
 const http = require('http');
+const httpProxy = require('http-proxy');
 const WebSocket = require('ws');
 
 module.exports = class SocketServer extends EventEmitter {
-    constructor(conId, queue) {
+    constructor(conId, queue, conf) {
         super();
         this.queue = queue;
+        this.appConfig = conf;
         this.id = conId;
         this.type = 3;
         this.server = new net.Server({allowHalfOpen: false});
@@ -17,9 +19,29 @@ module.exports = class SocketServer extends EventEmitter {
     bindSocketEvents() {
         // We need a HTTP server for the WebSocket server to bind on as we can pass a TCP
         // connection to the HTTP server but not the WebSocket server directly.
-        let httpd = http.createServer();
+        let httpd = http.createServer((request, response) => {
+            let sockPath = this.appConfig.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
+            if (!this.appConfig.get('webserver.enabled') || !sockPath) {
+                return;
+            }
+
+            // Reverse proxy this HTTP request to the unix socket where the worker
+            // process will pick it up and handle
+            proxy.web(request, response, {
+                proxyTimeout: 5000,
+                timeout: 5000,
+                xfwd: true,
+                target: {
+                    socketPath: sockPath
+                },
+            });
+        });
+        let proxy = httpProxy.createProxyServer({});
         let wsServ = new WebSocket.Server({server: httpd});
         let socketTypes = new SocketTypeChecker();
+
+        // Ignore errors. Just listen for them so the BNC process doesn't crash
+        proxy.on('error', () => {});
 
         wsServ.on('connection', (socket, req) => {
             // The websocket connection ready to be used. Patch it to match TCP connection
@@ -36,6 +58,11 @@ module.exports = class SocketServer extends EventEmitter {
         socketTypes.on('ws', (socket) => {
             // TCP socket containing websocket headers, pass it through the httpd
             // so it can parse it and trigger any wsServ events for a real websocket instance
+            httpd.emit('connection', socket);
+        });
+
+        socketTypes.on('http', (socket) => {
+            // HTTP socket but not a websocket. Pass it to the httpd to handle
             httpd.emit('connection', socket);
         });
 
@@ -85,16 +112,61 @@ class SocketTypeChecker extends EventEmitter {
     }
 
     determine(socket) {
-        let onData = (data) => {
-            clean();
+        let buf = Buffer.alloc(0);
+        let isHttp = false;
+        let httpVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH'];
+        // We need the minimum amount of data of [longest HTTP verb + " "] length to determine the type of traffic
+        let minBufSizeNeeded = httpVerbs.reduce((accum, currentVal) => Math.max(accum, currentVal.length), 0) + 1;
 
-            let str = data.toString().toUpperCase();
-            if (str.startsWith('GET')) {
+        let isHttpData = dataStr => {
+            let verb = dataStr.substr(0, dataStr.indexOf(' '));
+            if (!verb) {
+                return false;
+            }
+
+            return httpVerbs.includes(verb.toUpperCase());
+        };
+
+        let checkHttpData = str => {
+            if (!str.includes('\r\n\r\n')) {
+                // Keep waiting for all the headers to arrive
+                return;
+            }
+            
+            if (str.includes('UPGRADE: WEBSOCKET') && str.includes('CONNECTION: UPGRADE')) {
+                // A websocket connection
+                clean();
                 this.emit('ws', socket);
-                socket.emit('data', data);
+                socket.emit('data', buf);
             } else {
+                // HTTP request, but not websocket. We don't accept these.
+                clean();
+                this.emit('http', socket);
+                socket.emit('data', buf);
+            }
+        };
+
+        let onData = (rawData) => {
+            buf = Buffer.concat([buf, rawData], buf.length + rawData.length);
+            if (!isHttp && buf.length < minBufSizeNeeded) {
+                return;
+            }
+
+            let str = buf.toString().toUpperCase();
+            if (isHttp) {
+                // We already determined that this is HTTP traffic, now just waiting for headers
+                // too arrive so that we can check for any Upgrade header
+                checkHttpData(str)
+            } else if (isHttpData(str)) {
+                // Now we know the data is HTTP, mark is so that we can keep collecting its headers
+                // for further checks.
+                isHttp = true;
+                checkHttpData(str);
+            } else {
+                // Not HTTP, treat it as a plain socket. Probably an IRC client
+                clean();
                 this.emit('socket', socket);
-                socket.emit('data', data);
+                socket.emit('data', buf);
             }
         };
 
