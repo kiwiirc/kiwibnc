@@ -1,14 +1,14 @@
-# KiwiBNC - An IRC bouncer
+# KiwiBNC - A modern IRC bouncer
 
 * Stay connected to IRC. For one person or 10,000 people
 * Zero downtime updates and restarts. Don't knock everyone offline because an update is available
 * Extensible via javascript plugins
-* Use with older or modern IRCv3 clients
-* Message storage via sqlite database or plain text files
-* RabbitMQ support for larger deployments
+* Pick your own client. Older or modern IRCv3 clients
 * Websocket support for direct web clients
 * Built in web client
 * Web admin interface
+* Message storage via sqlite database or plain text files
+* RabbitMQ support for larger deployments
 
 ## Status
 While KiwiBNC is already in use for single users and some networks it is currently in development and may break. If you require 100% uptime and rely on your BNC for your health, do not use it yet.
