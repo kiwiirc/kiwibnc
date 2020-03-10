@@ -1,7 +1,7 @@
-const uuidv4 = require('uuid/v4');
 const bcrypt = require('bcrypt');
 const Helpers = require('../libs/helpers');
 const { BncError } = require('../libs/errors');
+const tokens = require('../libs/tokens');
 
 class Users {
     constructor(db) {
@@ -16,23 +16,36 @@ class Users {
         }
 
         try {
-            let row = await this.db.dbUsers('user_networks')
+            let comparePass = true;
+            let query = this.db.dbUsers('user_networks')
                 .innerJoin('users', 'users.id', 'user_networks.user_id')
                 .where('users.username', 'LIKE', username)
                 .where('user_networks.name', 'LIKE', network)
-                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin')
-                .first();
-            
-            if (row) {
-                let correctHash = await bcrypt.compare(password, row._pass);
-                if (correctHash) {
-                    ret.user = { admin: row.user_admin };
-                    delete row._pass;
-                    delete row.user_admin;
+                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin');
 
-                    ret.network = this.db.factories.Network.fromDbResult(row);
+            if (tokens.isUserToken(password)) {
+                comparePass = false;
+                query.innerJoin('user_tokens', 'user_tokens.user_id', 'user_networks.user_id');
+                query.where('user_tokens.token', password);
+            }
+
+            let row = await query.first();
+            if (!row) {
+                return ret;
+            }
+            
+            if (comparePass) {
+                let correctHash = await bcrypt.compare(password, row._pass);
+                if (!correctHash) {
+                    return ret;
                 }
             }
+
+            ret.user = { admin: row.user_admin };
+            delete row._pass;
+            delete row.user_admin;
+
+            ret.network = this.db.factories.Network.fromDbResult(row);
         } catch (err) {
             l.error('Error logging user in:', err.stack);
         }
@@ -45,17 +58,30 @@ class Users {
             return null;
         }
 
-        let user = await this.db.dbUsers('users')
+        let checkPass = true;
+        let query = this.db.dbUsers('users')
+            .select('users.*')
             .where('username', 'LIKE', username)
-            .where('locked', '!=', true)
-            .first()
-            .then(this.db.factories.User.fromDbResult);
+            .where('locked', '!=', true);
 
-        if (user && await user.checkPassword(password)) {
-            return user;
+        if (tokens.isUserToken(password)) {
+            checkPass = false;
+            query.innerJoin('user_tokens', 'user_tokens.user_id', 'user_networks.user_id');
+            query.where('user_tokens.token', password);
         }
 
-        return null;
+        let user = await query.first()
+            .then(this.db.factories.User.fromDbResult);
+
+        if (!user) {
+            return null;
+        }
+
+        if (checkPass && !await user.checkPassword(password)) {
+            return null;
+        }
+
+        return user;
     }
 
     async authUserToken(token) {
@@ -73,13 +99,24 @@ class Users {
     }
 
     async generateUserToken(id) {
-        let token = uuidv4().replace(/\-/g, '');
+        let token = tokens.generateUserToken();
         await this.db.dbUsers('user_tokens').insert({
             user_id: id,
             token: token,
             created_at: Helpers.now(),
         });
         return token;
+    }
+
+    async getUserTokens(userId) {
+        return this.db.dbUsers('user_tokens').where('user_id', userId);
+    }
+
+    async removeUserToken(userId, token) {
+        await this.db.dbUsers('user_tokens')
+            .where('user_id', userId)
+            .where('token', token)
+            .delete();
     }
 
     async getUser(username) {
