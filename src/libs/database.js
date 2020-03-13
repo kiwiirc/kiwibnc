@@ -9,13 +9,15 @@ module.exports = class Database {
                 // config.path is legacy
 				filename: config.state || config.path || 'connections.db',
 			},
-			useNullAsDefault: true,
+            useNullAsDefault: true,
+            pool: { propagateCreateError: false },
         });
 
         let usersConStr = config.users || 'users.db';
         let usersDbCon = {
 			client: 'sqlite3',
-			connection: null,
+            connection: null,
+            pool: { propagateCreateError: false },
         };
         if (usersConStr.indexOf('postgres://') > -1) {
             // postgres://someuser:somepassword@somehost:381/somedatabase
