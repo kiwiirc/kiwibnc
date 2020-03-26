@@ -4,6 +4,7 @@ class Throttler {
             interval :
             1000;
         this.labels = new Object(null);
+        this.isTicking = false;
         this.tick();
 
         if (wrapFn) {
@@ -12,13 +13,23 @@ class Throttler {
     }
 
     async waitUntilReady(label) {
-        return new Promise((resolve, reject) => {
+        let prom = new Promise((resolve, reject) => {
             this.labels[label] = this.labels[label] || [];
             this.labels[label].push(resolve);
         });
+
+        process.nextTick(this.tick.bind(this));
+        return prom;
     }
 
-    tick() {
+    tick(ignoreCheck) {
+        if (!ignoreCheck && this.isTicking) {
+            return;
+        }
+
+        this.isTicking = true;
+
+        let numFnsWaiting = 0;
         for (let label in this.labels) {
             let r = this.labels[label].shift();
             if (r) {
@@ -27,14 +38,21 @@ class Throttler {
 
             if (this.labels[label].length === 0) {
                 delete this.labels[label];
+            } else {
+                numFnsWaiting += this.labels[label].length;
             }
         }
 
-        this.ticker = setTimeout(this.tick.bind(this), this.interval);
+        if (numFnsWaiting > 0) {
+            this.ticker = setTimeout(this.tick.bind(this), this.interval, true);
+        } else {
+            this.isTicking = false;
+        }
     }
 
     stop() {
         clearTimeout(this.ticker);
+        this.isTicking = false;
     }
 
     wrap(fn) {
