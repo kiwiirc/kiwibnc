@@ -38,13 +38,18 @@ class Throttler {
     }
 
     wrap(fn) {
-        let wrapLabel = (Math.random()*1e17).toString(36);
+        let wrapLabel = '_wrapped' + (Math.random()*1e17).toString(36);
         let wrappedFn = async function throttledFunction(...args) {
-            await wrappedFn.throttler.waitUntilReady('_wrapped' + wrapLabel);
+            await wrappedFn.throttler.waitUntilReady(wrapLabel);
             fn(...args);
         };
 
         wrappedFn.stop = () => this.stop();
+        wrappedFn.queueFn = async (fn) => {
+            // Add an adhoc function to the throttle queue
+            await wrappedFn.throttler.waitUntilReady(wrapLabel);
+            fn();
+        };
         wrappedFn.throttler = this;
         Object.defineProperty(wrappedFn, 'interval', {
             get() {

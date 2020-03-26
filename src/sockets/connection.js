@@ -140,9 +140,12 @@ module.exports = class SocketConnection extends EventEmitter {
     }
 
     close() {
-        if (this.sock) {
-            this.sock.end();
-        }
+        // Close after any outstanding writes have finished
+        this.throttledWrite.queueFn(() => {
+            if (this.sock) {
+                this.sock.end();
+            }
+        });
     }
 
     write(data) {
