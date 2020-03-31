@@ -150,6 +150,14 @@ async function maybeProcessRegistration(con) {
 
     await con.state.save();
 
+    // If after all the authing above we had a network name but couldn't find a network instance
+    // to attach to, fail here
+    if (networkName && !network) {
+        await con.writeMsg('ERROR', 'Network not found');
+        con.close();
+        return false;
+    }
+
     // If CAP is in negotiation phase, that will start the upstream when ready
     if (con.state.tempGet('capping')) {
         return;

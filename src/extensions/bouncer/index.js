@@ -118,6 +118,18 @@ async function handleBouncerCommand(event) {
             parts.push('tlsverify=' + (net.tlsverify ? '1' : '0'));
             parts.push('host=' + net.host);
 
+            let propsToAdd = {
+                // network_property: bouncer_key
+                password: 'password',
+                sasl_account: 'account',
+                sasl_pass: 'account_password'
+            };
+            for (let prop in propsToAdd) {
+                if (net[prop]) {
+                    parts.push(`${propsToAdd[prop]}=${net[prop]}`);
+                }
+            }
+
             let netCon = con.conDict.findUsersOutgoingConnection(con.state.authUserId, net.id);
             if (netCon) {
                 parts.push('nick=' + netCon.state.nick);
@@ -279,6 +291,9 @@ async function handleBouncerCommand(event) {
                 nick: tags.nick || '',
                 username: tags.user || '',
                 realname: '-',
+                password: tags.password || '',
+                sasl_account: tags.account || '',
+                sasl_pass: tags.account_password || '',
             });
         } catch (err) {
             if (err.code === 'max_networks') {
@@ -321,7 +336,7 @@ async function handleBouncerCommand(event) {
             network.port = port;
         }
 
-        if (tags.host) {
+        if (typeof tags.host === 'string') {
             network.host = tags.host;
         }
 
@@ -333,16 +348,28 @@ async function handleBouncerCommand(event) {
             network.tlsverify = (tags.tlsverify === '1');
         }
 
-        if (tags.nick) {
+        if (typeof tags.nick === 'string') {
             network.nick = tags.nick;
         }
 
-        if (tags.user) {
+        if (typeof tags.user === 'string') {
             network.username = tags.user;
         }
 
         if (tags.network) {
             network.name = tags.network;
+        }
+
+        if (typeof tags.password === 'string') {
+            network.password = tags.password;
+        }
+
+        if (typeof tags.account === 'string') {
+            network.sasl_account = tags.account;
+        }
+
+        if (typeof tags.account_password === 'string') {
+            network.sasl_pass = tags.account_password;
         }
 
         try {

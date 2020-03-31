@@ -156,7 +156,7 @@ commands['CAP'] = async function(msg, con) {
 
         //TODO: Handle case of sasl defined but no ack given for it.
         // probably an option to either continue on no/bad sasl auth or abort connection.
-        if (acks.includes('sasl') && con.state.sasl.account) {
+        if (acks.includes('sasl') && con.state.sasl.account && con.state.sasl.password) {
             con.writeLine('AUTHENTICATE PLAIN');
         } else if (!con.state.receivedMotd) {
             con.writeLine('CAP', 'END');
@@ -170,7 +170,7 @@ commands['AUTHENTICATE'] = async function(msg, con) {
     if (mParamU(msg, 0, '') === '+') {
         let sasl = con.state.sasl;
         let authStr = `${sasl.account}\0${sasl.account}\0${sasl.password}`;
-        let b = new Buffer(authStr, 'utf8');
+        let b = new Buffer.from(authStr, 'utf8');
         let b64 = b.toString('base64');
 
         while (b64.length >= 400) {
@@ -198,6 +198,7 @@ commands['903'] = async function(msg, con) {
 // :server 904 <nick> :SASL authentication failed
 commands['904'] = async function(msg, con) {
     if (!con.state.netRegistered) {
+        await con.state.tempSet('irc_error','Invalid network login');
         con.close();
     }
 };
