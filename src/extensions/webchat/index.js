@@ -47,17 +47,18 @@ async function downloadKiwiIrc(publicPath, downloadUrl) {
         return;
     }
 
+    l.info('Downloading webchat client from ' + downloadUrl);
     https.get(downloadUrl, async (response) => {
         if (response.statusCode !== 200) {
             reportError(new Error('Invalid response from the download server, ' + response.statusCode));
             return;
         }
 
+        l.info('Webchat Downloaded. Copying to web folder...', publicPath);
         response
             .pipe(unzipper.Extract({path: downloadPath}))
             .on('error', reportError)
             .on('close', async () => {
-                l.info('Downloaded. Copying to web folder...', publicPath);
                 try {
                     await fs.copy(path.join(downloadPath, 'dist/'), publicPath);
                 } catch (err) {
