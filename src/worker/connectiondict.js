@@ -61,7 +61,7 @@ class ConnectionDictionary {
         return foundCon;
     }
 
-    // Find an outgoing connection instance that matches the user + network info
+    // Find all outgoing connection instances for a user
     findAllUsersClients(userId) {
         let clients = [];
         this.map.forEach((con) => {
