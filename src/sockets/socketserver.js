@@ -67,7 +67,12 @@ module.exports = class SocketServer extends EventEmitter {
         });
 
         this.server.on('connection', (socket) => {
-            // A TCP socket. Pass it to socketTypes to determine if it contains websocket headers
+            socket.on('error', (err) => {
+                // Just capture any rogue socket errors so that they don't bubble up to the process.
+                // WebSocket/http/ws will handle errors where needed and do any cleanup
+            });
+
+            // Pass the TCP socket to socketTypes to determine if it contains websocket headers
             // or not.
             socketTypes.determine(socket);
         });
