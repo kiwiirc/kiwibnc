@@ -44,6 +44,10 @@ module.exports = class SocketServer extends EventEmitter {
         proxy.on('error', () => {});
 
         wsServ.on('connection', (socket, req) => {
+            socket.on('error', (err) => {
+                // Just capture any rogue socket errors so that they don't bubble up to the process.
+            });
+
             // The websocket connection ready to be used. Patch it to match TCP connection
             // events and functions
             patchWebsocket(socket, req);
