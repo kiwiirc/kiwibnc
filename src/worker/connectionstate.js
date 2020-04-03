@@ -247,6 +247,11 @@ class ConnectionState {
     }
 
     getOrAddBuffer(name, upstreamCon) {
+        if (name.indexOf('.') > -1) {
+            // Route server messages to the server buffer
+            name = '*';
+        }
+
         let buffer = this.getBuffer(name);
         if (buffer) {
             return buffer;
@@ -259,6 +264,11 @@ class ConnectionState {
     }
 
     getBuffer(name) {
+        if (name.indexOf('.') > -1) {
+            // Route server messages to the server buffer
+            name = '*';
+        }
+
         return this.buffers[name.toLowerCase()];
     }
 
