@@ -46,8 +46,10 @@ module.exports = async function bootstrap(label, opts={}) {
 
     let queue = null;
     if (conf.get('queue.amqp_host')) {
+        l.info('Using queue rabbitmq');
         queue = new AmqpQueue(conf);
     } else {
+        l.info('Using queue IPC');
         queue = new IpcQueue(conf);
     }
 
