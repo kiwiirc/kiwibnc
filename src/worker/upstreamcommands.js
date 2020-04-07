@@ -220,7 +220,7 @@ commands['002'] = async function(msg, con) {
     await con.state.save();
     return false;
 };
-commands['004'] = async function(msg, con) {
+commands['003'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
     await con.state.save();
     return false;
