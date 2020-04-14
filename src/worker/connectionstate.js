@@ -18,6 +18,7 @@ class IrcBuffer {
         c.joined = obj.joined || false;
         c.topic = obj.topic || '';
         c.isChannel = !!obj.isChannel;
+        c.lastSeen = obj.lastSeen || 0;
         return c;
     }
 }
