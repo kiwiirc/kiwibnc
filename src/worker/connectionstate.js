@@ -1,5 +1,15 @@
 const Helpers = require('../libs/helpers');
 
+class IrcUser {
+    constructor(nick) {
+        this.nick = nick || '';
+        this.host = '';
+        this.username = '';
+        this.prefixes = '';
+        this.tags = Object.create(null);
+    }
+}
+
 class IrcBuffer {
     constructor(name, upstreamCon) {
         this.name = name;
@@ -10,6 +20,36 @@ class IrcBuffer {
             upstreamCon.isChannelName(name) :
             true;
         this.lastSeen = 0;
+        this.users = Object.create(null);
+    }
+
+    leave() {
+        this.joined = false;
+        this.users = Object.create(null);
+    }
+
+    addUser(nick, user={}) {
+        let o = this.users[nick.toLowerCase()] || new IrcUser(nick);
+        this.users[nick.toLowerCase()] = o;
+
+        let addProp = (prop) => {
+            if (typeof user[prop] !== 'undefined') {
+                o[prop] = user[prop];
+            }
+        };
+
+        o.nick = nick;
+        addProp('host');
+        addProp('username');
+        addProp('prefixes');
+
+        if (user.tags) {
+            Object.assign(o.tags, user.tags);
+        }
+    }
+
+    removeUser(nick) {
+        delete this.users[nick.toLowerCase()];
     }
 
     static fromObj(obj) {
@@ -19,6 +59,7 @@ class IrcBuffer {
         c.topic = obj.topic || '';
         c.isChannel = !!obj.isChannel;
         c.lastSeen = obj.lastSeen || 0;
+        c.users = object.users || [];
         return c;
     }
 }

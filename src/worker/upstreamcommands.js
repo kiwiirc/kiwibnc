@@ -1,4 +1,4 @@
-const { mParam, mParamU } = require('../libs/helpers');
+const { mParam, mParamU, parseMask } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -309,14 +309,17 @@ commands.JOIN = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
-    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
-        return;
-    }
-
     let chanName = msg.params[0];
-    let chan = con.state.getBuffer(chanName);
-    if (!chan) {
-        chan = con.state.addBuffer(chanName, con);
+    let chan = con.state.getBuffer(chanName) || con.state.addBuffer(chanName, con);
+
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        // Someone else joined the channel
+        chan.addUser(msg.nick, {
+            host: msg.hostname || undefined,
+            username: msg.ident || undefined,
+        });
+
+        return;
     }
 
     chan.joined = true;
@@ -328,32 +331,50 @@ commands.PART = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
-    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
-        return;
-    }
-
     let chanName = msg.params[0];
     let chan = con.state.getBuffer(chanName);
+
     if (!chan) {
+        // If we don't have this buffer the there's nothing to do
         return;
     }
 
-    chan.joined = false;
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        // Someone else left the channel
+        chan.removeUser(msg.nick);
+    } else {
+        chan.leave();
+    }
+
     await con.state.save();
 };
 
 commands.KICK = async function(msg, con) {
-    if (msg.params[1].toLowerCase() !== con.state.nick.toLowerCase()) {
-        return;
-    }
-
     let chanName = msg.params[0];
     let chan = con.state.getBuffer(chanName);
+    let kickedNick = msg.params[1];
+
     if (!chan) {
+        // If we don't have this buffer the there's nothing to do
         return;
     }
+    if (msg.params[1].toLowerCase() !== con.state.nick.toLowerCase()) {
+        // someone else was kicked
+        chan.removeUser(kickedNick);
+    } else {
+        chan.leave();
+    }
 
-    chan.joined = false;
+    await con.state.save();
+};
+
+commands.QUIT = async function(msg, con) {
+    let nick = msg.params[0];
+
+    con.state.buffers.forEach(buffer => {
+        buffer.removeUser(nick);
+    });
+
     await con.state.save();
 };
 
@@ -441,6 +462,52 @@ commands.ERROR = async function(msg, con) {
     if (msg.params[0]) {
         await con.state.tempSet('irc_error', msg.params[0]);
     }
+};
+
+// RPL_NAMEREPLY
+commands['353'] = async function(msg, con) {
+    if (!con.state.tempGet('receiving_names')) {
+        // This is the start of a new NAMES list. Clear out the old for this new one
+        await con.state.tempSet('receiving_names', true);
+        buffer.users = Object.create(null);
+    }
+
+    let ircdPrefixes = con.iSupportToken('prefix') || '';
+    let bufferName = command.params[2];
+    let userMasks = msg.params[msg.params.length - 1].split(' ');
+    userMasks.forEach(mask => {
+        if (!mask) {
+            return;
+        }
+        var j = 0;
+        var modes = [];
+        var user = null;
+
+        // If we have prefixes, strip them from the nick and keep them separate
+        for (j = 0; j < ircdPrefixes.length; j++) {
+            if (mask[0] === ircdPrefixes[j].symbol) {
+                modes.push(ircdPrefixes[j].mode);
+                mask = mask.substring(1);
+            }
+        }
+
+        // We may have a full user mask if the userhost-in-names CAP is enabled
+        user = parseMask(mask);
+
+        let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
+        buffer.addUser(user.nick, {
+            host: msg.hostname || undefined,
+            username: msg.ident || undefined,
+            prefixes: modes || undefined,
+            tags: msg.tags,
+        });
+    });
+
+    await con.state.save();
+};
+
+command['366'] = async function(msg, con) {
+    await con.state.tempSet('receiving_names', null);
 };
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
