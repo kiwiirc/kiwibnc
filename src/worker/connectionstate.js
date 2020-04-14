@@ -59,7 +59,7 @@ class IrcBuffer {
         c.topic = obj.topic || '';
         c.isChannel = !!obj.isChannel;
         c.lastSeen = obj.lastSeen || 0;
-        c.users = object.users || [];
+        c.users = obj.users || [];
         return c;
     }
 }

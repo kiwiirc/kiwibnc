@@ -466,14 +466,27 @@ commands.ERROR = async function(msg, con) {
 
 // RPL_NAMEREPLY
 commands['353'] = async function(msg, con) {
+    let bufferName = msg.params[2];
+    let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
+
     if (!con.state.tempGet('receiving_names')) {
         // This is the start of a new NAMES list. Clear out the old for this new one
         await con.state.tempSet('receiving_names', true);
         buffer.users = Object.create(null);
     }
 
-    let ircdPrefixes = con.iSupportToken('prefix') || '';
-    let bufferName = command.params[2];
+    let ircdPrefixes = [];
+    // Parse (ov)@+ into [{mode:"o",symbol:"@"},{mode:"v",symbol:"+"}]
+    let matches = /\(([^)]*)\)(.*)/.exec(con.iSupportToken('PREFIX') || '');
+    if (matches && matches.length === 3) {
+        for (let j = 0; j < matches[2].length; j++) {
+            ircdPrefixes.push({
+                symbol: matches[2].charAt(j),
+                mode: matches[1].charAt(j)
+            });
+        }
+    }
+
     let userMasks = msg.params[msg.params.length - 1].split(' ');
     userMasks.forEach(mask => {
         if (!mask) {
@@ -484,9 +497,9 @@ commands['353'] = async function(msg, con) {
         var user = null;
 
         // If we have prefixes, strip them from the nick and keep them separate
-        for (j = 0; j < ircdPrefixes.length; j++) {
+        for (let j = 0; j < ircdPrefixes.length; j++) {
             if (mask[0] === ircdPrefixes[j].symbol) {
-                modes.push(ircdPrefixes[j].mode);
+                modes.push(ircdPrefixes[j].symbol);
                 mask = mask.substring(1);
             }
         }
@@ -494,7 +507,6 @@ commands['353'] = async function(msg, con) {
         // We may have a full user mask if the userhost-in-names CAP is enabled
         user = parseMask(mask);
 
-        let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
         buffer.addUser(user.nick, {
             host: msg.hostname || undefined,
             username: msg.ident || undefined,
@@ -506,7 +518,8 @@ commands['353'] = async function(msg, con) {
     await con.state.save();
 };
 
-command['366'] = async function(msg, con) {
+// RPL_ENDOFNAMES
+commands['366'] = async function(msg, con) {
     await con.state.tempSet('receiving_names', null);
 };
 
