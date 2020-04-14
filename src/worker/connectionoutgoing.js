@@ -197,7 +197,7 @@ class ConnectionOutgoing {
                 });
             }
 
-            channel.joined = false;
+            channel.leave();
         }
 
         await this.state.save();
