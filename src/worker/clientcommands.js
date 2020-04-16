@@ -349,24 +349,7 @@ commands.NAMES = async function(msg, con) {
         return false;
     }
 
-    // :irc.network.org 353 Guest25 @ #channel :@Guest25
-    let fullMask = con.state.caps.has('userhost-in-names');
-    let multiPrefix = con.state.caps.has('multi-prefix');
-
-    for (let n in buffer.users) {
-        let user = buffer.users[n];
-        let mask = fullMask ?
-            `${user.nick}!${user.username}@${user.host}` :
-            user.nick;
-        let prefix = multiPrefix ?
-            user.prefixes :
-            user.prefixes[0] || '';
-
-        // TODO: Correctly track the channel status (@ = etc)
-        con.writeFromBnc('353', upstream.state.nick, '=', buffer.name, prefix + mask);
-    }
-
-    con.writeFromBnc('366', upstream.state.nick, bufferName, 'End of /NAMES list.');
+    con.sendNames(buffer);
     return false;
 };
 

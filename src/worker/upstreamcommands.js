@@ -508,10 +508,9 @@ commands['353'] = async function(msg, con) {
         user = parseMask(mask);
 
         buffer.addUser(user.nick, {
-            host: msg.hostname || undefined,
-            username: msg.ident || undefined,
+            host: user.hostname || undefined,
+            username: user.ident || undefined,
             prefixes: modes || undefined,
-            tags: msg.tags,
         });
     });
 
@@ -521,6 +520,10 @@ commands['353'] = async function(msg, con) {
 // RPL_ENDOFNAMES
 commands['366'] = async function(msg, con) {
     await con.state.tempSet('receiving_names', null);
+    let buffer = con.state.getBuffer(msg.params[1]);
+    if (buffer) {
+        con.forEachClient(c => c.sendNames(buffer));
+    }
 };
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
