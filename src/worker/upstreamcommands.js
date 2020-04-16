@@ -371,9 +371,9 @@ commands.KICK = async function(msg, con) {
 commands.QUIT = async function(msg, con) {
     let nick = msg.params[0];
 
-    con.state.buffers.forEach(buffer => {
-        buffer.removeUser(nick);
-    });
+    for (let bufferName in con.state.buffers) {
+        con.state.buffers[bufferName].removeUser(nick);
+    }
 
     await con.state.save();
 };
