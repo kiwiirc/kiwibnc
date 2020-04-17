@@ -146,7 +146,10 @@ class ConnectionState {
             
             // Add any channels that we don't already have
             (net.channels || '').split(',').forEach(chanName => {
-                this.getOrAddBuffer(chanName);
+                if (chanName.trim()) {
+                    let buffer = this.getOrAddBuffer(chanName.trim());
+                    buffer.joined = true;
+                }
             });
 
             // We don't update the current nick if we're connected already as that would then
