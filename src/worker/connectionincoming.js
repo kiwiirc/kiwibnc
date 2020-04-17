@@ -161,12 +161,12 @@ class ConnectionIncoming {
         let tokenLines = batchIsupportTokensToMaxLenth(
             isupportTokens,
             `:*bnc 005 ${this.state.nick}`,
-            'is supported by this server',
+            'are supported by this server',
             512
         );
 
         tokenLines.forEach((tokenParams) => {
-            let params = [...tokenParams, 'is supported by this server'];
+            let params = [...tokenParams, 'are supported by this server'];
             regLines.push(['005', this.state.nick, ...params]);
         });
 
@@ -194,7 +194,7 @@ class ConnectionIncoming {
         // Let plugins modify/add isupport tokens
         let isupports = upstream.state.registrationLines.filter((regLine) => regLine[0] === '005');
         let isupportTokens = isupports.reduce((prev, cur) => {
-            // Remove the last token as it's usually 'is supported by this server'.
+            // Remove the last token as it's usually 'are supported by this server'.
             let tokens = cur[1];
             return prev.concat(tokens.slice(0, tokens.length - 1));
         }, []);
@@ -204,7 +204,7 @@ class ConnectionIncoming {
         let tokenLines = batchIsupportTokensToMaxLenth(
             isupportTokens,
             `:${upstream.state.serverPrefix} 005 ${nick}`,
-            'is supported by this server',
+            'are supported by this server',
             512
         );
 
@@ -213,7 +213,7 @@ class ConnectionIncoming {
             if (regLine[0] === '005' && !sent005) {
                 sent005 = true;
                 tokenLines.forEach((tokenParams) => {
-                    let params = [...tokenParams, 'is supported by this server'];
+                    let params = [...tokenParams, 'are supported by this server'];
                     this.writeMsgFrom(upstream.state.serverPrefix, '005', nick, ...params);
                 });
             } else if (regLine[0] === '005' && sent005) {
@@ -355,7 +355,7 @@ class ConnectionIncoming {
 
 // Split []tokens into batches that when joined with prefix and suffix, its length does not exceed maxLen
 // eg. ['one', 'two', ...100 more tokens] = [['one', 'two'], [...more tokens]]
-function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by this server', maxLen=512) {
+function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='are supported by this server', maxLen=512) {
     // 1 = the extra space after the prefix
     let l = prefix.length + 1;
     // 1 = the : before the suffix
@@ -368,8 +368,8 @@ function batchIsupportTokensToMaxLenth(tokens, prefix, suffix='is supported by t
 
     for (let i = 0; i < tokens.length; i++) {
         let token = tokens[i];
-        // If this token goes over maxLen, start a new line. (Or if we don't have a line yet)
-        if (l + currentLen + token.length + 1 > maxLen || tokenLines.length === 0) {
+        // If this token goes over maxLen, or exceeding 13 tokens, start a new line. (Or if we don't have a line yet)
+        if (l + currentLen + token.length + 1 > maxLen || (i % 13) === 0 || tokenLines.length === 0) {
             tokenLines.push([]);
             currentLen = 0;
         }
