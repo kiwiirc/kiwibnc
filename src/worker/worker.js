@@ -211,14 +211,12 @@ function listenToQueue(app) {
     });
 }
 
-// Start any listening servers on interfaces specified in the config if they do not
-// exist as an active connection already
+// Start any listening servers on interfaces specified in the config
 async function startServers(app) {
-    let existingBinds = await app.db.dbConnections.raw('SELECT host, port FROM connections WHERE type = ?', [
-        ConnectionDict.TYPE_LISTENING
-    ]);
-    let binds = app.conf.get('listeners.bind', []);
+    // Close all existing listeners first
+    app.queue.sendToSockets('listeners.closeall');
 
+    let binds = app.conf.get('listeners.bind', []);
     for (let i = 0; i < binds.length; i++) {
         let parts = parseBindString(binds[i]);
         if (!parts) {
@@ -230,11 +228,7 @@ async function startServers(app) {
         let port = parseInt(parts.port || '6667', 10);
         let type = (parts.proto || 'tcp').toLowerCase();
 
-        let exists = existingBinds.find((con) => {
-            return con.host === host && con.port === port;
-        });
-
-        !exists && app.queue.sendToSockets('connection.listen', {
+        app.queue.sendToSockets('connection.listen', {
             host: host,
             port: port,
             type: type,

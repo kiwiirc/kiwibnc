@@ -92,6 +92,15 @@ async function run() {
         cons.delete(event.id);
     });
 
+    app.queue.on('listeners.closeall', (event) => {
+        // Close all listener sockets. handy for flushing listeners before opening new ones
+        cons.forEach(con => {
+            if (con.type === 3) {
+                con.close();
+            }
+        });
+    });
+
     app.queue.on('connection.listen', (event) => {
         if (cons.has(event.id)) {
             // A connection can only be open once.
