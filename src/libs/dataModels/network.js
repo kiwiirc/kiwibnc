@@ -61,6 +61,9 @@ class Network extends DatabaseSavable {
     set sasl_pass(newVal) {
         return this.setData('sasl_pass', this.crypt.encrypt(newVal));
     }
+
+    get channels() { return this.getData('channels'); }
+    set channels(newVal) { return this.setData('channels', newVal); }
     
 }
 

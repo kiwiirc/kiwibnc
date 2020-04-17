@@ -165,9 +165,30 @@ commands.ATTACH = async function(input, con, msg) {
 };
 
 commands.CHANGENETWORK = {
-    requiresNetworkAuth: true,
     fn: async function(input, con, msg) {
-        // changenetwork host=irc.freenode.net port=6667 tls=1
+        // changenetwork [network name] option=value
+
+        let parts = input.split(' ');
+        if (!input || parts.length === 0) {
+            con.writeStatus('Usage: changenetwork [network_name] option-value');
+        }
+
+        // Either get the specified netwrk or default to the active network
+        let network = null;
+        if (parts[0].indexOf('=' === -1)) {
+            network = await con.userDb.getNetworkByName(con.state.authUserId, parts[0]);
+            if (!network) {
+                con.writeStatus(`Network ${netName} could not be found`);
+                return;
+            }
+        } else {
+            network = await con.userDb.getNetwork(con.state.authNetworkId);
+        }
+
+        if (!network) {
+            con.writeStatus('Not logged into a network');
+            return;
+        }
 
         let toUpdate = {};
         let columnMap = {
@@ -189,6 +210,7 @@ commands.CHANGENETWORK = {
             account: 'sasl_account',
             account_pass: 'sasl_pass',
             account_password: 'sasl_pass',
+            channels: 'channels'
         };
 
         input.split(' ').forEach(part => {
@@ -232,7 +254,6 @@ commands.CHANGENETWORK = {
         });
 
         if (Object.keys(toUpdate).length > 0) {
-            let network = await con.userDb.getNetwork(con.state.authNetworkId);
             for (let prop in toUpdate) {
                 network[prop] = toUpdate[prop];
             }
@@ -241,7 +262,7 @@ commands.CHANGENETWORK = {
             con.writeStatus(`Updated network`);
         } else {
             con.writeStatus(`Usage: changenetwork server=irc.example.net port=6697 tls=yes`);
-            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password`);
+            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password, channels`);
         }
     },
 };
@@ -276,6 +297,7 @@ commands.ADDNETWORK = {
             account: 'sasl_account',
             account_pass: 'sasl_pass',
             account_password: 'sasl_pass',
+            channels: 'channels',
         };
 
         input.split(' ').forEach(part => {
@@ -329,7 +351,7 @@ commands.ADDNETWORK = {
         if (missingFields.length > 0) {
             con.writeStatus('Missing fields: ' + missingFields.join(', '));
             con.writeStatus(`Usage: addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick`);
-            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password`);
+            con.writeStatus(`Available fields: name, server, port, tls, tlsverify, nick, username, realname, password, account, account_password, channels`);
             return;
         }
 

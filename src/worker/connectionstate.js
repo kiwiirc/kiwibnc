@@ -143,6 +143,11 @@ class ConnectionState {
             this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
             this.authNetworkName = net.name;
+            
+            // Add any channels that we don't already have
+            (net.channels || '').split(',').forEach(chanName => {
+                this.getOrAddBuffer(chanName);
+            });
 
             // We don't update the current nick if we're connected already as that would then
             // take us out of sync with the current IRC state
