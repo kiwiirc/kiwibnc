@@ -38,6 +38,11 @@ module.exports = async function(env, options) {
         });
     }
 
+    process.on('SIGHUP', () => {
+        l('Reloading worker process...');
+        workerProc.kill();
+    });
+
     spawnWorker();
 
     // Make sure the worker process also gets killed when we die
