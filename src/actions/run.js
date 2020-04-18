@@ -33,14 +33,14 @@ module.exports = async function(env, options) {
 
             if (key.name === 'r' && workerProc) {
                 l('Reloading worker process...');
-                workerProc.kill();
+                workerProc.kill('SIGQUIT');
             }
         });
     }
 
     process.on('SIGHUP', () => {
-        l('Reloading worker process...');
-        workerProc.kill();
+        l('SIGHUP received. Reloading worker process...');
+        workerProc.kill('SIGQUIT');
     });
 
     spawnWorker();

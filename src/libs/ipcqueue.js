@@ -9,6 +9,7 @@ module.exports = class IpcQueue extends EventEmitter {
         this.isWorker = false;
         this.toWorkerQueue = [];
         this.toWorkerQueueWaits = [];
+        this.stopPromise = null;
         this.stats = Stats.instance().makePrefix('queue');
     }
 
@@ -131,7 +132,13 @@ module.exports = class IpcQueue extends EventEmitter {
                 }
 
                 this.triggerPayload(message).then(() => {
-                    process.nextTick(getNextItem);
+                    if (this.stopPromise) {
+                        // Waiting to stop listening for events, stop now
+                        this.stopPromise.resolve();
+                        this.stopPromise = null;
+                    } else {
+                        process.nextTick(getNextItem);
+                    }
                 });
             });
         };
@@ -170,7 +177,7 @@ module.exports = class IpcQueue extends EventEmitter {
     stopListening() {
         l.trace('stopListening()');
         return new Promise((resolve) => {
-            resolve();
+            this.stopPromise = { resolve };
         });
     }
 }

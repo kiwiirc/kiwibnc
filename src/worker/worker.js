@@ -47,6 +47,9 @@ async function run() {
     app.cons = new ConnectionDict(app.db, app.userDb, app.messages, app.queue);
 
     app.prepareShutdown = () => prepareShutdown(app);
+    process.on('SIGQUIT', () => {
+        app.prepareShutdown();
+    });
 
     initWebserver(app);
     initExtensions(app);
@@ -104,13 +107,9 @@ function broadcastStats(app) {
 }
 
 function prepareShutdown(app) {
-    // Give some time for the queue to process some internal stuff then just exit. This worker
-    // will get restarted by the sockets process automatically
-    app.queue.stopListening().then(async () => {
-        setTimeout(() => {
-            process.exit();
-        }, 2000);
-    });
+    // This worker will get restarted by the sockets process automatically
+    l.info('Gracefully shutting down...');
+    app.queue.stopListening().then(process.exit);
 }
 
 function listenToQueue(app) {
