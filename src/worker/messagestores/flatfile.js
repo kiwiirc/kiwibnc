@@ -11,7 +11,7 @@ class FlatfileMessageStore {
     constructor(conf) {
         this.supportsWrite = true;
         this.supportsRead = false;
-        this.logsDir = conf.files;
+        this.logsDir = config.relativePath(conf.get('logging.files', ''));
     }
 
     async init() {

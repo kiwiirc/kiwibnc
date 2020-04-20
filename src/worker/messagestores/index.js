@@ -9,12 +9,12 @@ class MessageStores {
 
     async init() {
         if (this.conf.get('logging.database')) {
-            let m = new MessageStoreSqlite(this.conf.get('logging', {}));
+            let m = new MessageStoreSqlite(this.conf);
             await m.init();
             this.stores.push(m);
         }
         if (this.conf.get('logging.files')) {
-            let m = new MessageStoreFlatfile(this.conf.get('logging', {}));
+            let m = new MessageStoreFlatfile(this.conf);
             await m.init();
             this.stores.push(m);
         }

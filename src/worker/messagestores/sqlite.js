@@ -9,11 +9,12 @@ const MSG_TYPE_PRIVMSG = 1;
 const MSG_TYPE_NOTICE = 2;
 
 class SqliteMessageStore {
-    constructor(conf) {
+    constructor(config) {
         this.supportsWrite = true;
         this.supportsRead = true;
 
-        this.db = new sqlite3(conf.database);
+        let loggingConf = config.get('logging', {});
+        this.db = new sqlite3(config.relativePath(loggingConf.database));
         this.stats = Stats.instance().makePrefix('messages');
 
         this.storeQueueLooping = false;

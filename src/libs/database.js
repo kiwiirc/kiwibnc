@@ -3,17 +3,19 @@ const knex = require('knex');
 
 module.exports = class Database {
     constructor(config) {
+        let dbConf = config.get('database', {});
+
 		this.dbConnections = knex({
 			client: 'sqlite3',
 			connection: {
-                // config.path is legacy
-				filename: config.state || config.path || 'connections.db',
+                // dbConf.path is legacy
+				filename: config.relativePath(dbConf.state || dbConf.path || 'connections.db'),
 			},
             useNullAsDefault: true,
             pool: { propagateCreateError: false },
         });
 
-        let usersConStr = config.users || 'users.db';
+        let usersConStr = dbConf.users || 'users.db';
         let usersDbCon = {
 			client: 'sqlite3',
             connection: null,
@@ -35,7 +37,7 @@ module.exports = class Database {
             // No scheme:// part in the connection string, assume it's an sqlite filename
             usersDbCon.client = 'sqlite3';
             usersDbCon.useNullAsDefault = true;
-            usersDbCon.connection = { filename: usersConStr };
+            usersDbCon.connection = { filename: config.relativePath(usersConStr) };
         }
 
         this.dbUsers = knex(usersDbCon);

@@ -27,7 +27,7 @@ async function run() {
     }
     app.crypt = new Crypt(cryptKey);
 
-    app.db = new Database(app.conf.get('database', {}));
+    app.db = new Database(app.conf);
     try {
         await app.db.init();
     } catch (err) {

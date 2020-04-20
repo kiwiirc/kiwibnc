@@ -34,13 +34,9 @@ After installing, take a glance over `config.ini` and make sure it suits your ne
 
 #### Add a user
 ```shell
-$ npm start adduser
-
-> statebnc@1.0.0 start /home/kiwibnc
-> node src/server.js "adduser"
-
-01:09:17 [adduser] l_info ## Starting adduser ##
-01:09:17 [adduser] l_info Using config file ./config.ini
+$ node src/server.js adduser
+01:09:17 [adduser] l_info Starting adduser
+01:09:17 [adduser] l_info Using config file /home/prawnsalad/.kiwibnc/config.ini
 Username: someuser
 Password: ****
 Admin account? n
@@ -49,7 +45,7 @@ Added new user someuser
 
 #### Starting the bouncer
 ```shell
-$ npm start
+$ node src/server.js
 ```
 
 #### Adding networks and controlling your bouncer

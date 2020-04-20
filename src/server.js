@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-
+const os = require('os');
+const path = require('path');
 const commander = require('commander');
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
@@ -9,9 +10,11 @@ const actionUpdateDb = require('./actions/updatedb');
     // Make the args available globally
     process.args = commander;
 
+    let defaultConfigPath = path.join(os.homedir(), '.kiwibnc', 'config.ini')
+
     commander
         .version('0.0.1')
-        .option('-c, --config <path>', 'Config file path', './config.ini')
+        .option('-c, --config <path>', 'Config file path', defaultConfigPath)
         .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', true);
 
     commander
