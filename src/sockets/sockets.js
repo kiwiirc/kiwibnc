@@ -141,6 +141,14 @@ async function run() {
         });
     });
 
+    // Keeping sockets alive is paramount so that an error from a single user doesn't take everybody
+    // down. This *could* be bad as we don't know what the error is, but 9/10 times the error will
+    // not impact every user and a simple user reconnect will restart their connection state. This
+    // seems like a good trade off as long as we make the error clearly noticable in logs.
+    process.on('uncaughtException', (err, origin) => {
+        console.error(`### Serious error (${origin}) - this should not happen but the BNC is still running. ${err.stack}`);
+    });
+
     function addCon(con) {
         cons.set(con.id, con);
         con.once('dispose', () => {
