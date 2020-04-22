@@ -63,7 +63,7 @@ async function run() {
         }
 
         if (!event.host || !event.port) {
-            l.error('Missing hort or port for connection.open');
+            l.error('Missing host or port for connection.open');
             return;
         }
 
@@ -116,15 +116,30 @@ async function run() {
         }
 
         let srv = null;
+        let tlsOpts = {};
         if (!event.type || event.type === 'tcp' || event.type === 'ws') {
             srv = new SocketServer(event.id, app.queue, app.conf);
+
+        } else if (event.type === 'tls') {
+            if (!event.key || !event.cert) {
+                l.error('Missing key or cert for TLS connection listen');
+                return;
+            }
+            srv = new SocketServer(event.id, app.queue, app.conf);
+            tlsOpts = { key: event.key, cert: event.cert };
+
         } else {
             l.error('Invalid server type for connection listen, ' + event.type);
             return;
         }
 
         addCon(srv);
-        srv.listen(event.host, event.port || 0);
+
+        try {
+            srv.listen(event.host, event.port || 0, tlsOpts);
+        } catch (err) {
+            l.error('Error starting listener:', err.message);
+        }
 
         srv.on('connection.new', (socket) => {
             let con = new SocketConnection(null, app.queue, socket);

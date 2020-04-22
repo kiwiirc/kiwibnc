@@ -1,4 +1,5 @@
 const net = require('net');
+const tls = require('tls');
 const { EventEmitter } = require('events');
 const http = require('http');
 const httpProxy = require('http-proxy');
@@ -11,9 +12,7 @@ module.exports = class SocketServer extends EventEmitter {
         this.appConfig = conf;
         this.id = conId;
         this.type = 3;
-        this.server = new net.Server({allowHalfOpen: false});
-
-        this.bindSocketEvents();
+        this.server = null;
     }
 
     bindSocketEvents() {
@@ -70,7 +69,12 @@ module.exports = class SocketServer extends EventEmitter {
             httpd.emit('connection', socket);
         });
 
-        this.server.on('connection', (socket) => {
+        // server.setTicketKeys is only available on a TLS server, so we can use it to check
+        // if this is a TLS or plaintext server
+        let socketConnectEventName = this.server.setTicketKeys ?
+            'secureConnection' :
+            'connection';
+        this.server.on(socketConnectEventName, (socket) => {
             socket.on('error', (err) => {
                 // Just capture any rogue socket errors so that they don't bubble up to the process.
                 // WebSocket/http/ws will handle errors where needed and do any cleanup
@@ -93,7 +97,22 @@ module.exports = class SocketServer extends EventEmitter {
         });
     }
 
-    listen(host, port) {
+    listen(host, port, tlsOpts={}) {
+        if (this.server) {
+            this.server.removeAllListeners();
+        }
+
+        if (!tlsOpts.cert) {
+            this.server = new net.Server({allowHalfOpen: false});
+        } else {
+            this.server = tls.createServer({
+                key: tlsOpts.key,
+                cert: tlsOpts.cert,
+            });
+        }
+
+        this.bindSocketEvents();
+
         l.info(`listening on ${host}:${port} ${this.id}`);
         this.server.listen(port, host);
     }

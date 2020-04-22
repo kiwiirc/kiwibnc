@@ -227,12 +227,41 @@ async function startServers(app) {
         let port = parseInt(parts.port || '6667', 10);
         let type = (parts.proto || 'tcp').toLowerCase();
 
-        app.queue.sendToSockets('connection.listen', {
+        // Treat 'ssl' as an alias to 'tls'
+        if (type === 'ssl') {
+            type = 'tls';
+        }
+
+        let listenOpts = {
             host: host,
             port: port,
             type: type,
             id: uuidv4(),
-        });
+        };
+
+        // Add any TLS certs and keys
+        if (type === 'tls') {
+            let listeners = app.conf.get('listeners');
+            if (!listeners.tls_key || !listeners.tls_cert) {
+                l.error('A TLS listener requires the tls_key and tls_cert config options set');
+                continue;
+            }
+
+            try {
+                listenOpts.key = fs.readFileSync(app.conf.relativePath(listeners.tls_key), 'utf8');
+                listenOpts.cert = fs.readFileSync(app.conf.relativePath(listeners.tls_cert), 'utf8');
+            } catch (err) {
+                l.error('Error reading TLS key or certifcate', err.message);
+                continue;
+            }
+
+            if (!listenOpts.key || !listenOpts.cert) {
+                l.error('A TLS listener requires a valid key and certificate');
+                continue;
+            }
+        }
+
+        app.queue.sendToSockets('connection.listen', listenOpts);
     }
 }
 
