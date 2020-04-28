@@ -29,7 +29,7 @@ module.exports = function(app) {
             port: '{{port}}',
             server: '{{hostname}}',
             direct_path: '/',
-            tls: false,
+            tls: '{{tls}}',
             direct: true,
             channel: '',
             bouncer: true,
