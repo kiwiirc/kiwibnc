@@ -53,8 +53,11 @@ class FlatfileMessageStore {
             (message.command === 'PRIVMSG' || message.command === 'NOTICE') &&
             message.params[1] && message.params[1][0] === '\x01'
         ) {
-            l.error('Ignoring CTCP');
-            return;
+            // We do want to log ACTIONs though
+            if (!message.params[1][0].startsWith('\x01ACTION ')) {
+                l.error('Ignoring CTCP');
+                return;
+            }
         }
 
         if (message.command === 'PRIVMSG') {

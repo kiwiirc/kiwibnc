@@ -338,8 +338,11 @@ class SqliteMessageStore {
             (message.command === 'PRIVMSG' || message.command === 'NOTICE') &&
             message.params[1] && message.params[1][0] === '\x01'
         ) {
-            this.storeQueueLooping = false;
-            return;
+            // We do want to log ACTIONs though
+            if (!message.params[1][0].startsWith('\x01ACTION' )) {
+                this.storeQueueLooping = false;
+                return;
+            }
         }
 
         if (message.command === 'PRIVMSG') {
