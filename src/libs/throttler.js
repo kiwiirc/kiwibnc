@@ -31,7 +31,7 @@ class Throttler {
         // Make sure we didn't tick less than interval ago. If so, wait the remaining ms
         let lastRanMsAgo = Date.now() - this.lastTick;
         if (lastRanMsAgo < this.interval)  {
-            this.ticker = setTimeout(this.tick.bind(this), this.interval - lastRanMsAgo);
+            this.ticker = setTimeout(this.tick.bind(this), this.interval - lastRanMsAgo, true);
             return
         }
 
