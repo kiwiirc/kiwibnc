@@ -3,6 +3,7 @@ class Throttler {
         this.interval = typeof interval === 'number' ?
             interval :
             1000;
+        this.lastTick = 0;
         this.labels = new Object(null);
         this.isTicking = false;
         this.tick();
@@ -27,6 +28,13 @@ class Throttler {
             return;
         }
 
+        // Make sure we didn't tick less than interval ago. If so, wait the remaining ms
+        let lastRanMsAgo = Date.now() - this.lastTick;
+        if (lastRanMsAgo < this.interval)  {
+            this.ticker = setTimeout(this.tick.bind(this), this.interval - lastRanMsAgo);
+            return
+        }
+
         this.isTicking = true;
 
         let numFnsWaiting = 0;
@@ -42,6 +50,8 @@ class Throttler {
                 numFnsWaiting += this.labels[label].length;
             }
         }
+
+        this.lastTick = Date.now();
 
         if (numFnsWaiting > 0) {
             this.ticker = setTimeout(this.tick.bind(this), this.interval, true);
