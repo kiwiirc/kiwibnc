@@ -1,10 +1,10 @@
 module.exports = function createLogger(label) {
     let logLabel = `[${label||''}]`;
     let out = function(...args) {
-        console.log(...[(new Date()).toTimeString().split(' ')[0], logLabel, ...args]);
+        console.log(...[(new Date()).toISOString(), logLabel, ...args]);
     };
     let outErr = function(...args) {
-        console.error(...[(new Date()).toTimeString().split(' ')[0], logLabel, ...args]);
+        console.error(...[(new Date()).toISOString(), logLabel, ...args]);
     };
 
     // Allow logger() logger.warn() logger.info() etc
