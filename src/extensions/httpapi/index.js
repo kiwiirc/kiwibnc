@@ -93,7 +93,7 @@ class CommandError extends Error {
 const apiCommands = Object.create(null);
 apiCommands.logout = async (args, {user, app, token, hooks}) => {
     await app.userDb.removeUserToken(user.id, token);
-    await hooks.emit('httpapi_action_logout', { user, token, args })
+    await hooks.emit('httpapi_command_logout', { user, token, args })
     return { loggedout: true };
 };
 
