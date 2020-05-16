@@ -144,6 +144,12 @@ class Users {
         return user;
     };
 
+    async deleteUser(user_id) {
+        await this.db.factories.User.query().where('id', user_id).delete();
+        await this.db.factories.Network.query().where('user_id', user_id).delete();
+        await this.db.db('user_tokens').where('user_id', user_id).delete();
+    }
+
     async changeUserPassword(id, password) {
         let user = await this.db.factories.User.query().where('id', id);
         if (!user) {

@@ -4,7 +4,7 @@ module.exports = async function(env, options) {
 
     let users = await app.db.db('users')
         .select('id', 'username', 'created_at', 'admin', 'locked');
-    
+
     users.forEach(user => {
         let flags = [];
         if (user.admin) flags.push('admin');

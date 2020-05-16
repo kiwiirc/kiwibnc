@@ -2,10 +2,12 @@
 const os = require('os');
 const path = require('path');
 const commander = require('commander');
+const version = require('../package.json').version;
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
 const actionListUsers = require('./actions/listusers');
 const actionUpdateDb = require('./actions/updatedb');
+const actionDeleteUser = require('./actions/deleteuser');
 
 (async function() {
     // Make the args available globally
@@ -14,7 +16,7 @@ const actionUpdateDb = require('./actions/updatedb');
     let defaultConfigPath = path.join(os.homedir(), '.kiwibnc', 'config.ini')
 
     commander
-        .version('0.0.1')
+        .version(version)
         .option('-c, --config <path>', 'Config file path', defaultConfigPath)
         .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', false);
 
@@ -29,6 +31,11 @@ const actionUpdateDb = require('./actions/updatedb');
         .action(actionListUsers);
 
     commander
+        .command('deleteuser <username>')
+        .description('Delete a user')
+        .action(actionDeleteUser);
+
+    commander
         .command('updatedb')
         .description('Update the database schema to the latest')
         .action(actionUpdateDb);
@@ -41,14 +48,14 @@ const actionUpdateDb = require('./actions/updatedb');
     commander
         .command('sockets')
         .description('Launch a socket layer')
-        .action(async function(env, options) {
+        .action(async function() {
             await require('./sockets/sockets');
         });
 
     commander
         .command('worker')
         .description('Launch a worker')
-        .action(async function(env, options) {
+        .action(async function() {
             await require('./worker/worker');
         });
 
