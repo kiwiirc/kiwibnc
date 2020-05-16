@@ -114,6 +114,10 @@ module.exports = class IpcQueue extends EventEmitter {
     }
 
     async initWorker() {
+        if (!process.send) {
+            throw new Error('This is not a worker process');
+        }
+
         this.isWorker = true;
     }
 

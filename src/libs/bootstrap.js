@@ -78,7 +78,6 @@ async function initQueue(app, type) {
         }
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
-        console.error(err);
         process.exit(1);
     }
 
