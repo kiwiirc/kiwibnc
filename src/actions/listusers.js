@@ -9,7 +9,7 @@ module.exports = async function(env, options) {
         let flags = [];
         if (user.admin) flags.push('admin');
         if (user.locked) flags.push('locked');
-        let created = new Date(user.created_at);
+        let created = new Date(user.created_at * 1000);
         console.log(`${user.username} ${created.toISOString()} ${flags.join(',')}`);
     });
 
