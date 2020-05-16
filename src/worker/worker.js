@@ -6,9 +6,6 @@ const koaStatic = require('koa-static');
 const KoaRouter = require('@koa/router');
 const KoaMount = require('koa-mount');
 const koaBody = require('koa-body');
-const Database = require('../libs/database');
-const Crypt = require('../libs/crypt');
-const Users = require('./users');
 const MessageStores = require('./messagestores/');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
@@ -17,28 +14,11 @@ const hooks = require('./hooks');
 const { parseBindString } = require('../libs/helpers');
 
 async function run() {
-    let app = await require('../libs/bootstrap')('worker', {type: 'worker'});
+    let app = await require('../libs/bootstrap')('worker');
+    await app.initQueue('worker');
+    await app.initDatabase();
     global.config = app.conf;
 
-    let cryptKey = app.conf.get('database.crypt_key', '');
-    if (cryptKey.length !== 32) {
-        console.error('Cannot start: config option database.crypt_key must be 32 characters long');
-        process.exit();
-    }
-    app.crypt = new Crypt(cryptKey);
-
-    app.db = new Database(app.conf);
-    try {
-        await app.db.init();
-    } catch (err) {
-        l.error('Error initialising database:', err.message);
-        process.exit();
-    }
-
-    initModelFactories(app);
-
-    app.userDb = new Users(app.db);
-    app.db.users = app.userDb;
 
     app.messages = new MessageStores(app.conf);
     await app.messages.init();

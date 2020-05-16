@@ -2,6 +2,9 @@ const IpcQueue = require('../libs/ipcqueue');
 const AmqpQueue = require('../libs/queue');
 const Stats = require('../libs/stats');
 const Config = require('../libs/config');
+const Database = require('../libs/database');
+const Users = require('../worker/users');
+const Crypt = require('../libs/crypt');
 const createLogger = require('../libs/logger');
 
 module.exports = async function bootstrap(label, opts={}) {
@@ -44,19 +47,30 @@ module.exports = async function bootstrap(label, opts={}) {
     let stats = Stats.instance(statsConfig);
     stats.increment('processstart');
 
+    let app = {
+        conf,
+        stats,
+        initDatabase: () => initDatabase(app),
+        initQueue: (type) => initQueue(app, type),
+    }
+
+    return app;
+}
+
+async function initQueue(app, type) {
     let queue = null;
-    if (conf.get('queue.amqp_host')) {
+    if (app.conf.get('queue.amqp_host')) {
         l.info('Using queue rabbitmq');
-        queue = new AmqpQueue(conf);
+        queue = new AmqpQueue(app.conf);
     } else {
         l.info('Using queue IPC');
-        queue = new IpcQueue(conf);
+        queue = new IpcQueue(app.conf);
     }
 
     try {
-        if (opts.type === 'server') {
+        if (type === 'server') {
             await queue.initServer();
-        } else if (opts.type === 'worker') {
+        } else if (type === 'worker') {
             await queue.initWorker();
         }
     } catch (err) {
@@ -65,9 +79,23 @@ module.exports = async function bootstrap(label, opts={}) {
         process.exit(1);
     }
 
-    return {
-        conf,
-        queue,
-        stats,
+    app.queue = queue;
+};
+
+async function initDatabase(app) {
+    let cryptKey = app.conf.get('database.crypt_key', '');
+    if (cryptKey.length !== 32) {
+        console.error('Cannot start: config option database.crypt_key must be 32 characters long');
+        process.exit(1);
     }
+    app.crypt = new Crypt(cryptKey);
+
+    app.db = new Database(app.conf);
+    await app.db.init();
+
+    app.userDb = new Users(app.db);
+    app.db.users = app.userDb;
+
+    app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
+    app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
 }

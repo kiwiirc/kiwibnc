@@ -4,6 +4,7 @@ const path = require('path');
 const commander = require('commander');
 const actionRun = require('./actions/run');
 const actionAddUser = require('./actions/adduser');
+const actionListUsers = require('./actions/listusers');
 const actionUpdateDb = require('./actions/updatedb');
 
 (async function() {
@@ -21,6 +22,11 @@ const actionUpdateDb = require('./actions/updatedb');
         .command('adduser')
         .description('Add a user')
         .action(actionAddUser);
+
+    commander
+        .command('listusers')
+        .description('List all users')
+        .action(actionListUsers);
 
     commander
         .command('updatedb')

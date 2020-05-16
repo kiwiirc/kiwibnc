@@ -11,7 +11,8 @@ async function throttledConnect(throttle, connection, host, port, tls, opts) {
 }
 
 async function run() {
-    let app = await require('../libs/bootstrap')('sockets', {type: 'server'});
+    let app = await require('../libs/bootstrap')('sockets');
+    await app.initQueue('server');
 
     let cons = new Map();
     let connectThrottler = new Throttler(app.conf.get('connections.throttle', 1000));
