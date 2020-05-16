@@ -1,3 +1,4 @@
+const fs = require('fs-extra');
 const IpcQueue = require('../libs/ipcqueue');
 const AmqpQueue = require('../libs/queue');
 const Stats = require('../libs/stats');
@@ -7,8 +8,10 @@ const Users = require('../worker/users');
 const Crypt = require('../libs/crypt');
 const createLogger = require('../libs/logger');
 
-module.exports = async function bootstrap(label, opts={}) {
+module.exports = async function bootstrap(label) {
     process.title = 'kiwibnc-' + label;
+
+    await prepareConfig();
 
     // Helper global logger
     global.l = createLogger(label);
@@ -98,4 +101,30 @@ async function initDatabase(app) {
 
     app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
     app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
+}
+
+async function prepareConfig() {
+    let configOption = process.args.options.find(o => o.long === '--config');
+    let isDefaultConfig = (configOption && process.args.config === configOption.defaultValue);
+    let configExists = await fs.pathExists(process.args.config);
+
+    if (configExists) {
+        return;
+    }
+
+    if (!isDefaultConfig && !configExists) {
+        console.error('Config file does not exist,', process.args.config);
+        process.exit(1);
+    }
+
+    if (isDefaultConfig) {
+        let configPath = path.dirname(process.args.config);
+        console.log('Creating new config profile at ' + configPath);
+        try {
+            await fs.copy(path.join(__dirname, '../configProfileTemplate'), configPath);
+        } catch (err) {
+            console.error('Failed to create new config profile.', err.message);
+            process.exit(1);
+        }
+    }
 }

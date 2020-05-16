@@ -16,7 +16,7 @@ const actionUpdateDb = require('./actions/updatedb');
     commander
         .version('0.0.1')
         .option('-c, --config <path>', 'Config file path', defaultConfigPath)
-        .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', true);
+        .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', false);
 
     commander
         .command('adduser')
@@ -34,7 +34,7 @@ const actionUpdateDb = require('./actions/updatedb');
         .action(actionUpdateDb);
 
     commander
-        .command('run')
+        .command('run', { isDefault: true })
         .description('Start the bouncer')
         .action(actionRun);
 
@@ -58,15 +58,6 @@ const actionUpdateDb = require('./actions/updatedb');
             console.error('Invalid command: %s\nSee --help for a list of available commands.', command[0]);
             process.exit(1);
         });
-
-    // run everything by default
-    if (process.argv.length === 2 && process.argv[1].match(/\.js/)) {
-        // $ node src/server.js
-        process.argv.push('run');
-    } else if (process.argv.length === 1) {
-        // $ kiwibnc
-        process.argv.push('run');
-    }
 
     commander.parse(process.argv);
 })();

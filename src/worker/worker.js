@@ -66,11 +66,6 @@ async function initExtensions(app) {
     hooks.addBuiltInHooks();
 };
 
-function initModelFactories(app) {
-    app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
-    app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
-}
-
 function broadcastStats(app) {
     function broadcast() {
         app.stats.gauge('stats.connections', app.cons.map.size);
