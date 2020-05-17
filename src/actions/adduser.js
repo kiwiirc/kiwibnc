@@ -56,8 +56,3 @@ async function syncQuestion(question, opts, validator) {
 
     return input;
 }
-
-function initModelFactories(app) {
-    app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
-    app.db.factories.User = require('../libs/dataModels/user').factory(app.db);
-}
