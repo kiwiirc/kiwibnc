@@ -320,8 +320,8 @@ class ConnectionIncoming {
         con.state.port = network.port;
         con.state.tls = network.tls;
         con.state.nick = network.nick || 'kiwibnc';
-        con.state.username = network.username || 'kiwibnc';
-        con.state.realname = network.realname || 'kiwibnc';
+        con.state.username = network.username || network.nick || 'kiwibnc';
+        con.state.realname = network.realname || network.nick || 'kiwibnc';
         con.state.password = network.password;
         con.state.sasl.account = network.sasl_account || '';
         con.state.sasl.password = network.sasl_pass || '';

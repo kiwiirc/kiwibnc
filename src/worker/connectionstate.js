@@ -158,8 +158,8 @@ class ConnectionState {
                 this.nick = net.nick;
             }
 
-            this.username = net.username || 'kiwibnc';
-            this.realname = net.realname || 'kiwibnc';
+            this.username = net.username || net.nick || 'kiwibnc';
+            this.realname = net.realname || net.nick || 'kiwibnc';
             this.password = net.password || '';
         } else {
             // This network wasn't found in the database. Maybe it was deleted

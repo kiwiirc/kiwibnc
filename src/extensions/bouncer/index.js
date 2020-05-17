@@ -290,7 +290,7 @@ async function handleBouncerCommand(event) {
                 tlsverify: (tags.tlsverify === '1'),
                 nick: tags.nick || '',
                 username: tags.user || '',
-                realname: '-',
+                realname: tags.realname || '',
                 password: tags.password || '',
                 sasl_account: tags.account || '',
                 sasl_pass: tags.account_password || '',
