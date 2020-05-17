@@ -34,7 +34,7 @@ Running KiwiBNC for the first time will auto generate a config file in your home
 
 #### Add a user
 ```shell
-$ node src/server.js adduser
+$ node kiwibnc adduser
 01:09:17 [adduser] l_info Starting adduser
 01:09:17 [adduser] l_info Using config file /home/prawnsalad/.kiwibnc/config.ini
 Username: someuser
@@ -45,7 +45,7 @@ Added new user someuser
 
 #### Starting the bouncer
 ```shell
-$ node src/server.js
+$ node kiwibnc
 ```
 
 #### Adding networks and controlling your bouncer
