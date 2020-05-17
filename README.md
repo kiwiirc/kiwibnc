@@ -30,7 +30,7 @@ $ npm install
 ```
 
 ## Usage
-After installing, take a glance over `config.ini` and make sure it suits your needs. It should work out of the box for most people.
+Running KiwiBNC for the first time will auto generate a config file in your home directory. You can also create your own using [this](https://github.com/kiwiirc/kiwibnc/blob/master/src/configProfileTemplate/config.ini) as a template and passing `--config=/path/to/config.ini` when running.
 
 #### Add a user
 ```shell
