@@ -1,3 +1,4 @@
+const path = require('path');
 const fs = require('fs-extra');
 const IpcQueue = require('../libs/ipcqueue');
 const AmqpQueue = require('../libs/queue');
