@@ -54,7 +54,7 @@ class FlatfileMessageStore {
             message.params[1] && message.params[1][0] === '\x01'
         ) {
             // We do want to log ACTIONs though
-            if (!message.params[1][0].startsWith('\x01ACTION ')) {
+            if (!message.params[1].startsWith('\x01ACTION ')) {
                 l.error('Ignoring CTCP');
                 return;
             }
