@@ -15,7 +15,10 @@ module.exports.init = async function init(hooks, app) {
     });
 
     hooks.on('available_isupports', async event => {
+        // Some clients actively use CHATHISTORY so offer both. CHATHISTORY clients will be
+        // expected to updated their chathistry specification as it progresses through IRCv3
         event.tokens.push('CHATHISTORY=' + MAX_MESSAGES);
+        event.tokens.push('DRAFT/CHATHISTORY=' + MAX_MESSAGES);
     });
 };
 
