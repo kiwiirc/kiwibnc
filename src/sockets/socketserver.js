@@ -19,7 +19,11 @@ module.exports = class SocketServer extends EventEmitter {
         // We need a HTTP server for the WebSocket server to bind on as we can pass a TCP
         // connection to the HTTP server but not the WebSocket server directly.
         let httpd = http.createServer((request, response) => {
-            let sockPath = this.appConfig.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
+            const defaultSockPath = process.platform === "win32" ?
+                '\\\\.\\pipe\\kiwibnc_httpd.sock' :
+                '/tmp/kiwibnc_httpd.sock';
+
+            let sockPath = this.appConfig.get('webserver.bind_socket', defaultSockPath);
             if (!this.appConfig.get('webserver.enabled') || !sockPath) {
                 return;
             }
@@ -160,7 +164,7 @@ class SocketTypeChecker extends EventEmitter {
                 // Keep waiting for all the headers to arrive
                 return;
             }
-            
+
             if (str.includes('UPGRADE: WEBSOCKET') && str.includes('CONNECTION: UPGRADE')) {
                 // A websocket connection
                 clean();
