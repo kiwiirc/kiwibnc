@@ -181,6 +181,7 @@ class ConnectionIncoming {
 
         this.state.netRegistered = true;
         await this.state.save();
+        await hooks.emit('client_registered', {client: this});
     }
 
     async registerClient() {
@@ -245,6 +246,7 @@ class ConnectionIncoming {
         }
 
         await this.state.save();
+        await hooks.emit('client_registered', {client: this});
     }
 
     async dumpChannels() {
@@ -295,7 +297,7 @@ class ConnectionIncoming {
         if (!passUpstream) {
             return;
         }
-        
+
         if (this.upstream && this.upstream.state.connected) {
             this.upstream.write(raw + '\n');
         } else {
@@ -349,6 +351,7 @@ class ConnectionIncoming {
             }
         }
 
+        await hooks.emit('client_disconnected', {client: this});
         this.destroy();
     }
 }
