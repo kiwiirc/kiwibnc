@@ -171,16 +171,15 @@ function listenToQueue(app) {
             return;
         }
 
-        let line = event.data.trim('\n\r');
-        let msg = ircLineParser(line);
+        let msg = ircLineParser(event.data);
         if (!msg) {
             return;
         }
 
         if (con instanceof ConnectionIncoming) {
-            await con.messageFromClient(msg, line);
+            await con.messageFromClient(msg, event.data);
         } else {
-            await con.messageFromUpstream(msg, line);
+            await con.messageFromUpstream(msg, event.data);
         }
     });
 }
