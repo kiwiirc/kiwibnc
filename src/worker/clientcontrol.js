@@ -213,16 +213,26 @@ commands.CHANGENETWORK = {
             channels: 'channels'
         };
 
-        input.split(' ').forEach(part => {
-            let pos = part.indexOf('=');
-            if (pos === -1) {
-                pos = part.length;
+        let nextField = '';
+        input.split('=').forEach((part) => {
+            let field = nextField;
+            if (!field) {
+                nextField = part.split(' ').slice(-1)[0];
+                return;
             }
 
-            let field = part.substr(0, pos).toLowerCase();
-            let val = part.substr(pos + 1);
+            let val = '';
+            if (part.indexOf('"') === 0) {
+                let subParts = part.split('"');
+                val = subParts[1];
+                nextField = (subParts[2] || '').trim();
+            } else {
+                let subParts = part.split(' ');
+                val = subParts[0];
+                nextField = subParts[1];
+            }
 
-            if (!columnMap[field]) {
+            if (!field || !columnMap[field]) {
                 return;
             }
 
