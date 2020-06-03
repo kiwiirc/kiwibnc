@@ -33,7 +33,7 @@ module.exports = class Config extends EventEmitter {
     }
 
     get(key, def) {
-        let val = process.env[key.toUpperCase()];
+        let val = process.env['BNC_' + key.toUpperCase().replace('.', '_')];
         if (typeof val !== 'undefined') {
             // If the value looks to be a JSON structure, parse it
             if (val[0] === '[' || val[0] === '{' || val[0] === '"') {
