@@ -64,7 +64,7 @@ module.exports = class SocketConnection extends EventEmitter {
             }
 
             lines.forEach((_line) => {
-                let line = _line.replace(/\r?\n?$/, '');
+                let line = _line.replace(/[\r\n]+$/, '');
                 l.debug(`[in ${this.id}]`, [line]);
                 this.queue.sendToWorker('connection.data', {id: this.id, data: line});
             });
