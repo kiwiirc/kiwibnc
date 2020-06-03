@@ -62,11 +62,12 @@ module.exports = class SocketConnection extends EventEmitter {
                 lines.pop();
                 this.readBuffer = '';
             }
-    
-            lines.forEach((line) => {
-                l.debug(`[in ${this.id}]`, [line.trimEnd()]);
-                this.queue.sendToWorker('connection.data', {id: this.id, data: line.trimEnd()});
-            });            
+
+            lines.forEach((_line) => {
+                let line = _line.replace(/[\r\n]+$/, '');
+                l.debug(`[in ${this.id}]`, [line]);
+                this.queue.sendToWorker('connection.data', {id: this.id, data: line});
+            });
         };
         let onTimeout = () => {
             l.debug(`[timeout ${this.id}]`);
