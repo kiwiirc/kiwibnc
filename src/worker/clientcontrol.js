@@ -48,8 +48,8 @@ commands.HELP = {
 
 commands.HELLO =
 commands.HEY =
-commands.HI = 
-commands.OLA = 
+commands.HI =
+commands.OLA =
 commands.HOLA = {
     requiresNetworkAuth: false,
     fn: async function(input, con, msg) {
@@ -173,12 +173,12 @@ commands.CHANGENETWORK = {
             con.writeStatus('Usage: changenetwork [network_name] option-value');
         }
 
-        // Either get the specified netwrk or default to the active network
+        // Either get the specified network or default to the active network
         let network = null;
-        if (parts[0].indexOf('=' === -1)) {
+        if (parts[0].indexOf('=') === -1) {
             network = await con.userDb.getNetworkByName(con.state.authUserId, parts[0]);
             if (!network) {
-                con.writeStatus(`Network ${netName} could not be found`);
+                con.writeStatus(`Network ${parts[0]} could not be found`);
                 return;
             }
         } else {
@@ -218,7 +218,7 @@ commands.CHANGENETWORK = {
             if (pos === -1) {
                 pos = part.length;
             }
-        
+
             let field = part.substr(0, pos).toLowerCase();
             let val = part.substr(pos + 1);
 
@@ -258,7 +258,7 @@ commands.CHANGENETWORK = {
                 network[prop] = toUpdate[prop];
             }
             await network.save();
-            
+
             con.writeStatus(`Updated network`);
         } else {
             con.writeStatus(`Usage: changenetwork server=irc.example.net port=6697 tls=yes`);
@@ -305,7 +305,7 @@ commands.ADDNETWORK = {
             if (pos === -1) {
                 pos = part.length;
             }
-        
+
             let field = part.substr(0, pos).toLowerCase();
             let val = part.substr(pos + 1);
 
