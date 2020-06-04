@@ -33,7 +33,7 @@ module.exports = class Config extends EventEmitter {
     }
 
     get(key, def) {
-        let val = process.env['BNC_' + key.toUpperCase().replace('.', '_')];
+        let val = process.env['BNC_' + key.toUpperCase().replace(/\./g, '_')];
         if (typeof val !== 'undefined') {
             // If the value looks to be a JSON structure, parse it
             if (val[0] === '[' || val[0] === '{' || val[0] === '"') {
@@ -44,7 +44,22 @@ module.exports = class Config extends EventEmitter {
         }
 
         val = _.get(this.c, key);
-        if (typeof val !== 'undefined') {
+        if (typeof val === 'object') {
+            // Replace any property values if there is an environment var overriding it
+            for (let prop in val) {
+                let envVal = process.env['BNC_' + (key + '.' + prop).toUpperCase().replace(/\./g, '_')];
+                if (typeof envVal !== 'undefined') {
+                    // If the value looks to be a JSON structure, parse it
+                    if (envVal[0] === '[' || envVal[0] === '{' || envVal[0] === '"') {
+                        envVal = JSON.parse(envVal);
+                    }
+
+                    val[prop] = envVal;
+                }
+            }
+
+            return val;
+        } else if (typeof val !== 'undefined') {
             return val;
         }
 
