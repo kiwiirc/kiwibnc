@@ -77,7 +77,9 @@ class ConnectionOutgoing {
         };
 
         let hook = await hooks.emit('connection_to_open', {upstream: this, connection });
-        if (hook.prevent) {
+
+        // If connected is true then it is most likely already open and it can't be prevented
+        if (hook.prevent && !this.state.connected) {
             return;
         }
 
