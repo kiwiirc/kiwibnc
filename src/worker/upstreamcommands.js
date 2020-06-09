@@ -525,6 +525,7 @@ commands['353'] = async function(msg, con) {
     });
 
     await con.state.save();
+    return false;
 };
 
 // RPL_ENDOFNAMES
@@ -534,6 +535,7 @@ commands['366'] = async function(msg, con) {
     if (buffer) {
         con.forEachClient(c => c.sendNames(buffer));
     }
+    return false;
 };
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
