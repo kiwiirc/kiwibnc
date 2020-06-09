@@ -1,4 +1,4 @@
-const { mParam, mParamU, parseMask } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -485,17 +485,10 @@ commands['353'] = async function(msg, con) {
         buffer.users = Object.create(null);
     }
 
-    let ircdPrefixes = [];
-    // Parse (ov)@+ into [{mode:"o",symbol:"@"},{mode:"v",symbol:"+"}]
-    let matches = /\(([^)]*)\)(.*)/.exec(con.iSupportToken('PREFIX') || '');
-    if (matches && matches.length === 3) {
-        for (let j = 0; j < matches[2].length; j++) {
-            ircdPrefixes.push({
-                symbol: matches[2].charAt(j),
-                mode: matches[1].charAt(j)
-            });
-        }
-    }
+    let ircdPrefixes = parsePrefixes(con.iSupportToken('PREFIX'));
+
+    // Store buffer status ('@' || '*' || '=')
+    buffer.status = msg.params[1];
 
     let userMasks = msg.params[msg.params.length - 1].split(' ');
     userMasks.forEach(mask => {
@@ -537,6 +530,40 @@ commands['366'] = async function(msg, con) {
     }
     return false;
 };
+
+commands.MODE = async function(msg, con) {
+    const raw_modes = msg.params[1];
+    const raw_params = msg.params.slice(2);
+    const parsedModes = parseMode(con, raw_modes, raw_params);
+
+    let buffer = con.state.getBuffer(msg.params[0]);
+
+    if (!buffer) {
+        return;
+    }
+
+    parsedModes.forEach((m) => {
+        if (m.param) {
+            return;
+        }
+        if (m.mode[0] === '+') {
+            buffer.modes += m.mode[1];
+        } else {
+            buffer.modes = buffer.modes.replace(m.mode[1], '');
+        }
+    });
+    buffer.status = getModesStatus(buffer);
+}
+
+// RPL_CHANNELMODEIS
+commands['324'] = async function(msg, con) {
+    let buffer = con.state.getBuffer(msg.params[1]);
+
+    if (!buffer) {
+        return;
+    }
+    buffer.modes = msg.params[2];
+}
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
     if (nick.toLowerCase() === (message.params[messageNickIdx] || '').toLowerCase()) {

@@ -312,9 +312,8 @@ class ConnectionIncoming {
         // limit then we need to break it up into chunks
 
         let currentLine = '';
-        // TODO: Correctly track the channel status (@ = etc)
         // :irc.network.org 353 Guest25 @ #channel :@Guest25
-        let args = ['353', this.state.nick, '=', buffer.name];
+        let args = ['353', this.state.nick, buffer.status, buffer.name];
         let len = args.reduce((prevVal, curVal) => prevVal + curVal.length, 0);
         len += 2 + upstream.state.serverPrefix.length; // 2 = the : before and space after
         len += args.length; // the spaces between the args
