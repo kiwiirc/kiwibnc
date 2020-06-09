@@ -3,7 +3,7 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.run = async function run(msg, con) {   
+module.exports.run = async function run(msg, con) {
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
         return;
@@ -266,7 +266,7 @@ commands['376'] = async function(msg, con) {
         con.forEachClient((clientCon) => {
             clientCon.registerClient();
         });
-    
+
         for (let buffName in con.state.buffers) {
             let b = con.state.buffers[buffName];
             if (b.isChannel) {
@@ -416,6 +416,16 @@ commands['433'] = async function(msg, con) {
 commands.NICK = async function(msg, con) {
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
+    }
+
+    // Update nick in buffer users
+    for (let bufferName in con.state.buffers) {
+        let buffer = con.state.buffers[bufferName];
+        let user = buffer.users[msg.nick.toLowerCase()];
+        if (user) {
+            buffer.removeUser(msg.nick);
+            buffer.addUser(msg.params[0], user);
+        }
     }
 
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
