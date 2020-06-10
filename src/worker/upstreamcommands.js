@@ -3,7 +3,7 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.run = async function run(msg, con) {   
+module.exports.run = async function run(msg, con) {
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
         return;
@@ -266,7 +266,7 @@ commands['376'] = async function(msg, con) {
         con.forEachClient((clientCon) => {
             clientCon.registerClient();
         });
-    
+
         for (let buffName in con.state.buffers) {
             let b = con.state.buffers[buffName];
             if (b.isChannel) {
@@ -339,6 +339,7 @@ commands.PART = async function(msg, con) {
     }
 
     chan.joined = false;
+    chan.partReceived = false;
     await con.state.save();
 };
 
