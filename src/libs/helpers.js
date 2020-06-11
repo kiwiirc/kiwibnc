@@ -112,6 +112,16 @@ function parsePrefixes(prefix) {
     return ircdPrefixes;
 }
 
+
+const modeType = {
+    NOT_CHANMODE: -1,
+    CHANMODE_TYPE_A: 0,
+    CHANMODE_TYPE_B: 1,
+    CHANMODE_TYPE_C: 2,
+    CHANMODE_TYPE_D: 3,
+}
+module.exports.modeType = modeType
+
 /**
  * Convert a mode string such as '+k pass', or '-i' to a readable
  * format.

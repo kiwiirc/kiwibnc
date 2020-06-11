@@ -1,4 +1,4 @@
-const { mParam, mParamU, parseMask, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, modeType, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -533,7 +533,6 @@ commands['366'] = async function(msg, con) {
 commands.MODE = async function(msg, con) {
     const raw_modes = msg.params[1];
     const raw_params = msg.params.slice(2);
-    const parsedModes = parseMode(con, raw_modes, raw_params);
 
     let buffer = con.state.getBuffer(msg.params[0]);
 
@@ -541,15 +540,25 @@ commands.MODE = async function(msg, con) {
         return;
     }
 
+    let updateStatus = false;
+    const parsedModes = parseMode(con, raw_modes, raw_params);
     parsedModes.forEach((m) => {
-        if (m.type <= 0) {
-            // Skip none channel modes (-1)
-            // Skip type A channel modes (0)
+        if (m.type <= modeType.CHANMODE_TYPE_A) {
+            // Only tracking channel modes so skip none channel modes like +o
+            // Skip list based type A channel modes like +b
             return;
         }
         buffer.updateModes(m);
+
+        if (['p', 's'].includes(m.mode[1])) {
+            // Only update buffer status if modes p or s changed
+            updateStatus = true;
+        }
     });
-    buffer.status = getModesStatus(buffer);
+
+    if (updateStatus) {
+        buffer.status = getModesStatus(buffer);
+    }
 }
 
 // RPL_CHANNELMODEIS
@@ -562,8 +571,9 @@ commands['324'] = async function(msg, con) {
 
     const parsedModes = parseMode(con, msg.params[2], msg.params.slice(3));
     parsedModes.forEach((m) => {
-        if (m.type <= 0) {
-            // Skip type A channel modes (0)
+        if (m.type <= modeType.CHANMODE_TYPE_A) {
+            // Skip unwanted type A channel modes (0)
+            // These are list based modes like +b
             return;
         }
         buffer.updateModes(m);
