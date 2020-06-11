@@ -115,8 +115,10 @@ function parsePrefixes(prefix) {
 /**
  * Convert a mode string such as '+k pass', or '-i' to a readable
  * format.
- * [ { mode: '+k', param: 'pass' } ]
- * [ { mode: '-i', param: null } ]
+ * [ { mode: '+k', param: 'pass', type: 1 } ]
+ * [ { mode: '-i', param: null, type: 3 } ]
+ *
+ *  type: -1 = not channel mode, 0-3 = CHANMODES Type A-D
  *
  * adapted from https://github.com/kiwiirc/irc-framework/blob/59d11c3f89fe54e5f59ab82fe12e8301312833d9/src/commands/handler.js
  */
