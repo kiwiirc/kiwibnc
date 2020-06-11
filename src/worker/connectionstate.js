@@ -16,7 +16,7 @@ class IrcBuffer {
         this.key = '';
         this.joined = false;
         this.topic = '';
-        this.modes = '';
+        this.modes = Object.create(null);
         this.status = '=';
         this.isChannel = upstreamCon ?
             upstreamCon.isChannelName(name) :
@@ -52,6 +52,23 @@ class IrcBuffer {
 
     removeUser(nick) {
         delete this.users[nick.toLowerCase()];
+    }
+
+    renameUser(oldNick, newNick) {
+        let user = this.users[oldNick.toLowerCase()];
+        if (!user) {
+            return;
+        }
+        this.removeUser(oldNick);
+        this.addUser(newNick, user);
+    }
+
+    updateModes(mode) {
+        if (mode.mode[0] === '+') {
+            this.modes[mode.mode[1]] = mode.param;
+        } else {
+            delete this.modes[mode.mode[1]];
+        }
     }
 
     static fromObj(obj) {

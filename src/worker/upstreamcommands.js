@@ -322,6 +322,9 @@ commands.JOIN = async function(msg, con) {
         return;
     }
 
+    // Get channel modes so they can be tracked
+    con.writeLine('MODE', chanName);
+
     chan.joined = true;
     await con.state.save();
 };
@@ -421,11 +424,7 @@ commands.NICK = async function(msg, con) {
     // Update nick in buffer users
     for (let bufferName in con.state.buffers) {
         let buffer = con.state.buffers[bufferName];
-        let user = buffer.users[msg.nick.toLowerCase()];
-        if (user) {
-            buffer.removeUser(msg.nick);
-            buffer.addUser(msg.params[0], user);
-        }
+        buffer.renameUser(msg.nick, msg.params[0]);
     }
 
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
@@ -543,14 +542,12 @@ commands.MODE = async function(msg, con) {
     }
 
     parsedModes.forEach((m) => {
-        if (m.param) {
+        if (m.type <= 0) {
+            // Skip none channel modes (-1)
+            // Skip type A channel modes (0)
             return;
         }
-        if (m.mode[0] === '+') {
-            buffer.modes += m.mode[1];
-        } else {
-            buffer.modes = buffer.modes.replace(m.mode[1], '');
-        }
+        buffer.updateModes(m);
     });
     buffer.status = getModesStatus(buffer);
 }
@@ -562,7 +559,16 @@ commands['324'] = async function(msg, con) {
     if (!buffer) {
         return;
     }
-    buffer.modes = msg.params[2];
+
+    const parsedModes = parseMode(con, msg.params[2], msg.params.slice(3));
+    parsedModes.forEach((m) => {
+        if (m.type <= 0) {
+            // Skip type A channel modes (0)
+            return;
+        }
+        buffer.updateModes(m);
+    });
+    buffer.status = getModesStatus(buffer);
 }
 
 function bufferNameIfPm(message, nick, messageNickIdx) {

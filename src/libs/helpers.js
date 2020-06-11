@@ -126,9 +126,6 @@ function parseMode(con, mode_string, mode_params) {
     let prefixes = parsePrefixes(con.iSupportToken('PREFIX'));
     let always_param = (chanmodes[0] || '').concat((chanmodes[1] || ''));
     const modes = [];
-    let i;
-    let j;
-    let add;
 
     if (!mode_string) {
         return modes;
@@ -156,8 +153,18 @@ function parseMode(con, mode_string, mode_params) {
         return false;
     };
 
-    j = 0;
-    for (i = 0; i < mode_string.length; i++) {
+    const modeType = (mode) => {
+        for (let i = 0; i < chanmodes.length; i++) {
+            if (chanmodes[i].indexOf(mode) > -1) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    let add;
+    let j = 0;
+    for (let i = 0; i < mode_string.length; i++) {
         switch (mode_string[i]) {
         case '+':
             add = true;
@@ -167,10 +174,10 @@ function parseMode(con, mode_string, mode_params) {
             break;
         default:
             if (hasParam(mode_string[i], add)) {
-                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: mode_params[j] });
+                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: mode_params[j], type: modeType(mode_string[i]) });
                 j++;
             } else {
-                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: null });
+                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: null, type: modeType(mode_string[i]) });
             }
         }
     }
@@ -180,10 +187,10 @@ function parseMode(con, mode_string, mode_params) {
 
 module.exports.getModesStatus = getModesStatus;
 function getModesStatus(buffer) {
-    if (buffer.modes.indexOf('s') !== -1) {
+    if ('s' in buffer.modes) {
         return '@';
     }
-    if (buffer.modes.indexOf('p') !== -1) {
+    if ('p' in buffer.modes) {
         return '*';
     }
     return '=';
