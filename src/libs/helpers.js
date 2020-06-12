@@ -113,14 +113,14 @@ function parsePrefixes(prefix) {
 }
 
 
-const modeTypes = {
-    NOT_CHANMODE: -1,
-    CHANMODE_TYPE_A: 0,
-    CHANMODE_TYPE_B: 1,
-    CHANMODE_TYPE_C: 2,
-    CHANMODE_TYPE_D: 3,
+const chanModeTypes = {
+    Unknown: -1,
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3,
 }
-module.exports.modeTypes = modeTypes
+module.exports.chanModeTypes = chanModeTypes
 
 /**
  * Convert a mode string such as '+k pass', or '-i' to a readable
@@ -171,7 +171,7 @@ function parseMode(con, mode_string, mode_params) {
                 return i;
             }
         }
-        return modeTypes.NOT_CHANMODE;
+        return chanModeTypes.Unknown;
     };
 
     let add;
