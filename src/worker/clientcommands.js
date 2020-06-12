@@ -334,6 +334,25 @@ commands.NICK = async function(msg, con) {
     return true;
 };
 
+commands.NAMES = async function(msg, con) {
+    let bufferName = msg.params[0];
+    let upstream = con.upstream;
+
+    if (!con.upstream || !con.upstream.state.netRegistered) {
+        con.writeFromBnc('366', con.state.nick, bufferName, 'End of /NAMES list.');
+        return false;
+    }
+
+    let buffer = upstream.state.getBuffer(bufferName);
+    if (!buffer) {
+        con.writeFromBnc('366', upstream.state.nick, bufferName, 'End of /NAMES list.');
+        return false;
+    }
+
+    con.sendNames(buffer);
+    return false;
+};
+
 commands.PING = async function(msg, con) {
     con.writeMsg('PONG', msg.params[0]);
     return false;
@@ -350,6 +369,7 @@ commands.DEB = async function(msg, con) {
     l.info('clients', con.upstream ? con.upstream.state.linkedIncomingConIds.size : '<no upstream>');
     l.info('this client registered?', con.state.netRegistered);
     l.info('tmp vars', con.state.tempData);
+    l.info('buffers', con.upstream ? con.upstream.state.buffers : '<no upstream>');
 
     if (Object.keys(con.state.buffers).length === 0) {
         l.info('No buffers');

@@ -1,15 +1,74 @@
 const Helpers = require('../libs/helpers');
 
+class IrcUser {
+    constructor(nick) {
+        this.nick = nick || '';
+        this.host = '';
+        this.username = '';
+        this.prefixes = '';
+        this.tags = Object.create(null);
+    }
+}
+
 class IrcBuffer {
     constructor(name, upstreamCon) {
         this.name = name;
         this.key = '';
         this.joined = false;
         this.topic = '';
+        this.modes = Object.create(null);
+        this.status = '=';
         this.isChannel = upstreamCon ?
             upstreamCon.isChannelName(name) :
             true;
         this.lastSeen = 0;
+        this.users = Object.create(null);
+    }
+
+    leave() {
+        this.joined = false;
+        this.users = Object.create(null);
+    }
+
+    addUser(nick, user={}) {
+        let o = this.users[nick.toLowerCase()] || new IrcUser(nick);
+        this.users[nick.toLowerCase()] = o;
+
+        let addProp = (prop) => {
+            if (typeof user[prop] !== 'undefined') {
+                o[prop] = user[prop];
+            }
+        };
+
+        o.nick = nick;
+        addProp('host');
+        addProp('username');
+        addProp('prefixes');
+
+        if (user.tags) {
+            Object.assign(o.tags, user.tags);
+        }
+    }
+
+    removeUser(nick) {
+        delete this.users[nick.toLowerCase()];
+    }
+
+    renameUser(oldNick, newNick) {
+        let user = this.users[oldNick.toLowerCase()];
+        if (!user) {
+            return;
+        }
+        this.removeUser(oldNick);
+        this.addUser(newNick, user);
+    }
+
+    updateModes(mode) {
+        if (mode.mode[0] === '+') {
+            this.modes[mode.mode[1]] = mode.param;
+        } else {
+            delete this.modes[mode.mode[1]];
+        }
     }
 
     static fromObj(obj) {
@@ -19,6 +78,7 @@ class IrcBuffer {
         c.topic = obj.topic || '';
         c.isChannel = !!obj.isChannel;
         c.lastSeen = obj.lastSeen || 0;
+        c.users = obj.users || [];
         return c;
     }
 }
@@ -71,7 +131,7 @@ class ConnectionState {
         // Temporary misc data such as CAP negotiation status
         this.tempData = {};
     }
-    
+
     async maybeLoad() {
         if (!this.loaded) {
             await this.load();
@@ -143,7 +203,7 @@ class ConnectionState {
             this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
             this.authNetworkName = net.name;
-            
+
             // Add any channels that we don't already have
             (net.channels || '').split(',').forEach(chanName => {
                 if (chanName.trim()) {

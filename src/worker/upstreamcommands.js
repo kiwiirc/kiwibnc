@@ -1,9 +1,9 @@
-const { mParam, mParamU } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, chanModeTypes, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.run = async function run(msg, con) {   
+module.exports.run = async function run(msg, con) {
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
         return;
@@ -266,7 +266,7 @@ commands['376'] = async function(msg, con) {
         con.forEachClient((clientCon) => {
             clientCon.registerClient();
         });
-    
+
         for (let buffName in con.state.buffers) {
             let b = con.state.buffers[buffName];
             if (b.isChannel) {
@@ -309,15 +309,21 @@ commands.JOIN = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
+    let chanName = msg.params[0];
+    let chan = con.state.getBuffer(chanName) || con.state.addBuffer(chanName, con);
+
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        // Someone else joined the channel
+        chan.addUser(msg.nick, {
+            host: msg.hostname || undefined,
+            username: msg.ident || undefined,
+        });
+
         return;
     }
 
-    let chanName = msg.params[0];
-    let chan = con.state.getBuffer(chanName);
-    if (!chan) {
-        chan = con.state.addBuffer(chanName, con);
-    }
+    // Get channel modes so they can be tracked
+    con.writeLine('MODE', chanName);
 
     chan.joined = true;
     await con.state.save();
@@ -328,32 +334,50 @@ commands.PART = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
-    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
-        return;
-    }
-
     let chanName = msg.params[0];
     let chan = con.state.getBuffer(chanName);
+
     if (!chan) {
+        // If we don't have this buffer the there's nothing to do
         return;
     }
 
-    chan.joined = false;
+    if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        // Someone else left the channel
+        chan.removeUser(msg.nick);
+    } else {
+        chan.leave();
+    }
+
     await con.state.save();
 };
 
 commands.KICK = async function(msg, con) {
-    if (msg.params[1].toLowerCase() !== con.state.nick.toLowerCase()) {
-        return;
-    }
-
     let chanName = msg.params[0];
     let chan = con.state.getBuffer(chanName);
+    let kickedNick = msg.params[1];
+
     if (!chan) {
+        // If we don't have this buffer the there's nothing to do
         return;
     }
+    if (msg.params[1].toLowerCase() !== con.state.nick.toLowerCase()) {
+        // someone else was kicked
+        chan.removeUser(kickedNick);
+    } else {
+        chan.leave();
+    }
 
-    chan.joined = false;
+    await con.state.save();
+};
+
+commands.QUIT = async function(msg, con) {
+    let nick = msg.nick;
+
+    for (let bufferName in con.state.buffers) {
+        con.state.buffers[bufferName].removeUser(nick);
+    }
+
     await con.state.save();
 };
 
@@ -395,6 +419,12 @@ commands['433'] = async function(msg, con) {
 commands.NICK = async function(msg, con) {
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
+    }
+
+    // Update nick in buffer users
+    for (let bufferName in con.state.buffers) {
+        let buffer = con.state.buffers[bufferName];
+        buffer.renameUser(msg.nick, msg.params[0]);
     }
 
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
@@ -442,6 +472,114 @@ commands.ERROR = async function(msg, con) {
         await con.state.tempSet('irc_error', msg.params[0]);
     }
 };
+
+// RPL_NAMEREPLY
+commands['353'] = async function(msg, con) {
+    let bufferName = msg.params[2];
+    let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
+
+    if (!con.state.tempGet('receiving_names')) {
+        // This is the start of a new NAMES list. Clear out the old for this new one
+        await con.state.tempSet('receiving_names', true);
+        buffer.users = Object.create(null);
+    }
+
+    let ircdPrefixes = parsePrefixes(con.iSupportToken('PREFIX'));
+
+    // Store buffer status ('@' || '*' || '=')
+    buffer.status = msg.params[1];
+
+    let userMasks = msg.params[msg.params.length - 1].split(' ');
+    userMasks.forEach(mask => {
+        if (!mask) {
+            return;
+        }
+        var j = 0;
+        var modes = [];
+        var user = null;
+
+        // If we have prefixes, strip them from the nick and keep them separate
+        for (let j = 0; j < ircdPrefixes.length; j++) {
+            if (mask[0] === ircdPrefixes[j].symbol) {
+                modes.push(ircdPrefixes[j].symbol);
+                mask = mask.substring(1);
+            }
+        }
+
+        // We may have a full user mask if the userhost-in-names CAP is enabled
+        user = parseMask(mask);
+
+        buffer.addUser(user.nick, {
+            host: user.hostname || undefined,
+            username: user.ident || undefined,
+            prefixes: modes || undefined,
+        });
+    });
+
+    await con.state.save();
+    return false;
+};
+
+// RPL_ENDOFNAMES
+commands['366'] = async function(msg, con) {
+    await con.state.tempSet('receiving_names', null);
+    let buffer = con.state.getBuffer(msg.params[1]);
+    if (buffer) {
+        con.forEachClient(c => c.sendNames(buffer));
+    }
+    return false;
+};
+
+commands.MODE = async function(msg, con) {
+    const raw_modes = msg.params[1];
+    const raw_params = msg.params.slice(2);
+
+    let buffer = con.state.getBuffer(msg.params[0]);
+
+    if (!buffer) {
+        return;
+    }
+
+    let updateStatus = false;
+    const parsedModes = parseMode(con, raw_modes, raw_params);
+    parsedModes.forEach((m) => {
+        if (m.type <= chanModeTypes.A) {
+            // Only tracking channel modes so skip none channel modes like +o
+            // Skip list based type A channel modes like +b
+            return;
+        }
+        buffer.updateModes(m);
+
+        if (['p', 's'].includes(m.mode[1])) {
+            // Only update buffer status if modes p or s changed
+            updateStatus = true;
+        }
+    });
+
+    if (updateStatus) {
+        buffer.status = getModesStatus(buffer);
+    }
+}
+
+// RPL_CHANNELMODEIS
+commands['324'] = async function(msg, con) {
+    let buffer = con.state.getBuffer(msg.params[1]);
+
+    if (!buffer) {
+        return;
+    }
+
+    const parsedModes = parseMode(con, msg.params[2], msg.params.slice(3));
+    parsedModes.forEach((m) => {
+        if (m.type <= chanModeTypes.A) {
+            // Skip unwanted type A channel modes (0)
+            // These are list based modes like +b
+            return;
+        }
+        buffer.updateModes(m);
+    });
+    buffer.status = getModesStatus(buffer);
+}
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
     if (nick.toLowerCase() === (message.params[messageNickIdx] || '').toLowerCase()) {
