@@ -1,4 +1,4 @@
-const { mParam, mParamU, parseMask, modeType, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, modeTypes, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -543,7 +543,7 @@ commands.MODE = async function(msg, con) {
     let updateStatus = false;
     const parsedModes = parseMode(con, raw_modes, raw_params);
     parsedModes.forEach((m) => {
-        if (m.type <= modeType.CHANMODE_TYPE_A) {
+        if (m.type <= modeTypes.CHANMODE_TYPE_A) {
             // Only tracking channel modes so skip none channel modes like +o
             // Skip list based type A channel modes like +b
             return;
@@ -571,7 +571,7 @@ commands['324'] = async function(msg, con) {
 
     const parsedModes = parseMode(con, msg.params[2], msg.params.slice(3));
     parsedModes.forEach((m) => {
-        if (m.type <= modeType.CHANMODE_TYPE_A) {
+        if (m.type <= modeTypes.CHANMODE_TYPE_A) {
             // Skip unwanted type A channel modes (0)
             // These are list based modes like +b
             return;
