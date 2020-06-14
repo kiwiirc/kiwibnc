@@ -1,4 +1,5 @@
 const { mParam, mParamU, parseMask, chanModeTypes, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
+const msgIdGenerator = require('../libs/msgIdGenerator');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -305,6 +306,8 @@ commands.PING = async function(msg, con) {
 };
 
 commands.JOIN = async function(msg, con) {
+    msgIdGenerator.add(msg);
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
@@ -330,6 +333,8 @@ commands.JOIN = async function(msg, con) {
 };
 
 commands.PART = async function(msg, con) {
+    msgIdGenerator.add(msg);
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
@@ -417,6 +422,8 @@ commands['433'] = async function(msg, con) {
 };
 
 commands.NICK = async function(msg, con) {
+    msgIdGenerator.add(msg);
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
@@ -450,6 +457,8 @@ commands.NICK = async function(msg, con) {
 };
 
 commands.PRIVMSG = async function(msg, con) {
+    msgIdGenerator.add(msg);
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
@@ -459,6 +468,8 @@ commands.PRIVMSG = async function(msg, con) {
 };
 
 commands.NOTICE = async function(msg, con) {
+    msgIdGenerator.add(msg);
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
