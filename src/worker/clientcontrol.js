@@ -170,7 +170,7 @@ commands.CHANGENETWORK = {
 
         let parts = input.split(' ');
         if (!input || parts.length === 0) {
-            con.writeStatus('Usage: changenetwork [network_name] option-value');
+            con.writeStatus('Usage: changenetwork [network_name] option=value');
         }
 
         // Either get the specified network or default to the active network
