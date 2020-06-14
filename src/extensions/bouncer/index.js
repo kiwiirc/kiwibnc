@@ -1,7 +1,11 @@
 const messageTags = require('irc-framework/src/messagetags');
 const { mParam, mParamU, isoTime } = require('../../libs/helpers');
 
+let bncApp = null;
+
 module.exports.init = async function init(hooks, app) {
+    bncApp = app;
+
     let sendConnectionState = async (upstream, state) => {
         let network = await app.userDb.getNetwork(upstream.state.authNetworkId);
         if (!network) {
@@ -108,41 +112,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'LISTNETWORKS') {
-        let nets = await con.userDb.getUserNetworks(con.state.authUserId);
-        nets.forEach((net) => {
-            let parts = [];
-            parts.push('network=' + net.name);
-            parts.push('host=' + net.host);
-            parts.push('port=' + net.port);
-            parts.push('tls=' + (net.tls ? '1' : '0'));
-            parts.push('tlsverify=' + (net.tlsverify ? '1' : '0'));
-            parts.push('host=' + net.host);
-
-            let propsToAdd = {
-                // network_property: bouncer_key
-                password: 'password',
-                sasl_account: 'account',
-                sasl_pass: 'account_password'
-            };
-            for (let prop in propsToAdd) {
-                if (net[prop]) {
-                    parts.push(`${propsToAdd[prop]}=${net[prop]}`);
-                }
-            }
-
-            let netCon = con.conDict.findUsersOutgoingConnection(con.state.authUserId, net.id);
-            if (netCon) {
-                parts.push('nick=' + netCon.state.nick);
-                parts.push('state=' + (netCon.state.connected ? 'connected' : 'disconnected'));
-            } else {
-                parts.push('nick=' + net.nick);
-                parts.push('state=disconnect');
-            }
-
-            con.writeMsg('BOUNCER', 'listnetworks', net.id, parts.join(';'));
-        });
-
-        con.writeMsg('BOUNCER', 'listnetworks', 'RPL_OK');
+        await sendNetworkListToClients(con);
     }
 
     if (subCmd === 'LISTBUFFERS') {
@@ -307,6 +277,9 @@ async function handleBouncerCommand(event) {
         }
 
         con.writeMsg('BOUNCER', 'addnetwork', network.id, network.name, 'RPL_OK');
+
+        // Update all clients of the network list. This lets each client keep their network list up to date
+        await sendNetworkListToClients(bncApp.cons.findAllUsersClients(con.state.authUserId));
     }
 
     if (subCmd === 'CHANGENETWORK') {
@@ -381,6 +354,9 @@ async function handleBouncerCommand(event) {
         }
 
         con.writeMsg('BOUNCER', 'changenetwork', netId, 'RPL_OK');
+
+        // Update all clients of the network list. This lets each client keep their network list up to date
+        await sendNetworkListToClients(bncApp.cons.findAllUsersClients(con.state.authUserId));
     }
 
     if (subCmd === 'DELNETWORK') {
@@ -403,5 +379,61 @@ async function handleBouncerCommand(event) {
 
         await con.db.dbUsers('user_networks').where('id', network.id).delete();
         con.writeMsg('BOUNCER', 'delnetwork', netId, 'RPL_OK');
+
+        // Update all clients of the network list. This lets each client keep their network list up to date
+        await sendNetworkListToClients(bncApp.cons.findAllUsersClients(con.state.authUserId));
     }
 };
+
+async function sendNetworkListToClients(clients) {
+    if (!Array.isArray(clients)) {
+        clients = [clients];
+    }
+
+    if (clients.length === 0) {
+        return;
+    }
+
+    let userId = clients[0].state.authUserId;
+    let nets = await clients[0].userDb.getUserNetworks(clients[0].state.authUserId);
+    let lines = [];
+
+    nets.forEach((net) => {
+        let parts = [];
+        parts.push('network=' + net.name);
+        parts.push('host=' + net.host);
+        parts.push('port=' + net.port);
+        parts.push('tls=' + (net.tls ? '1' : '0'));
+        parts.push('tlsverify=' + (net.tlsverify ? '1' : '0'));
+        parts.push('host=' + net.host);
+
+        let propsToAdd = {
+            // network_property: bouncer_key
+            password: 'password',
+            sasl_account: 'account',
+            sasl_pass: 'account_password'
+        };
+        for (let prop in propsToAdd) {
+            if (net[prop]) {
+                parts.push(`${propsToAdd[prop]}=${net[prop]}`);
+            }
+        }
+
+        let netCon = bncApp.cons.findUsersOutgoingConnection(userId, net.id);
+        if (netCon) {
+            parts.push('nick=' + netCon.state.nick);
+            parts.push('state=' + (netCon.state.connected ? 'connected' : 'disconnected'));
+        } else {
+            parts.push('nick=' + net.nick);
+            parts.push('state=disconnect');
+        }
+
+        lines.push(['BOUNCER', 'listnetworks', net.id, parts.join(';')]);
+    });
+
+    lines.push(['BOUNCER', 'listnetworks', 'RPL_OK']);
+
+    clients.forEach((client) => {
+        lines.forEach((line) => client.writeMsg(...line));
+    });
+}
