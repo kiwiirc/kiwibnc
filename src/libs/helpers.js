@@ -114,7 +114,8 @@ function parsePrefixes(prefix) {
 
 
 const chanModeTypes = {
-    Unknown: -1,
+    Unknown: -2,
+    User: -1,
     A: 0,
     B: 1,
     C: 2,
@@ -166,6 +167,9 @@ function parseMode(con, mode_string, mode_params) {
     };
 
     const modeType = (mode) => {
+        if (prefixes.includes(mode)) {
+            return chanModeTypes.User;
+        }
         for (let i = 0; i < chanmodes.length; i++) {
             if (chanmodes[i].indexOf(mode) > -1) {
                 return i;
