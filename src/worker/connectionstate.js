@@ -25,6 +25,7 @@ class IrcUser {
             return;
         }
 
+        // Use PREFIX iSupportToken to maintain prefixes in order of priority
         const prefixes = Helpers.parsePrefixes(upstreamCon.iSupportToken('PREFIX'));
         const newPrefixes = [];
         for (let i = 0; i < prefixes.length; i++) {

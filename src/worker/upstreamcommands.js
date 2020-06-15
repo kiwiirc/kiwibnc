@@ -561,8 +561,9 @@ commands.MODE = async function(msg, con) {
         }
 
         if (m.type === chanModeTypes.User) {
-            // Update user prefixes
-            let user = buffer.users[m.param];
+            // Update user prefixes like adding @ for +o
+            let lcNick = (m.param || '').toLowerCase();
+            let user = buffer.users[lcNick];
             if (!user) {
                 l.error(`Got user channel mode for unknown user: ${m.param}`);
                 return;
