@@ -559,7 +559,7 @@ commands.MODE = async function(msg, con) {
             // Skip list based type A channel modes like +b
             return;
         }
-        buffer.updateModes(m);
+        buffer.updateChanModes(m);
 
         if (['p', 's'].includes(m.mode[1])) {
             // Only update buffer status if modes p or s changed
@@ -587,7 +587,7 @@ commands['324'] = async function(msg, con) {
             // These are list based modes like +b
             return;
         }
-        buffer.updateModes(m);
+        buffer.updateChanModes(m);
     });
     buffer.status = getModesStatus(buffer);
 }

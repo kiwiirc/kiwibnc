@@ -5,7 +5,7 @@ class IrcUser {
         this.nick = nick || '';
         this.host = '';
         this.username = '';
-        this.prefixes = '';
+        this.prefixes = [];
         this.tags = Object.create(null);
     }
 }
@@ -63,7 +63,7 @@ class IrcBuffer {
         this.addUser(newNick, user);
     }
 
-    updateModes(mode) {
+    updateChanModes(mode) {
         if (mode.mode[0] === '+') {
             this.modes[mode.mode[1]] = mode.param;
         } else {

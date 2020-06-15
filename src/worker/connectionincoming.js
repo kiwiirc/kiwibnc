@@ -302,7 +302,7 @@ class ConnectionIncoming {
                 `${user.nick}!${user.username}@${user.host}` :
                 user.nick;
             let prefix = multiPrefix ?
-                user.prefixes :
+                user.prefixes.join('') :
                 user.prefixes[0] || '';
 
             names.push(prefix + mask);
