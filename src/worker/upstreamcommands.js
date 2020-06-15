@@ -554,8 +554,9 @@ commands.MODE = async function(msg, con) {
     let updateStatus = false;
     const parsedModes = parseMode(con, raw_modes, raw_params);
     parsedModes.forEach((m) => {
-        if (m.type === chanModeTypes.A) {
+        if (m.type === chanModeTypes.A || m.type === chanModeTypes.Unknown) {
             // Skip list based type A channel modes like +b
+            // Skip unknown type modes
             return;
         }
 
