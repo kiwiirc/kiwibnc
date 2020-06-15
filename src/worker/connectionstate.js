@@ -8,6 +8,33 @@ class IrcUser {
         this.prefixes = [];
         this.tags = Object.create(null);
     }
+
+    updatePrefixes(mode, upstreamCon) {
+        const add = mode.mode[0] === '+';
+        const idx = this.prefixes.indexOf(mode.prefix);
+
+        if ((add && idx > -1) || (!add && idx === -1)) {
+            // Attempting to perform an unneded action
+            // like removing a none existing prefix
+            // or adding an already existing prefix
+            return;
+        }
+
+        if (!add) {
+            this.prefixes.splice(idx, 1);
+            return;
+        }
+
+        const prefixes = Helpers.parsePrefixes(upstreamCon.iSupportToken('PREFIX'));
+        const newPrefixes = [];
+        for (let i = 0; i < prefixes.length; i++) {
+            const existing = this.prefixes.indexOf(prefixes[i].symbol) > -1
+            if (existing || prefixes[i].mode === mode.mode[1]) {
+                newPrefixes.push(prefixes[i].symbol)
+            }
+        }
+        this.prefixes = newPrefixes;
+    }
 }
 
 class IrcBuffer {

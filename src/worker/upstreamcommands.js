@@ -554,11 +554,23 @@ commands.MODE = async function(msg, con) {
     let updateStatus = false;
     const parsedModes = parseMode(con, raw_modes, raw_params);
     parsedModes.forEach((m) => {
-        if (m.type <= chanModeTypes.A) {
-            // Only tracking channel modes so skip none channel modes like +o
+        if (m.type === chanModeTypes.A) {
             // Skip list based type A channel modes like +b
             return;
         }
+
+        if (m.type === chanModeTypes.User) {
+            // Update user prefixes
+            let user = buffer.users[m.param];
+            if (!user) {
+                l.error(`Got user channel mode for unknown user: ${m.param}`);
+                return;
+            }
+            user.updatePrefixes(m, con);
+            return;
+        }
+
+        // Update channel modes like +p
         buffer.updateChanModes(m);
 
         if (['p', 's'].includes(m.mode[1])) {
