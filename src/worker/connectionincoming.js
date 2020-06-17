@@ -258,7 +258,7 @@ class ConnectionIncoming {
             if (channel.isChannel && channel.joined) {
                 await this.writeMsgFrom(this.state.nick, 'JOIN', channel.name);
                 channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
-                upstream.write(`NAMES ${channel.name}\n`);
+                this.sendNames(channel);
             }
         }
 
