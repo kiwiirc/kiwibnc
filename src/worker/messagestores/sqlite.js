@@ -419,8 +419,10 @@ function dbRowsToMessage(rows) {
         let m = new IrcMessage();
         if (row.type === MSG_TYPE_PRIVMSG) {
             m.command = 'PRIVMSG';
-        } else if (m.type === MSG_TYPE_NOTICE) {
-            m.command = 'NOTICE'
+        } else if (row.type === MSG_TYPE_NOTICE) {
+            m.command = 'NOTICE';
+        } else {
+            l.error('Read message from SQLite with unknown command:', m.type);
         }
 
         m.prefix = row.prefix;
