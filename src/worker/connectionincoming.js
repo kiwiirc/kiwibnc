@@ -269,11 +269,11 @@ class ConnectionIncoming {
                 continue;
             }
 
-            let messages = await this.messages.getMessagesFromTime(
+            let messages = await this.messages.getMessagesBeforeTime(
                 this.state.authUserId,
                 this.state.authNetworkId,
                 buffer.name,
-                Date.now() - 3600*1000
+                Date.now()
             );
 
             let supportsTime = this.state.caps.has('server-time');
