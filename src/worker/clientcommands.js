@@ -172,7 +172,6 @@ async function maybeProcessRegistration(con) {
             con.writeStatus('Waiting for the network to connect...');
             con.upstream.open();
         } else {
-            con.writeStatus(`Attaching you to the network`);
             if (con.upstream.state.receivedMotd) {
                 await con.registerClient();
             }
