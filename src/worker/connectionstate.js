@@ -382,7 +382,10 @@ class ConnectionState {
         let buffer = null;
         if (typeof chan === 'string') {
             l.debug(`Adding buffer '${chan}'`);
-            buffer = new IrcBuffer(chan, upstreamCon.isChannelName(chan));
+            let isChannel = upstreamCon ?
+                upstreamCon.isChannelName(chan) :
+                '#&'.includes(chan[0]);
+            buffer = new IrcBuffer(chan, isChannel);
         } else {
             l.debug(`Adding buffer '${chan.name}'`);
             buffer = IrcBuffer.fromObj(chan);
