@@ -334,8 +334,13 @@ commands.NICK = async function(msg, con) {
 };
 
 commands.NAMES = async function(msg, con) {
-    let bufferName = msg.params[0];
+    let bufferName = msg.params[0] || '';
     let upstream = con.upstream;
+
+    if (!bufferName) {
+        // Send a raw NAMES command upstream to get the IRCds response
+        return true;
+    }
 
     if (!con.upstream || !con.upstream.state.netRegistered) {
         con.writeFromBnc('366', con.state.nick, bufferName, 'End of /NAMES list.');
