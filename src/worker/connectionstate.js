@@ -39,16 +39,14 @@ class IrcUser {
 }
 
 class IrcBuffer {
-    constructor(name, upstreamCon) {
+    constructor(name, isChannel) {
         this.name = name;
         this.key = '';
         this.joined = false;
         this.topic = '';
         this.modes = Object.create(null);
         this.status = '=';
-        this.isChannel = upstreamCon ?
-            upstreamCon.isChannelName(name) :
-            true;
+        this.isChannel = !!isChannel;
         this.lastSeen = 0;
         this.users = Object.create(null);
     }
@@ -104,9 +102,20 @@ class IrcBuffer {
         c.key = obj.key || '';
         c.joined = obj.joined || false;
         c.topic = obj.topic || '';
+        Object.assign(c.modes, obj.modes);
+        c.status = obj.status || '=';
         c.isChannel = !!obj.isChannel;
         c.lastSeen = obj.lastSeen || 0;
-        c.users = obj.users || [];
+
+        if (obj.users) {
+            for (let nick in obj.users) {
+                let u = obj.users[nick];
+                if (nick && u && u.nick) {
+                    c.addUser(nick, u);
+                }
+            }
+        }
+
         return c;
     }
 }
@@ -373,7 +382,7 @@ class ConnectionState {
         let buffer = null;
         if (typeof chan === 'string') {
             l.debug(`Adding buffer '${chan}'`);
-            buffer = new IrcBuffer(chan, upstreamCon);
+            buffer = new IrcBuffer(chan, upstreamCon.isChannelName(chan));
         } else {
             l.debug(`Adding buffer '${chan.name}'`);
             buffer = IrcBuffer.fromObj(chan);
