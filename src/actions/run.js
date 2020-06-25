@@ -50,7 +50,19 @@ module.exports = async function(env, options) {
     spawnWorker();
 
     // Make sure the worker process also gets killed when we die
+    let doubleCtrlCTmr = 0;
     nodeCleanup((exitCode, signal) => {
+        // ctrl+c twice within 500ms = actually quit
+        if (signal === 'SIGINT' && !doubleCtrlCTmr) {
+            l('SIGINT received. Ctrc+C again to terminate kiwibnc.');
+            doubleCtrlCTmr = setTimeout(() => {
+                doubleCtrlCTmr = 0;
+                l('Reloading worker process...');
+            }, 500);
+
+            return false;
+        }
+
         if (workerProc) {
             workerProc.kill();
         }
