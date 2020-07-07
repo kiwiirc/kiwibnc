@@ -18,6 +18,13 @@ class MessageStores {
             await m.init();
             this.stores.push(m);
         }
+        if (this.conf.get('logging.custom')) {
+            let path = this.conf.get('logging.custom')
+            let store = require(this.conf.relativePath(path));
+            let m = new store(this.conf);
+            await m.init();
+            this.stores.push(m);
+        }
     }
 
     async getMessagesFromMsgId(...args) {
