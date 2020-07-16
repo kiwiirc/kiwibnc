@@ -1,5 +1,5 @@
 const messageTags = require('irc-framework/src/messagetags');
-const { mParam, mParamU, isoTime } = require('../../libs/helpers');
+const { mParam, mParamU, isoTime, notifyLevel } = require('../../libs/helpers');
 
 let bncApp = null;
 
@@ -227,6 +227,17 @@ async function handleBouncerCommand(event) {
                 buffer.lastSeen = seen;
             }
         }
+
+        if (tags && tags.notify) {
+            let levels = Object.assign(Object.create(null), {
+                message: notifyLevel.Message,
+                highlight: notifyLevel.Mention,
+                never: notifyLevel.None,
+            });
+            if (Object.keys(levels).includes(tags.notify)) {
+                buffer.notifyLevel = levels[tags.notify];
+            }
+        }
     }
 
     if (subCmd === 'ADDNETWORK') {
@@ -343,6 +354,22 @@ async function handleBouncerCommand(event) {
 
         if (typeof tags.account_password === 'string') {
             network.sasl_pass = tags.account_password;
+        }
+
+        if (tags.notify) {
+            let levels = Object.assign(Object.create(null), {
+                message: notifyLevel.Message,
+                highlight: notifyLevel.Mention,
+                never: notifyLevel.None,
+            });
+            if (Object.keys(levels).includes(tags.notify)) {
+                let upstream = con.upstream;
+                if (upstream) {
+                    for (bufferName in upstream.state.buffers) {
+                        upstream.state.buffers[bufferName].notifyLevel = levels[tags.notify];
+                    }
+                }
+            }
         }
 
         try {

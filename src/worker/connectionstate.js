@@ -48,6 +48,7 @@ class IrcBuffer {
         this.status = '=';
         this.isChannel = !!isChannel;
         this.lastSeen = 0;
+        this.notifyLevel = Helpers.notifyLevel.Mention;
         this.users = Object.create(null);
     }
 
@@ -106,6 +107,7 @@ class IrcBuffer {
         c.status = obj.status || '=';
         c.isChannel = !!obj.isChannel;
         c.lastSeen = obj.lastSeen || 0;
+        c.notifyLevel = obj.notifyLevel || Helpers.notifyLevel.Mention;
 
         if (obj.users) {
             for (let nick in obj.users) {

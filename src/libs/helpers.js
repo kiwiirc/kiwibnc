@@ -113,6 +113,13 @@ function parsePrefixes(prefix) {
 }
 
 
+const notifyLevel = {
+    None: 0,
+    Mention: 1,
+    Message: 2,
+};
+module.exports.notifyLevel = notifyLevel;
+
 const chanModeTypes = {
     Unknown: -2,
     User: -1,

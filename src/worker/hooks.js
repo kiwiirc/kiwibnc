@@ -1,5 +1,6 @@
+const _ = require('lodash');
 const EventEmitter = require('../libs/eventemitter');
-const { isoTime } = require('../libs/helpers');
+const { isoTime, mParam, notifyLevel } = require('../libs/helpers');
 
 /**
  * Tap into some hooks to modify messages and capabilities
@@ -243,5 +244,51 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
             nick: nick || '',
             prefixes: itemPrefixes || '',
         };
+    }
+
+    // Message highlights + notifications
+    commandHooks.on('message_from_upstream', async event => {
+        const client = event.client;
+        const msg = event.message;
+
+        if (!['PRIVMSG', 'NOTICE'].includes(msg.command.toUpperCase())) {
+            return;
+        }
+
+        let doNotify = false;
+        let bufferName = mParam(msg, 0);
+        let buffer = client.state.getBuffer(bufferName);
+        let content = mParam(msg, 1);
+        let level = buffer ?
+            buffer.notifyLevel :
+            notifyLevel.Mention;
+
+        if (level === notifyLevel.None) {
+            doNotify = false;
+        } else if (level === notifyLevel.Message) {
+            // All messages
+            doNotify = true;
+        } else if (!'#&'.includes(bufferName[0])) {
+            // All PMs get a notification
+            doNotify = true;
+        } else if (level === notifyLevel.Mention && mentionsNick(content, client.state.nick)) {
+            // Highlights
+            doNotify = true;
+        }
+
+        if (doNotify) {
+            await commandHooks.emit('message_notification', {upstream: client, msg});
+        }
+    });
+
+    function mentionsNick(input, nick) {
+        if (input.toLowerCase().indexOf(nick.toLowerCase()) === -1) {
+            return false;
+        }
+
+        const punc = '\\s,.!:;+()\\[\\]?¿\\/<>@-';
+        const escapedNick = _.escapeRegExp(nick);
+        const r = new RegExp(`(^|[${punc}])${escapedNick}([${punc}]|$)`, 'i');
+        return r.test(input);
     }
 };
