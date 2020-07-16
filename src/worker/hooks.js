@@ -256,7 +256,10 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         }
 
         let doNotify = false;
-        let bufferName = mParam(msg, 0);
+        let isPm = !'#&'.includes(mParam(msg, 0, '')[0]);
+        let bufferName = isPm ?
+            (msg.nick || '').toLowerCase() :
+            mParam(msg, 0, '').toLowerCase();
         let buffer = client.state.getBuffer(bufferName);
         let content = mParam(msg, 1);
         let level = buffer ?
@@ -268,7 +271,7 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         } else if (level === notifyLevel.Message) {
             // All messages
             doNotify = true;
-        } else if (!'#&'.includes(bufferName[0])) {
+        } else if (isPm) {
             // All PMs get a notification
             doNotify = true;
         } else if (level === notifyLevel.Mention && mentionsNick(content, client.state.nick)) {
@@ -277,7 +280,12 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         }
 
         if (doNotify) {
-            await commandHooks.emit('message_notification', {upstream: client, msg});
+            await commandHooks.emit('message_notification', {
+                upstream: client,
+                message,
+                buffer,
+                isPm,
+            });
         }
     });
 
