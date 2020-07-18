@@ -147,6 +147,16 @@ async function handleBouncerCommand(event) {
                         topic: buffer.topic,
                     };
                 }
+
+                let levels = Object.assign(Object.create(null), {
+                    [notifyLevel.Message]: 'message',
+                    [notifyLevel.Mention]: 'highlight',
+                    [notifyLevel.None]: 'never',
+                });
+                if (levels[buffer.notifyLevel]) {
+                    chan.notify = levels[buffer.notifyLevel];
+                }
+
                 con.writeMsg('BOUNCER', 'listbuffers', network.id, encodeTags(chan));
             }
         }
