@@ -282,7 +282,7 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         if (doNotify) {
             await commandHooks.emit('message_notification', {
                 upstream: client,
-                message,
+                message: msg,
                 buffer,
                 isPm,
             });
