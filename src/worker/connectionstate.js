@@ -169,6 +169,7 @@ class ConnectionState {
 
         // Temporary misc data such as CAP negotiation status
         this.tempData = {};
+        this.gone = '';
     }
 
     async maybeLoad() {
@@ -289,6 +290,7 @@ class ConnectionState {
             this.buffers = [];
             this.tempData = {};
             this.logging = true;
+            this.gone = '';
         } else {
             this.bindHost = row.bind_host || '';
             this.host = row.host;
@@ -321,6 +323,7 @@ class ConnectionState {
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids || '[]'));
             this.logging = !!row.logging;
             this.tempData = JSON.parse(row.temp);
+            this.gone = '';
         }
 
         this.loaded = true;
@@ -330,6 +333,14 @@ class ConnectionState {
         await this.db.dbConnections('connections').where('conid', this.conId).delete();
     }
 
+    goneGet() {
+        return this.gone;
+    }
+
+    async goneSet(val) {
+        this.gone = val;
+    }
+    
     tempGet(key) {
         return this.tempData[key];
     }
