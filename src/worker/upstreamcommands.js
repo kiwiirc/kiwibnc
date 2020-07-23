@@ -352,6 +352,7 @@ commands.PART = async function(msg, con) {
         chan.removeUser(msg.nick);
     } else {
         chan.leave();
+        con.state.delBuffer(chanName);
     }
 
     await con.state.save();
