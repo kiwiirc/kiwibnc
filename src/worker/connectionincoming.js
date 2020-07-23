@@ -241,6 +241,7 @@ class ConnectionIncoming {
 
         // If we previously set them away, now bring them back
         if (await upstream.state.tempGet('set_away')) {
+            clearTimeout(upstream.state.goneGet());
             upstream.writeLine('AWAY');
             await upstream.state.tempSet('set_away', null);
         }
@@ -397,6 +398,7 @@ class ConnectionIncoming {
             if (otherClients.length === 0) {
                 upstream.writeLine('AWAY', 'away');
                 await upstream.state.tempSet('set_away', true);
+                await upstream.state.goneSet(setTimeout( function(){ upstream.close(); }, 30*1000 ) ); // 30 secondes for test
             }
         }
 
