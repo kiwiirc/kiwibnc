@@ -1,0 +1,115 @@
+<script>
+kiwi.plugin('kiwibnc-notifications', function(kiwi, log) {
+    const vapidPublicKey = kiwi.state.settings.vapidPublicKey;
+    if (!vapidPublicKey) {
+        // Push notifications disabled on Kiwi BNC
+        return;
+    }
+
+    const data_id = generateId();
+
+    kiwi.on('irc.registered', (event, network) => {
+        if (!network.connection.bncnetid) {
+            return;
+        }
+
+        // Send data_id so the bnc knows which networks this browser is connect to
+        network.ircClient.say(
+            '*bnc',
+            `browser id=${data_id};`
+        );
+    });
+
+    kiwi.on('notification.enabled', (event) => {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            // Service Worker or Push Manager is not supported
+            return;
+        }
+
+        navigator.serviceWorker.register('/notification-worker.js').then((reg) => {
+            if (reg.active) {
+                // Worker is ready
+                pushSubscribe(reg);
+            } else {
+                // Worker is not ready yet wait till it is
+                const worker = reg.installing || reg.waiting;
+                const onStateChange = (event) => {
+                    if (event.target.state !== 'activated') {
+                        return;
+                    }
+                    worker.removeEventListener('statechange', onStateChange);
+                    pushSubscribe(reg);
+                };
+                worker.addEventListener('statechange', onStateChange);
+            }
+
+        })
+    });
+
+    function pushSubscribe(registration) {
+        const options = {
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(
+                vapidPublicKey,
+            ),
+        };
+
+        // Subscribe the worker to PushManager
+        registration.pushManager.subscribe(options).then((sub) => {
+            sendToBnc(sub);
+        });
+    }
+
+    function sendToBnc(subscription) {
+        let target;
+        const nets = kiwi.state.networks;
+        for (let i = 0; i < nets.length; i++) {
+            if (nets[i].is_bnc && nets[i].state === 'connected') {
+                target = nets[i];
+                break;
+            }
+        }
+
+        if (target) {
+            const data = JSON.parse(JSON.stringify(subscription));
+            delete data.endpoint;
+
+            // Chrome subscriptions are too long for one message
+            target.ircClient.say(
+                '*bnc',
+                `browser id=${data_id};endpoint=${
+                    subscription.endpoint
+                };`
+            );
+
+            target.ircClient.say(
+                '*bnc',
+                `browser id=${data_id};data=${
+                    JSON.stringify(data)
+                };`
+            );
+        }
+    }
+
+    // Taken from https://github.com/web-push-libs/web-push#using-vapid-key-for-applicationserverkey
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function generateId() {
+        let base36Date = Date.now().toString(36);
+        return base36Date + Math.floor((Math.random() * 100000)).toString(36);
+    };
+});
+</script>
