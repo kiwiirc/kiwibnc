@@ -44,9 +44,8 @@ All tags sent and received by this command are message-tags encoded.
 Syntax: `[c] BOUNCER connect <netid>`
 
 Replies:
-* No args sent:
+* Various errors:
   - `[s] BOUNCER connect * :Invalid arguments given`
-* Network name not found:
   - `[s] BOUNCER connect netid ERR_NETNOTFOUND`
 
 The connection state of the network will be received as mentioned in the network state section.
@@ -55,9 +54,8 @@ The connection state of the network will be received as mentioned in the network
 Syntax: `[c] BOUNCER disconnect <netid> [:quit message]`
 
 Replies:
-* No args sent:
+* Various errors:
   - `[s] BOUNCER disconnect * ERR_INVALIDARGS`
-* Network name not found:
   - `[s] BOUNCER disconnect netid ERR_NETNOTFOUND`
 
 The connection state of the network will be received as mentioned in the network state section.
@@ -73,7 +71,7 @@ This may be used for rudimentry network organisation, Eg. `work/*` or `social/*`
 The end of the network list MUST be indicated by an `RPL_OK` message, even if there are no networks to list. Eg:
 ~~~
 [s] BOUNCER listnetworks netid network=freenode;host=irc.freenode.net;port=6667;state=disconnected;nick=bob;
-[s] BOUNCER listnetworks netid network=snoonet;host=irc.irc.com;port=6697;state=connected;tls=1;nick=bob;
+[s] BOUNCER listnetworks netid network=IRC.com;host=irc.irc.com;port=6697;state=connected;tls=1;nick=bob;
 [s] BOUNCER listnetworks RPL_OK
 ~~~
 
@@ -86,9 +84,8 @@ Syntax: `[c] BOUNCER listbuffers <netid | *>`
 This command MUST return all active buffers including both channels and queries. An active buffer will be defined by the implementation, for example, non-archived buffers, or only joined channels and queries.
 
 Replies:
-* No args sent:
+* Various errors:
   - `[s] BOUNCER listbuffers * ERR_INVALIDARGS`
-* Network name not found:
   - `[s] BOUNCER listbuffers * ERR_NETNOTFOUND`
 
 The end of the buffer list MUST be indicated by an `RPL_OK` message, even if there are no buffers to list. Eg:
@@ -106,12 +103,11 @@ Syntax: `[c] BOUNCER delbuffer <netid | *> <buffername>`
 This command will delete a buffer from the bouncer. The server MAY send a `LISTBUFFERS` listing to all the users connected clients after it has been deleted to keep all clients in sync.
 
 Replies:
-* No args sent:
-  - `[s] BOUNCER delbuffer * ERR_INVALIDARGS
-* Network name not found:
-  - `[s] BOUNCER delbuffer * ERR_NETNOTFOUND
 * Buffer deleted:
   - `[s] BOUNCER delbuffer netid buffername RPL_OK`
+* Various errors:
+  - `[s] BOUNCER delbuffer * ERR_INVALIDARGS`
+  - `[s] BOUNCER delbuffer * ERR_NETNOTFOUND`
 
 
 ### Changing a buffer
@@ -120,6 +116,8 @@ Syntax: `[c] BOUNCER changebuffer <netid | *> <buffername> seen=2018-01-25T17:00
 This command is used to change a tag value for a buffer. The tags are message-tags encoded. A complete list of tags for a buffer can be found in the tags section of this document.
 
 The `seen` tag may be `1` to mark the buffer as seen at the current time.
+
+The server MAY send a `LISTBUFFERS` listing to all the users connected clients after it has been deleted to keep all clients in sync.
 
 Replies:
 * Buffer changed:
@@ -186,7 +184,7 @@ Replies:
 
 
 ## Network state notifications
-As a network state changes on the server such as connecting or disconnection, it MUST send the changes as they happen to any related connected clients.
+As a network state changes on the server such as connecting or disconnection, it MUST send the changes as they happen to any users connected clients.
 
 * Connection state changes:
   - `[s] BOUNCER state netid netname connecting`
