@@ -106,8 +106,8 @@ Replies:
 * Buffer deleted:
   - `[s] BOUNCER delbuffer netid buffername RPL_OK`
 * Various errors:
-  - `[s] BOUNCER delbuffer * ERR_INVALIDARGS`
-  - `[s] BOUNCER delbuffer * ERR_NETNOTFOUND`
+  - `[s] BOUNCER delbuffer * * ERR_INVALIDARGS`
+  - `[s] BOUNCER delbuffer * * ERR_NETNOTFOUND`
 
 
 ### Changing a buffer
@@ -142,11 +142,11 @@ Replies:
 * Network addeed:
   - `[s] BOUNCER addnetwork netid freenode RPL_OK`
 * Various errors:
-  - `[s] BOUNCER addnetwork * ERR_NEEDSNAME`
-  - `[s] BOUNCER addnetwork freenode ERR_NAMEINUSE`
-  - `[s] BOUNCER addnetwork freenode ERR_INVALIDPORT`
-  - `[s] BOUNCER addnetwork freenode ERR_MAXNETWORKS`
-  - `[s] BOUNCER addnetwork freenode ERR_UNKNOWN :Optional extra information`
+  - `[s] BOUNCER addnetwork * * ERR_NEEDSNAME`
+  - `[s] BOUNCER addnetwork * freenode ERR_NAMEINUSE`
+  - `[s] BOUNCER addnetwork * freenode ERR_INVALIDPORT`
+  - `[s] BOUNCER addnetwork * freenode ERR_MAXNETWORKS`
+  - `[s] BOUNCER addnetwork * freenode ERR_UNKNOWN :Optional extra information`
 
 
 ### Changing a network

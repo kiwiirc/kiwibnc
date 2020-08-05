@@ -64,8 +64,15 @@ async function handleBouncerCommand(event) {
     let subCmd = mParamU(msg, 0, '');
     let encodeTags = require('irc-framework/src/messagetags').encode;
 
+    let getNetworkId = (paramIdx) => {
+        let netId = mParam(msg, paramIdx, '');
+        return netId === '*' ?
+            string(con.state.authNetworkId):
+            netId;
+    };
+
     if (subCmd === 'CONNECT') {
-        let netId = mParam(msg, 1, '');
+        let netId = getNetworkId(1);
         if (!netId) {
             con.writeMsg('BOUNCER', 'connect', '*', 'ERR_INVALIDARGS');
             return;
@@ -87,7 +94,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DISCONNECT') {
-        let netId = mParam(msg, 1, '');
+        let netId = getNetworkId(1);
         if (!netId) {
             con.writeMsg('BOUNCER', 'disconnect', '*', 'ERR_INVALIDARGS');
             return;
@@ -116,7 +123,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'LISTBUFFERS') {
-        let netId = mParam(msg, 1, '');
+        let netId = getNetworkId(1);
         if (!netId) {
             con.writeMsg('BOUNCER', 'listbuffers', '*', 'ERR_INVALIDARGS');
             return;
@@ -165,16 +172,16 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DELBUFFER') {
-        let netId = mParam(msg, 1, '');
+        let netId = getNetworkId(1);
         let bufferName = mParam(msg, 2, '');
         if (!netId || !bufferName) {
-            con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_INVALIDARGS');
+            con.writeMsg('BOUNCER', 'delbuffer', '*', '*', 'ERR_INVALIDARGS');
             return;
         }
 
         let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
         if (!network) {
-            con.writeMsg('BOUNCER', 'delbuffer', '*', 'ERR_NETNOTFOUND');
+            con.writeMsg('BOUNCER', 'delbuffer', '*', '*', 'ERR_NETNOTFOUND');
             return;
         }
 
@@ -203,7 +210,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'CHANGEBUFFER') {
-        let netId = mParam(msg, 1, '');
+        let netId = getNetworkId(1);
         let bufferName = mParam(msg, 2, '');
         if (!netId || !bufferName) {
             con.writeMsg('BOUNCER', 'changebuffer', '*', '*', 'ERR_INVALIDARGS');
@@ -253,13 +260,13 @@ async function handleBouncerCommand(event) {
     if (subCmd === 'ADDNETWORK') {
         let tags = messageTags.decode(mParam(msg, 1));
         if (!tags || !tags.network || !tags.network.match(/^[a-z0-9_]+$/i)) {
-            con.writeMsg('BOUNCER', 'addnetwork', '*', 'ERR_NEEDSNAME');
+            con.writeMsg('BOUNCER', 'addnetwork', '*', '*', 'ERR_NEEDSNAME');
             return;
         }
 
         let network = await con.userDb.getNetworkByName(con.state.authUserId, tags.network);
         if (network) {
-            con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_NAMEINUSE');
+            con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_NAMEINUSE');
             return;
         }
 
@@ -268,7 +275,7 @@ async function handleBouncerCommand(event) {
             6667;
         port = parseInt(tags.port, 10);
         if (isNaN(port) || port <= 0 || port > 65535) {
-            con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_INVALIDPORT');
+            con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_INVALIDPORT');
             return;
         }
 
@@ -288,10 +295,10 @@ async function handleBouncerCommand(event) {
             });
         } catch (err) {
             if (err.code === 'max_networks') {
-                con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_UNKNOWN', 'No more networks can be added to this account');
+                con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_UNKNOWN', 'No more networks can be added to this account');
             } else {
                 l.error('[BOUNCER] Error adding network to user', err);
-                con.writeMsg('BOUNCER', 'addnetwork', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
+                con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
             }
             
             return;
@@ -304,7 +311,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'CHANGENETWORK') {
-        let netId = mParam(msg, 1);
+        let netId = getNetworkId(1);
         let tags = messageTags.decode(mParam(msg, 2));
         if (!netId || !tags) {
             con.writeMsg('BOUNCER', 'changenetwork', '*', 'ERR_INVALIDARGS');
@@ -397,7 +404,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DELNETWORK') {
-        let netId = mParam(msg, 1);
+        let netId = getNetworkId(1);
 
         // Make sure the network exists
         let network = await con.userDb.getUserNetwork(con.state.authUserId, netId);
