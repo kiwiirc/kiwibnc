@@ -239,7 +239,10 @@ async function handleBouncerCommand(event) {
 
         let tags = messageTags.decode(mParam(msg, 3));
         if (tags && tags.seen) {
-            let seen = new Date(tags.seen).getTime();
+            let seen = tags.seen === '1' ?
+                Date.now() :
+                new Date(tags.seen).getTime();
+
             if (!isNaN(seen)) {
                 buffer.lastSeen = seen;
             }
@@ -295,7 +298,7 @@ async function handleBouncerCommand(event) {
             });
         } catch (err) {
             if (err.code === 'max_networks') {
-                con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_UNKNOWN', 'No more networks can be added to this account');
+                con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_MAXNETWORKS');
             } else {
                 l.error('[BOUNCER] Error adding network to user', err);
                 con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
