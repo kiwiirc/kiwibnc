@@ -120,15 +120,15 @@ const notifyLevel = {
 };
 module.exports.notifyLevel = notifyLevel;
 
-const chanModeTypes = {
+const modeTypes = {
     Unknown: -2,
-    User: -1,
+    Prefix: -1,
     A: 0,
     B: 1,
     C: 2,
     D: 3,
 }
-module.exports.chanModeTypes = chanModeTypes
+module.exports.modeTypes = modeTypes
 
 /**
  * Convert a mode string such as '+k pass', or '-i' to a readable
@@ -141,52 +141,57 @@ module.exports.chanModeTypes = chanModeTypes
  * adapted from https://github.com/kiwiirc/irc-framework/blob/59d11c3f89fe54e5f59ab82fe12e8301312833d9/src/commands/handler.js
  */
 module.exports.parseMode = parseMode;
-function parseMode(con, mode_string, mode_params) {
-    const chanmodes = (con.iSupportToken('CHANMODES') || '').split(',');
-    let prefixes = parsePrefixes(con.iSupportToken('PREFIX'));
-    let always_param = (chanmodes[0] || '').concat((chanmodes[1] || ''));
-    const modes = [];
 
-    if (!mode_string) {
-        return modes;
+function parseMode(con, target, mode_string, mode_params) {
+    const chanModes = con.iSupportToken('CHANMODES') ?
+        con.iSupportToken('CHANMODES').split(',') :
+        [];
+
+    const userModes = con.iSupportToken('USERMODES') ?
+        con.iSupportToken('USERMODES').split(',') :
+        [];
+
+    const prefixModes = parsePrefixes(con.iSupportToken('PREFIX')).map(p => p.mode);
+
+    const isChanModes = (con.iSupportToken('CHANTYPES') || '#&').includes(target[0]);
+    const possibleModes = isChanModes ? chanModes : userModes;
+    const params_always = (possibleModes[0] || '').concat(possibleModes[1] || '').split('');
+    if (isChanModes) {
+        params_always.push(...prefixModes);
     }
 
-    prefixes = _.reduce(prefixes, function(list, prefix) {
-        list.push(prefix.mode);
-        return list;
-    }, []);
-    always_param = always_param.split('').concat(prefixes);
+    const params_add = (possibleModes[2] || '').split('');
 
-    const hasParam = function(mode, isAdd) {
-        const matchMode = function(m) {
-            return m === mode;
-        };
-
-        if (_.find(always_param, matchMode)) {
+    const hasParam = (mode, isAdd) => {
+        if (params_always.includes(mode)) {
             return true;
         }
-
-        if (isAdd && _.find((chanmodes[2] || '').split(''), matchMode)) {
+        if (isAdd && params_add.includes(mode)) {
             return true;
         }
-
         return false;
     };
 
     const modeType = (mode) => {
-        if (prefixes.includes(mode)) {
-            return chanModeTypes.User;
+        if (isChanModes && prefixModes.includes(mode)) {
+            return modeTypes.Prefix;
         }
-        for (let i = 0; i < chanmodes.length; i++) {
-            if (chanmodes[i].indexOf(mode) > -1) {
+
+        if (!isChanModes && !userModes.length) {
+            return modeTypes.D;
+        }
+
+        for (let i = 0; i < possibleModes.length; i++) {
+            if (possibleModes[i].indexOf(mode) > -1) {
                 return i;
             }
         }
-        return chanModeTypes.Unknown;
+        return modeTypes.Unknown;
     };
 
-    let add;
-    let j = 0;
+    const modes = [];
+    let add = false;
+    let paramsIdx = 0;
     for (let i = 0; i < mode_string.length; i++) {
         switch (mode_string[i]) {
         case '+':
@@ -196,16 +201,21 @@ function parseMode(con, mode_string, mode_params) {
             add = false;
             break;
         default:
+            const prefix = add ? '+' : '-';
             if (hasParam(mode_string[i], add)) {
-                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: mode_params[j], type: modeType(mode_string[i]) });
-                j++;
+                modes.push({ mode: prefix + mode_string[i], param: mode_params[paramsIdx], type: modeType(mode_string[i]) });
+                paramsIdx++;
             } else {
-                modes.push({ mode: (add ? '+' : '-') + mode_string[i], param: null, type: modeType(mode_string[i]) });
+                modes.push({ mode: prefix + mode_string[i], param: null, type: modeType(mode_string[i]) });
             }
         }
     }
 
-    return modes;
+    return {
+        isChannel: isChanModes,
+        target: target,
+        modes: modes,
+    }
 }
 
 module.exports.getModesStatus = getModesStatus;

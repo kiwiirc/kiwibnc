@@ -136,6 +136,7 @@ class ConnectionState {
         this.isupports = [];
         this.caps = new Set();
         this.buffers = Object.create(null);
+        this.userModes = Object.create(null);
         this.nick = 'unknown-user';
         this.account = '';
         this.username = 'user';
@@ -419,6 +420,14 @@ class ConnectionState {
         this.buffers[newName.toLowerCase()] = oldBuffer;
 
         return oldBuffer;
+    }
+
+    updateUserModes(mode) {
+        if (mode.mode[0] === '+') {
+            this.userModes[mode.mode[1]] = null;
+        } else {
+            delete this.userModes[mode.mode[1]];
+        }
     }
 
     linkIncomingConnection(id) {
