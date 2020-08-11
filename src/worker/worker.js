@@ -32,6 +32,7 @@ async function run() {
     });
 
     initWebserver(app);
+    initStatus(app);
     initExtensions(app);
     broadcastStats(app);
     listenToQueue(app);
@@ -306,6 +307,80 @@ async function initWebserver(app) {
         app.webserver.listen(sockPath);
         l.debug(`Webserver running`);
     }
+}
+
+async function initStatus(app) {
+    if (!app.conf.get('webserver.status_enabled', true)) {
+        return;
+    }
+
+    const router = app.webserver.router;
+
+    router.get('status', '/status', statusAuth, async (ctx, next) => {
+        const cons = app.cons;
+        const conTypes = ['outgoing', 'incoming', 'server'];
+        ctx.response.body = '';
+        cons.map.forEach((con, key) => {
+            const columns = [];
+            columns.push(key);
+            columns.push(conTypes[con.state.type]);
+            columns.push(con.state.host + ':' + con.state.port);
+            columns.push(con.state.authUserId);
+            ctx.response.body += columns.join(',') + '\n';
+        });
+
+        ctx.response.status = 200;
+    });
+
+    router.get('status.con', '/status/:con_id', statusAuth, async (ctx, next) => {
+        const cons = app.cons;
+        const con = cons.get(ctx.params.con_id);
+        if (!con) {
+            ctx.response.status = 404;
+            return;
+        }
+
+        const ignoreKeys = ['db'];
+        const lastKeys = ['isupports', 'registrationLines'];
+        const data = Object.create(null);
+        Object.entries(con.state).forEach(([k, v]) => {
+            if (ignoreKeys.includes(k)) {
+                return;
+            }
+            if (k === 'sasl') {
+                data.sasl = {}
+                data.sasl.account = v.account;
+                data.sasl.password = !!v.password;
+                return;
+            }
+            data[k] = v;
+        });
+
+        ctx.response.body = JSON.stringify(data, Object.keys(data).sort(
+            // Sort so lastKeys are at the end to make it more user readable
+            (a, b) => {
+                if (lastKeys.includes(a) && lastKeys.includes(b)) {
+                    return lastKeys.indexOf(a) > lastKeys.indexOf(b) ? 1 : -1;
+                }
+                if (lastKeys.includes(a)) {
+                    return 1;
+                }
+                if (lastKeys.includes(b)) {
+                    return -1;
+                }
+                return a.localeCompare(b);
+            }
+        ), 4);
+        ctx.response.status = 200;
+    });
+}
+
+async function statusAuth(ctx, next, role, redirect) {
+    const allowed = app.conf.get('webserver.status_allowed_hosts', ['127.0.0.1']);
+    if (allowed.includes(ctx.request.header['x-forwarded-for'])) {
+        return await next();
+    }
+    ctx.response.status = 401;
 }
 
 module.exports = run();
