@@ -29,9 +29,11 @@ module.exports = class SocketServer extends EventEmitter {
             }
 
             proxy.on('proxyReq', (proxyReq, req, res, options) => {
-                proxyReq.setHeader('X-Forwarded-For', req.connection.remoteAddress || req.socket.remoteAddress);
-                proxyReq.setHeader('X-Forwarded-Port', req.connection.localPort || req.headers.host.split(':')[1]);
-                proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+                proxyReq.setHeader('X-Forwarded-For', req.connection.remoteAddress || req.socket.remoteAddress || '');
+                proxyReq.setHeader('X-Forwarded-Host', req.headers.host || '');
+                proxyReq.setHeader('X-Forwarded-Port',
+                    req.connection.localPort || req.headers.host ? req.headers.host.split(':')[1] : ''
+                );
                 proxyReq.setHeader('X-Forwarded-Proto',
                     (req.isSpdy || req.connection.encrypted || req.connection.pair) ? 'https' : 'http'
                 );
