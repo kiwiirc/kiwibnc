@@ -13,7 +13,6 @@ const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
 const { parseBindString } = require('../libs/helpers');
-const { last } = require('lodash');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
@@ -251,7 +250,7 @@ async function loadConnections(app) {
         if (row.type === ConnectionDict.TYPE_INCOMING) {
             app.cons.loadFromId(row.conid, row.type);
         } else if (row.type === ConnectionDict.TYPE_OUTGOING) {
-            let con = await app.cons.loadFromId(row.conid, row.type);            
+            let con = await app.cons.loadFromId(row.conid, row.type);
             if (con.state.connected) {
                 con.open();
             }
@@ -287,8 +286,8 @@ async function initWebserver(app) {
     app.webserver.proxy = true;
     app.webserver.context.basePath = basePath;
 
-	let router = app.webserver.router = new KoaRouter({
-        prefix: basePath, 
+    let router = app.webserver.router = new KoaRouter({
+        prefix: basePath,
     });
 
     app.webserver.use(koaBody({ multipart: true }));
@@ -299,7 +298,7 @@ async function initWebserver(app) {
     app.webserver.use(KoaMount(basePath || '/', staticServ));
 
     let sockPath = app.conf.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
-    if (app.conf.get('webserver.enabled') && sockPath) {  
+    if (app.conf.get('webserver.enabled') && sockPath) {
         try {
             // Make sure the socket doesn't already exist
             fs.unlinkSync(sockPath);
