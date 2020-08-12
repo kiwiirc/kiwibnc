@@ -6,6 +6,7 @@ const koaStatic = require('koa-static');
 const KoaRouter = require('@koa/router');
 const KoaMount = require('koa-mount');
 const koaBody = require('koa-body');
+const IpCidr = require("ip-cidr");
 const MessageStores = require('./messagestores/');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
@@ -19,7 +20,6 @@ async function run() {
     await app.initDatabase();
     global.config = app.conf;
 
-
     app.messages = new MessageStores(app.conf);
     await app.messages.init();
 
@@ -32,6 +32,7 @@ async function run() {
     });
 
     initWebserver(app);
+    initStatus(app);
     initExtensions(app);
     broadcastStats(app);
     listenToQueue(app);
@@ -282,6 +283,7 @@ async function initWebserver(app) {
     }
 
     app.webserver = new Koa();
+    app.webserver.proxy = true;
     app.webserver.context.basePath = basePath;
 
     let router = app.webserver.router = new KoaRouter({
@@ -298,8 +300,8 @@ async function initWebserver(app) {
     const defaultSockPath = process.platform === "win32" ?
         '\\\\.\\pipe\\kiwibnc_httpd.sock' :
         '/tmp/kiwibnc_httpd.sock';
-
     let sockPath = app.conf.get('webserver.bind_socket', defaultSockPath);
+
     if (app.conf.get('webserver.enabled') && sockPath) {
         try {
             // Make sure the socket doesn't already exist
@@ -310,6 +312,100 @@ async function initWebserver(app) {
         app.webserver.listen(sockPath);
         l.debug(`Webserver running`);
     }
+}
+
+async function initStatus(app) {
+    if (!app.conf.get('webserver.status_enabled', true)) {
+        return;
+    }
+
+    // Trim any trailing slashes from the status URL path
+    const statusPath = app.conf.get('webserver.status_path', '/status').replace(/\/$/, '');
+    const router = app.webserver.router;
+
+    router.get('status', statusPath, statusAuth, async (ctx) => {
+        ctx.body = '<a href="connections">Connections</a>';
+    });
+
+    router.get('status', statusPath + '/connections', statusAuth, async (ctx) => {
+        const cons = app.cons;
+        const conTypes = ['outgoing', 'incoming', 'server'];
+        ctx.response.body = '';
+        cons.map.forEach((con, key) => {
+            const columns = [];
+            columns.push(key);
+            columns.push(conTypes[con.state.type]);
+            columns.push(con.state.host + ':' + con.state.port);
+            columns.push(con.state.authUserId);
+            ctx.response.body += columns.join(',') + '\n';
+        });
+
+        ctx.response.status = 200;
+    });
+
+    router.get('status.con', statusPath + '/connections/:con_id', statusAuth, async (ctx) => {
+        const cons = app.cons;
+        const con = cons.get(ctx.params.con_id);
+        if (!con) {
+            ctx.response.status = 404;
+            return;
+        }
+
+        const ignoreKeys = ['db'];
+        const lastKeys = ['isupports', 'registrationLines'];
+        const data = Object.create(null);
+        Object.entries(con.state).forEach(([k, v]) => {
+            if (ignoreKeys.includes(k)) {
+                return;
+            }
+            if (k === 'sasl') {
+                data.sasl = {}
+                data.sasl.account = v.account;
+                // Don't reveal the password, just a bool if there is one
+                data.sasl.password = v.password !== '';
+                return;
+            }
+            if (k === 'password') {
+                // Don't reveal the password, just a bool if there is one
+                data.password = v !== '';
+                return;
+            }
+            data[k] = v;
+        });
+
+        ctx.response.body = JSON.stringify(data, Object.keys(data).sort(
+            // Sort so lastKeys are at the end to make it more user readable
+            (a, b) => {
+                if (lastKeys.includes(a) && lastKeys.includes(b)) {
+                    return lastKeys.indexOf(a) > lastKeys.indexOf(b) ? 1 : -1;
+                }
+                if (lastKeys.includes(a)) {
+                    return 1;
+                }
+                if (lastKeys.includes(b)) {
+                    return -1;
+                }
+                return a.localeCompare(b);
+            }
+        ), 4);
+        ctx.response.status = 200;
+    });
+}
+
+async function statusAuth(ctx, next, role, redirect) {
+    const allowed = global.config.get('webserver.status_allowed_hosts', ['127.0.0.1/8']);
+
+    for (let i = 0; i < allowed.length; i++) {
+        const cidr = new IpCidr(allowed[i]);
+        if (!cidr.isValid()) {
+            l.error('CIDR is invalid:', allowed[i]);
+            continue;
+        }
+        if (cidr.contains(ctx.ip)) {
+            return await next();
+        }
+    }
+    ctx.response.status = 401;
 }
 
 module.exports = run();
