@@ -6,19 +6,20 @@ const koaStatic = require('koa-static');
 const KoaRouter = require('@koa/router');
 const KoaMount = require('koa-mount');
 const koaBody = require('koa-body');
+const IpCidr = require("ip-cidr");
 const MessageStores = require('./messagestores/');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
 const { parseBindString } = require('../libs/helpers');
+const { last } = require('lodash');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
     await app.initQueue('worker');
     await app.initDatabase();
     global.config = app.conf;
-
 
     app.messages = new MessageStores(app.conf);
     await app.messages.init();
@@ -283,6 +284,7 @@ async function initWebserver(app) {
     }
 
     app.webserver = new Koa();
+    app.webserver.proxy = true;
     app.webserver.context.basePath = basePath;
 
 	let router = app.webserver.router = new KoaRouter({
@@ -314,9 +316,10 @@ async function initStatus(app) {
         return;
     }
 
+    const statusPath = app.conf.get('webserver.status_path', '/status');
     const router = app.webserver.router;
 
-    router.get('status', '/status', statusAuth, async (ctx, next) => {
+    router.get('status', statusPath, statusAuth, async (ctx, next) => {
         const cons = app.cons;
         const conTypes = ['outgoing', 'incoming', 'server'];
         ctx.response.body = '';
@@ -332,7 +335,7 @@ async function initStatus(app) {
         ctx.response.status = 200;
     });
 
-    router.get('status.con', '/status/:con_id', statusAuth, async (ctx, next) => {
+    router.get('status.con', statusPath + '/:con_id', statusAuth, async (ctx, next) => {
         const cons = app.cons;
         const con = cons.get(ctx.params.con_id);
         if (!con) {
@@ -376,9 +379,17 @@ async function initStatus(app) {
 }
 
 async function statusAuth(ctx, next, role, redirect) {
-    const allowed = app.conf.get('webserver.status_allowed_hosts', ['127.0.0.1']);
-    if (allowed.includes(ctx.request.header['x-forwarded-for'])) {
-        return await next();
+    const allowed = global.config.get('webserver.status_allowed_hosts', ['127.0.0.1/8']);
+
+    for (let i = 0; i < allowed.length; i++) {
+        const cidr = new IpCidr(allowed[i]);
+        if (!cidr.isValid()) {
+            l.error('CIDR is invalid:', allowed[i]);
+            continue;
+        }
+        if (cidr.contains(ctx.ip)) {
+            return await next();
+        }
     }
     ctx.response.status = 401;
 }
