@@ -17,8 +17,14 @@ const { parseBindString } = require('../libs/helpers');
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
     await app.initQueue('worker');
-    await app.initDatabase();
     global.config = app.conf;
+
+    try {
+        await initDatabase(app);
+    } catch (err) {
+        l.error('Error connecting to the database.', err.message);
+        process.exit(1);
+    }
 
     app.messages = new MessageStores(app.conf);
     await app.messages.init();
@@ -272,6 +278,21 @@ async function loadConnections(app) {
             });
         }
     });
+}
+
+// Connect to the database, logging warnings if it takes too long
+async function initDatabase(app) {
+    let dbConnectTmr = setInterval(() => {
+        l.warn('Waiting for the database connection...');
+    }, 5000);
+
+    try {
+        await app.initDatabase();
+        clearInterval(dbConnectTmr);
+    } catch (err) {
+        clearInterval(dbConnectTmr);
+        throw err;
+    }
 }
 
 async function initWebserver(app) {
