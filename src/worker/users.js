@@ -33,7 +33,7 @@ class Users {
             if (!row) {
                 return ret;
             }
-            
+
             if (comparePass) {
                 let correctHash = await bcrypt.compare(password, row._pass);
                 if (!correctHash) {
@@ -66,7 +66,7 @@ class Users {
 
         if (tokens.isUserToken(password)) {
             checkPass = false;
-            query.innerJoin('user_tokens', 'user_tokens.user_id', 'user_networks.user_id');
+            query.innerJoin('user_tokens', 'user_tokens.user_id', 'users.id');
             query.where('user_tokens.token', password);
         }
 
@@ -190,7 +190,7 @@ class Users {
         if (maxNetworks > -1) {
             let nets = await this.db.factories.Network.query()
                 .where('user_id', userId);
-            
+
             if (nets.length >= maxNetworks) {
                 throw new BncError('UserError', 'max_networks', 'Max number of networks reached for user');
             }
