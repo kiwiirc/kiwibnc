@@ -19,7 +19,7 @@ module.exports = class Database {
         let usersDbCon = {
 			client: 'sqlite3',
             connection: null,
-            pool: { propagateCreateError: false },
+            acquireConnectionTimeout: 10000,
         };
         if (usersConStr.indexOf('postgres://') > -1) {
             // postgres://someuser:somepassword@somehost:381/somedatabase
@@ -38,6 +38,7 @@ module.exports = class Database {
             usersDbCon.client = 'sqlite3';
             usersDbCon.useNullAsDefault = true;
             usersDbCon.connection = { filename: config.relativePath(usersConStr) };
+            usersDbCon.pool = { propagateCreateError: false };
         }
 
         this.dbUsers = knex(usersDbCon);
