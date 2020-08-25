@@ -1,4 +1,4 @@
-const { mParam, mParamU, parseMask, chanModeTypes, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, modeTypes, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const msgIdGenerator = require('../libs/msgIdGenerator');
 const hooks = require('./hooks');
 
@@ -542,25 +542,24 @@ commands['366'] = async function(msg, con) {
 };
 
 commands.MODE = async function(msg, con) {
-    const raw_modes = msg.params[1];
-    const raw_params = msg.params.slice(2);
+    const parsedModes = parseMode(con, msg.params[0], msg.params[1], msg.params.slice(2));
 
-    let buffer = con.state.getBuffer(msg.params[0]);
+    const buffer = con.state.getBuffer(parsedModes.target);
 
-    if (!buffer) {
+    if (parsedModes.isChannel && !buffer) {
         return;
     }
 
     let updateStatus = false;
-    const parsedModes = parseMode(con, raw_modes, raw_params);
-    parsedModes.forEach((m) => {
-        if (m.type === chanModeTypes.A || m.type === chanModeTypes.Unknown) {
+
+    parsedModes.modes.forEach((m) => {
+        if (m.type === modeTypes.A || m.type === modeTypes.Unknown) {
             // Skip list based type A channel modes like +b
             // Skip unknown type modes
             return;
         }
 
-        if (m.type === chanModeTypes.User) {
+        if (m.type === modeTypes.Prefix) {
             // Update user prefixes like adding @ for +o
             let lcNick = (m.param || '').toLowerCase();
             let user = buffer.users[lcNick];
@@ -572,12 +571,16 @@ commands.MODE = async function(msg, con) {
             return;
         }
 
-        // Update channel modes like +p
-        buffer.updateChanModes(m);
+        if (parsedModes.isChannel) {
+            // Update channel modes like +p
+            buffer.updateChanModes(m);
 
-        if (['p', 's'].includes(m.mode[1])) {
-            // Only update buffer status if modes p or s changed
-            updateStatus = true;
+            if (['p', 's'].includes(m.mode[1])) {
+                // Only update buffer status if modes p or s changed
+                updateStatus = true;
+            }
+        } else {
+            con.state.updateUserModes(m);
         }
     });
 
@@ -594,9 +597,9 @@ commands['324'] = async function(msg, con) {
         return;
     }
 
-    const parsedModes = parseMode(con, msg.params[2], msg.params.slice(3));
-    parsedModes.forEach((m) => {
-        if (m.type <= chanModeTypes.A) {
+    const parsedModes = parseMode(con, msg.params[1], msg.params[2], msg.params.slice(3));
+    parsedModes.modes.forEach((m) => {
+        if (m.type <= modeTypes.A) {
             // Skip unwanted type A channel modes (0)
             // These are list based modes like +b
             return;
