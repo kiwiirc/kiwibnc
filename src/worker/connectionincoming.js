@@ -231,6 +231,10 @@ class ConnectionIncoming {
             this.writeMsgFrom(upstream.state.serverPrefix, '900', nick, `${nick}!${username}@${host}`, account, `You are now logged in as ${account}`);
         }
 
+        if (Object.keys(upstream.state.userModes).length > 0) {
+            this.writeMsgFrom(upstream.state.serverPrefix, 'MODE', nick, '+' + Object.keys(upstream.state.userModes).join(''));
+        }
+
         this.state.netRegistered = true;
 
         // If the client supports BOUNCER commands, it will request a buffer list
