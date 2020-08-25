@@ -13,7 +13,7 @@
                 ></input-text>
                 <input-text
                     v-model="password"
-                    :show-plain-text="true"z
+                    :show-plain-text="true"
                     :label="$t('password')"
                     :disabled="loading"
                     type="password"
@@ -137,7 +137,6 @@
         const StartupLayout = kiwi.require('components/startups/CommonLayout');
         const BouncerProvider = kiwi.require('libs/BouncerProvider');
         const Misc = kiwi.require('helpers/Misc');
-        const tokenRegex = /(__t1\S+)(\s|$)/;
 
         let adminToken = '';
 
@@ -154,6 +153,7 @@
                     username: '',
                     password: '',
                     remember: false,
+                    tokenLogin: false,
                 };
             },
             computed: {
@@ -211,6 +211,8 @@
                 if (username && token) {
                     this.username = username;
                     this.password = token;
+                    this.remember = true;
+                    this.tokenLogin = true;
                     this.startUp();
                 }
             },
@@ -248,6 +250,7 @@
                     // new connection.
                     net.serverBuffer().clearMessages();
 
+                    net.connection.nick = this.username;
                     net.connection.password = `${this.username}:${this.password}`;
                     net.password = '';
 
@@ -256,6 +259,16 @@
                     // auto login support
                     if (this.remember) {
                         this.$state.$once('irc.bouncer networks', this.requestUserToken);
+                    } else {
+                        const username = this.$state.setting('bnc_username');
+                        const token = this.$state.setting('bnc_token');
+                        if (username || token) {
+                            // Clear out potentially invalid tokens when logging in manually
+                            this.$once('start', () => {
+                                this.$state.setting('bnc_username', null);
+                                this.$state.setting('bnc_token', null);
+                            });
+                        }
                     }
 
                     net.ircClient.connect();
@@ -267,6 +280,20 @@
                         net.ircClient.off('close', onClosed);
                     };
                     const onClosed = () => {
+                        this.loading = false;
+                        this.errorMessage = net.last_error ||
+                            Misc.networkErrorMessage(net.state_error);
+                        if (this.password.indexOf('__t1') === 0) {
+                            // Connect failed clear out the token
+                            this.password = '';
+                            this.remember = false;
+                            this.tokenLogin = false;
+                            const passBox = this.$el.querySelector('input[type="password"]');
+                            if (passBox) {
+                                passBox.focus();
+                            }
+                        }
+                        this.$state.$off('irc.bouncer networks', this.requestUserToken);
                         net.ircClient.off('registered', onRegistered);
                         net.ircClient.off('close', onClosed);
                     };
@@ -294,6 +321,7 @@
                                 return;
                             }
 
+                            this.remember = false;
                             this.startUp();
                         })
                         // eslint-disable-next-line handle-callback-err
@@ -335,24 +363,26 @@
                     return connectOptions;
                 },
                 requestUserToken(event, network) {
-                    if (network.is_bnc && !network.connection.bncnetid) {
-                        const userToken = this.$state.setting('bnc_token');
-                        if (!userToken) {
-                            network.ircClient.say('*bnc', 'addtoken');
-                        }
+                    if (!network.is_bnc || network.connection.bncnetid) {
+                        return;
+                    }
+
+                    if (this.tokenLogin) {
+                        network.ircClient.say('*bnc', `changetoken ${this.password} 7d`);
+                    } else {
                         this.$state.$on('irc.message', this.receiveUserToken);
+                        network.ircClient.say('*bnc', 'addtoken 7d webchat');
                     }
                 },
                 receiveUserToken(event, network) {
                     if (event.nick !== '*bnc') {
                         return;
                     }
-                    const matches = event.message.match(tokenRegex);
-                    if (!matches) {
+                    if (!event.tags['+auth_token']) {
                         return;
                     }
-                    const token = matches[1];
 
+                    const token = event.tags['+auth_token'];
                     // State peristance is not currently ready. set our username/token when it is
                     // start is emitted from CommonLayout.vue
                     this.$once('start', () => {

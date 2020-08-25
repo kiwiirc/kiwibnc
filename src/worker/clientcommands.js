@@ -137,7 +137,7 @@ async function maybeProcessRegistration(con) {
         con.state.authAdmin = auth.user && !!auth.user.admin;
     } else {
         // Logging into a user only mode (no attached network)
-        let user = await con.userDb.authUser(username, password);
+        let user = await con.userDb.authUser(username, password, con.state.host);
         if (!user) {
             await con.writeMsg('ERROR', 'Invalid password');
             con.close();

@@ -12,7 +12,7 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
-const { parseBindString } = require('../libs/helpers');
+const { parseBindString, now } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
@@ -40,6 +40,7 @@ async function run() {
     initWebserver(app);
     initStatus(app);
     initExtensions(app);
+    initUserTokenExpirer(app);
     broadcastStats(app);
     listenToQueue(app);
 
@@ -91,6 +92,10 @@ function broadcastStats(app) {
 function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
+    if (app.userTokenExpirer) {
+        clearTimeout(app.userTokenExpirer);
+        app.userTokenExpirer = null;
+    }
     app.queue.stopListening().then(process.exit);
 }
 
@@ -333,6 +338,14 @@ async function initWebserver(app) {
         app.webserver.listen(sockPath);
         l.debug(`Webserver running`);
     }
+}
+
+async function initUserTokenExpirer(app) {
+    const expirer = async () => {
+        await app.db.users.expireUserTokens();
+        app.userTokenExpirer = setTimeout(expirer, 3600000);
+    }
+    expirer();
 }
 
 async function initStatus(app) {

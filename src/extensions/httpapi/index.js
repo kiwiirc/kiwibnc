@@ -1,9 +1,9 @@
 /**
  * Adds a /httpapi endpoint to the webserver
- * 
+ *
  * Clients know if it is available via a 'kiwibnc/httpapi' supports token.
  * Requests must include a "Authorization: Bearer token" header where the token is a user token
- * 
+ *
  * Example requests:
  * /httpapi?command=sendmessage&networkid=1&target=%23channel&message=a+reply+to+your+message
  * /httpapi?command=logout
@@ -22,7 +22,7 @@ module.exports.init = async function init(hooks, app) {
             return;
         }
 
-        let user = await app.userDb.authUserToken(token);
+        let user = await app.userDb.authUserToken(token, ctx.ip);
         if (!user) {
             ctx.response.status = 401;
             return;

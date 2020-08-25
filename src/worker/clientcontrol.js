@@ -1,3 +1,5 @@
+const ParseDuration = require('parse-duration');
+
 let commands = Object.create(null);
 
 // Process a message sent to *bnc to control the users account and the bnc itself
@@ -432,12 +434,39 @@ commands.SETPASS = async function(input, con, msg) {
 };
 
 commands.ADDTOKEN = async function(input, con, msg) {
+    const parts = input.split(' ');
+    const duration = parts[0] === '0' ? 0 : ParseDuration(parts[0], 'sec');
+    const comment = duration === null ? input : parts.slice(1).join(' ');
+
     try {
-        let token = await con.userDb.generateUserToken(con.state.authUserId);
-        con.writeStatus('Created new token for your account. You can use it in place of your password: ' + token);
+        let token = await con.userDb.generateUserToken(con.state.authUserId, duration, comment, con.state.host);
+        con.writeStatusWithTags(
+            'Created new token for your account. You can use it in place of your password: ' + token,
+            { '+auth_token': token }
+        );
     } catch (err) {
         l.error('Error creating user token:', err.message);
         con.writeStatus('There was an error creating a new token for your account');
+    }
+};
+
+commands.CHANGETOKEN = async function(input, con, msg) {
+    const parts = input.split(' ');
+    if (parts.length !== 2) {
+        con.writeStatus('Usage: changetoken <token> <expires>');
+        return;
+    }
+    const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
+    if (duration === null) {
+        con.writeStatus('Error parsing expires duration');
+        return;
+    }
+
+    try {
+        await con.userDb.updateUserToken(con.state.authUserId, parts[0], duration);
+    } catch (err) {
+        l.error('Error updating user token:', err.message);
+        con.writeStatus('There was an error updating the token for your account');
     }
 };
 
@@ -445,7 +474,12 @@ commands.LISTTOKENS = async function(input, con, msg) {
     try {
         let tokens = await con.userDb.getUserTokens(con.state.authUserId);
         tokens.forEach(t => {
-            con.writeStatus('Token: ' + t.token);
+            let str = 'Token: ' + t.token;
+            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString();
+            if (t.comment) {
+                str += ' Comment: ' + t.comment;
+            }
+            con.writeStatus(str);
         });
         con.writeStatus('No more tokens.');
     } catch (err) {

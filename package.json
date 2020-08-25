@@ -22,6 +22,7 @@
     "lru-cache": "^5.1.1",
     "mysql": "^2.17.1",
     "node-cleanup": "^2.1.2",
+    "parse-duration": "^0.4.4",
     "pg": "^8.3.2",
     "readline-sync": "^1.4.10",
     "request-promise": "^4.2.4",
