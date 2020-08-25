@@ -40,6 +40,33 @@ describe('libs/helpers.js', () => {
         });
     });
 
+    it('should correctly parse channel modes with a weirdly ordered mode list ', () => {
+        const con = new testCon({
+            CHANMODES: 'IXZbegw,k,FHJLWdfjlx,ABCDKMNOPQRSTcimnprstuz',
+            USERMODES: undefined,
+            CHANTYPES: '#',
+            PREFIX: '(Yohv)!@%+',
+        });
+
+        expect(
+            Helpers.parseMode(
+                con,
+                '#channel',
+                '-bl+i+b',
+                ['*@192.168.0.1', '*@8.8.8.8'],
+            )
+        ).toEqual({
+            isChannel: true,
+            target: '#channel',
+            modes: [
+                { mode: '-b', param: '*@192.168.0.1', type: Helpers.modeTypes.A },
+                { mode: '-l', param: null, type: Helpers.modeTypes.C },
+                { mode: '+i', param: null, type: Helpers.modeTypes.D },
+                { mode: '+b', param: '*@8.8.8.8', type: Helpers.modeTypes.A },
+            ],
+        });
+    });
+
     it('should correctly parse user modes without USERMODES iSupport', () => {
         const con = new testCon({
             CHANMODES: 'IXZbegw,k,FHJLWdfjlx,ABCDKMNOPQRSTcimnprstuz',
