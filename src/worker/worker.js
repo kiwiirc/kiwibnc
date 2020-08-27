@@ -40,7 +40,6 @@ async function run() {
     initWebserver(app);
     initStatus(app);
     initExtensions(app);
-    initUserTokenExpirer(app);
     broadcastStats(app);
     listenToQueue(app);
 
@@ -338,14 +337,6 @@ async function initWebserver(app) {
         app.webserver.listen(sockPath);
         l.debug(`Webserver running`);
     }
-}
-
-async function initUserTokenExpirer(app) {
-    const expirer = async () => {
-        await app.db.users.expireUserTokens();
-        app.userTokenExpirer = setTimeout(expirer, 3600000);
-    }
-    expirer();
 }
 
 async function initStatus(app) {

@@ -1,4 +1,5 @@
 const ParseDuration = require('parse-duration');
+const Tokens = require('../libs/tokens');
 
 let commands = Object.create(null);
 
@@ -452,18 +453,23 @@ commands.ADDTOKEN = async function(input, con, msg) {
 
 commands.CHANGETOKEN = async function(input, con, msg) {
     const parts = input.split(' ');
-    if (parts.length !== 2) {
-        con.writeStatus('Usage: changetoken <token> <expires>');
-        return;
-    }
-    const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
-    if (duration === null) {
-        con.writeStatus('Error parsing expires duration');
-        return;
+    const token = parts[0];
+
+    if (parts.length < 2 || !Tokens.isUserToken(token)) {
+        con.writeStatus('Usage: changetoken <token> [expires] [comment]');
+        return false;
     }
 
+    const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
+    const comment = duration === null ? parts.slice(1).join(' ') : parts.slice(2).join(' ');
+
     try {
-        await con.userDb.updateUserToken(con.state.authUserId, parts[0], duration);
+        const res = await con.userDb.updateUserToken(con.state.authUserId, token, duration, comment);
+        if (res === 1) {
+            con.writeStatus('Token changed!');
+        } else {
+            con.writeStatus('Failed to change token :(');
+        }
     } catch (err) {
         l.error('Error updating user token:', err.message);
         con.writeStatus('There was an error updating the token for your account');
@@ -475,7 +481,8 @@ commands.LISTTOKENS = async function(input, con, msg) {
         let tokens = await con.userDb.getUserTokens(con.state.authUserId);
         tokens.forEach(t => {
             let str = 'Token: ' + t.token;
-            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString();
+            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false });
+            str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false });
             if (t.comment) {
                 str += ' Comment: ' + t.comment;
             }
@@ -491,7 +498,7 @@ commands.LISTTOKENS = async function(input, con, msg) {
 commands.DELTOKEN = async function(input, con, msg) {
     let parts = input.split(' ');
     let token = parts[0] || '';
-    if (!token) {
+    if (!token || !Tokens.isUserToken(token)) {
         con.writeStatus('Usage: deltoken <token>');
         return false;
     }

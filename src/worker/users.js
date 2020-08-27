@@ -104,7 +104,9 @@ class Users {
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {
-            this.updateUserTokenAccess(user.id, token, userHost);
+            if (userHost) {
+                this.updateUserTokenAccess(user.id, token, userHost);
+            }
             return user;
         }
 
@@ -127,11 +129,24 @@ class Users {
         return token;
     }
 
-    async updateUserToken(userId, token, duration) {
+    async updateUserToken(userId, token, duration, comment) {
         const expires = duration ? Helpers.now() + duration : 0;
-        await this.db.dbUsers('user_tokens').update({
-            expires_at: expires,
-        }).where('user_id', userId).where('token', token);
+        const updateObj = Object.create(null);
+
+        if (duration !== null) {
+            updateObj.expires_at = expires;
+        }
+        if (comment) {
+            updateObj.comment = comment;
+        }
+        if (!Object.keys(updateObj).length) {
+            return 0;
+        }
+
+        return await this.db.dbUsers('user_tokens')
+        .update(updateObj)
+        .where('user_id', userId)
+        .where('token', token);
     }
 
     async updateUserTokenAccess(userId, token, userHost) {
@@ -250,13 +265,6 @@ class Users {
 
         await network.save();
         return network;
-    }
-
-    async expireUserTokens() {
-        return this.db.dbUsers('user_tokens')
-        .where('expires_at', '>', 0)
-        .where('expires_at', '<=', Helpers.now())
-        .delete();
     }
 }
 
