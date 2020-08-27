@@ -109,5 +109,14 @@ describe('sockets/socketserver.js', () => {
             'X-Forwarded-Proto': 'https'
         });
 
+        // browser[172.28.192.1] > kiwibnc[port 78]
+        expect(
+            server.buildXHeaders(mockRequest('172.28.192.1', 'https://kiwibnc.com:78/'))
+        ).toEqual({
+            'X-Forwarded-For': '172.28.192.1',
+            'X-Forwarded-Host': 'kiwibnc.com',
+            'X-Forwarded-Port': '78',
+            'X-Forwarded-Proto': 'https'
+        });
     });
 });
