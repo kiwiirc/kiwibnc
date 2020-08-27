@@ -177,9 +177,16 @@ module.exports = class SocketServer extends EventEmitter {
 
         ['For', 'Port', 'Proto'].forEach((key) => {
             const xfw = req.headers['x-forwarded-' + key.toLowerCase()];
-            const val = trusted ?
-                (xfw ? xfw + ', ' + xForwarded[key] : xFallback[key]) :
-                xForwarded[key];
+            let val = '';
+            if (trusted && key === 'For') {
+                // x-forwarded-for values get appended
+                val = xfw ? xfw + ', ' + xForwarded[key] : xFallback[key];
+            } else if (trusted) {
+                val = xfw ? xfw : xFallback[key];
+            } else {
+                val = xForwarded[key];
+            }
+
             if (val) {
                 xHeaders['X-Forwarded-' + key] = val;
             }
