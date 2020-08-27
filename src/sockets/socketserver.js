@@ -4,6 +4,7 @@ const { EventEmitter } = require('events');
 const http = require('http');
 const httpProxy = require('http-proxy');
 const WebSocket = require('ws');
+const IpCidr = require("ip-cidr");
 
 module.exports = class SocketServer extends EventEmitter {
     constructor(conId, queue, conf) {
@@ -13,6 +14,17 @@ module.exports = class SocketServer extends EventEmitter {
         this.id = conId;
         this.type = 3;
         this.server = null;
+        this.upstreamProxies = [];
+
+        const proxyCidrStrings = this.appConfig.get('webserver.upstream_proxies', ['127.0.0.1/8']);
+        proxyCidrStrings.forEach((str) => {
+            const cidr = new IpCidr(str);
+            if (!cidr.isValid()) {
+                l.error('webserver.upstream_proxies CIDR is invalid:', str);
+                return;
+            }
+            this.upstreamProxies.push(cidr);
+        });
     }
 
     bindSocketEvents() {
@@ -29,14 +41,10 @@ module.exports = class SocketServer extends EventEmitter {
             }
 
             proxy.on('proxyReq', (proxyReq, req, res, options) => {
-                proxyReq.setHeader('X-Forwarded-For', req.connection.remoteAddress || req.socket.remoteAddress || '');
-                proxyReq.setHeader('X-Forwarded-Host', req.headers.host || '');
-                proxyReq.setHeader('X-Forwarded-Port',
-                    req.connection.localPort || req.headers.host ? (req.headers.host.split(':')[1] || '') : ''
-                );
-                proxyReq.setHeader('X-Forwarded-Proto',
-                    (req.isSpdy || req.connection.encrypted || req.connection.pair) ? 'https' : 'http'
-                );
+                const headers = this.buildXHeaders(req);
+                Object.entries(headers).forEach(([key, val]) => {
+                    proxyReq.setHeader(key, val);
+                });
             });
 
             // Reverse proxy this HTTP request to the unix socket where the worker
@@ -133,6 +141,73 @@ module.exports = class SocketServer extends EventEmitter {
 
     close() {
         this.server.close();
+    }
+
+    buildXHeaders(req) {
+        // console.log({
+        //     'req.connection.remoteAddress': req.connection.remoteAddress,
+        //     'req.socket.remoteAddress': req.socket.remoteAddress,
+        //     'req.isSpdy': req.isSpdy,
+        //     'req.connection.encrypted': req.connection.encrypted,
+        //     'req.connection.pair': req.connection.pair,
+        //     'req.connection.localPort': req.connection.localPort,
+        //     'req.headers.host': req.headers.host,
+        //     'req.headers.x-forwarded-for': req.headers['x-forwarded-for'],
+        //     'req.headers.x-forwarded-host': req.headers['x-forwarded-host'],
+        //     'req.headers.x-forwarded-port': req.headers['x-forwarded-port'],
+        //     'req.headers.x-forwarded-proto': req.headers['x-forwarded-proto'],
+        // });
+        const conAddr = req.connection.remoteAddress || req.socket.remoteAddress || '';
+        const conProto = (req.isSpdy || req.connection.encrypted || req.connection.pair) ? 'https' : 'http';
+        const splitHost = req.headers.host ? req.headers.host.split(':') : [];
+        const trusted = this.validateUpstreamProxy(conAddr);
+
+        const xForwarded = {
+            For: req.connection.remoteAddress || req.socket.remoteAddress,
+            Host: splitHost[0],
+            Port: req.connection.localPort || splitHost[1],
+            Proto: conProto,
+        };
+
+        const xFallback = {
+            For: '0.0.0.0',
+        };
+
+        const xHeaders = Object.create(null);
+
+        ['For', 'Port', 'Proto'].forEach((key) => {
+            const xfw = req.headers['x-forwarded-' + key.toLowerCase()];
+            let val = '';
+            if (trusted && key === 'For') {
+                // x-forwarded-for values get appended
+                val = xfw ? xfw + ', ' + xForwarded[key] : xFallback[key];
+            } else if (trusted) {
+                val = xfw ? xfw : xFallback[key];
+            } else {
+                val = xForwarded[key];
+            }
+
+            if (val) {
+                xHeaders['X-Forwarded-' + key] = val;
+            }
+        });
+
+        const xHost = trusted ?
+        req.headers['x-forwarded-host'] :
+        xForwarded['Host'];
+        if (xHost) {
+            xHeaders['X-Forwarded-Host'] = xHost;
+        }
+        return xHeaders;
+    }
+
+    validateUpstreamProxy(host) {
+        for (let i = 0; i < this.upstreamProxies.length; i++) {
+            if (this.upstreamProxies[i].contains(host)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
