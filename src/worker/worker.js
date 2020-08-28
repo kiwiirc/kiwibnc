@@ -91,10 +91,6 @@ function broadcastStats(app) {
 function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
-    if (app.userTokenExpirer) {
-        clearTimeout(app.userTokenExpirer);
-        app.userTokenExpirer = null;
-    }
     app.queue.stopListening().then(process.exit);
 }
 
