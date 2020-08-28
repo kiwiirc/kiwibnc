@@ -96,6 +96,13 @@ class ConnectionIncoming {
         return this.writeMsgFrom('*bnc', 'PRIVMSG', this.state.nick, data);
     }
 
+    writeStatusWithTags(data, tags) {
+        let m = new IrcMessage('PRIVMSG', this.state.nick, data);
+        m.prefix = '*bnc';
+        m.tags = tags;
+        return this.writeMsg(m);
+    }
+
     writeFromBnc(command, ...params) {
         return this.writeMsgFrom('*bnc', command, ...params);
     }

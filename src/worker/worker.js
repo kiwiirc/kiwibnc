@@ -12,7 +12,7 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
-const { parseBindString } = require('../libs/helpers');
+const { parseBindString, now } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
@@ -91,6 +91,10 @@ function broadcastStats(app) {
 function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
+    if (app.userTokenExpirer) {
+        clearTimeout(app.userTokenExpirer);
+        app.userTokenExpirer = null;
+    }
     app.queue.stopListening().then(process.exit);
 }
 

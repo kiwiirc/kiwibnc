@@ -1,24 +1,49 @@
-<template id="kiwibnc-register">
-    <div class="kiwibnc-register">
-        <form class="u-form u-form--big" @submit.prevent="onSubmit">
-            <h2>Create an account</h2>
-
-            <div v-if="error" class="kiwibnc-error">
-                {{ friendlyErrorMessage(error) }}
-            </div>
-
-            <input-text v-model="username" :label="'Username'"></input-text>
-            <input-text v-model="password" :label="'Password'" :type="'password'"></input-text>
-
-            <button
-                :disabled="!completedForm || loading"
-                type="submit"
-                class="u-button u-button-primary u-submit"
-            >Create my account</button>
-
-            <a @click="$emit('close', {})" class="u-link"><i class="fa fa-chevron-left"></i> I already have an account</a>
-        </form>
-    </div>
+<template id="kiwibnc-startup">
+    <startup-layout ref="layout" class="kiwibnc-startup">
+        <template v-slot:connection>
+            <form class="u-form u-form--big kiwibnc-startup-form" @submit.prevent="onSubmit">
+                <h2 v-html="greetingText"></h2>
+                <div v-if="errorMessage" class="kiwibnc-error">{{ errorMessage }}</div>
+                <input-text
+                    v-model="username"
+                    v-focus
+                    :label="$t('username')"
+                    :disabled="loading"
+                    type="text"
+                ></input-text>
+                <input-text
+                    v-model="password"
+                    :show-plain-text="true"
+                    :label="$t('password')"
+                    :disabled="loading"
+                    type="password"
+                ></input-text>
+                <label v-if="showRemember">
+                    <input v-model="remember" type="checkbox">
+                    <span>Remember me</span>
+                </label>
+                <button
+                    :disabled="loading || !username || !password"
+                    type="submit"
+                    class="u-button u-button-primary u-submit"
+                >
+                    <span v-if="!loading" v-html="buttonText"></span>s
+                    <i v-else class="fa fa-spinner fa-spin" aria-hidden="true" ></i>
+                </button>
+                <div @click="showLogin=!showLogin">
+                    <span v-if="showLogin">
+                        <a class="u-link">Create an account</a>
+                    </span>
+                    <span v-else>
+                        <a class="u-link">
+                            <i class="fa fa-chevron-left"></i> I already have an account
+                        </a>
+                    </span>
+                </div>
+                <div v-html="footerText"></div>
+            </form>
+        </template>
+    </startup-layout>
 </template>
 
 <template id="kiwibnc-admin">
@@ -107,64 +132,206 @@
 
 <script>
     kiwi.plugin('kiwibnc', function(kiwi, log) {
-        let basePath = kiwi.state.settings.plugins.find(p => p.name === 'kiwibnc').basePath;
-        let adminToken = '';
-        let InputText = kiwi.require('components/utils/InputText');
+        const basePath = kiwi.state.settings.plugins.find(p => p.name === 'kiwibnc').basePath;
+        const InputText = kiwi.require('components/utils/InputText');
+        const StartupLayout = kiwi.require('components/startups/CommonLayout');
+        const BouncerProvider = kiwi.require('libs/BouncerProvider');
+        const Misc = kiwi.require('helpers/Misc');
 
-        let RegisterScreen = {
+        let adminToken = '';
+
+        const startupScreen = {
             components: {
-                InputText: InputText,
+                StartupLayout,
             },
-            template: '#kiwibnc-register',
-            computed: {
-                completedForm: function() {
-                    return this.username && this.password;
-                },
-            },
-            data: function() {
+            data() {
                 return {
+                    errorMessage: '',
+                    network: null,
+                    loading: false,
+                    showLogin: true,
                     username: '',
                     password: '',
-                    loading: false,
-                    error: '',
+                    remember: false,
+                    tokenLogin: false,
                 };
             },
+            computed: {
+                greetingText() {
+                    if (!this.showLogin) {
+                        return 'Create an account';
+                    }
+
+                    const greeting = this.$state.settings.startupOptions.greetingText;
+                    return typeof greeting === 'string' ?
+                        greeting :
+                        // TODO translation
+                        'new KiwiBNC Login';
+                },
+                footerText: function footerText() {
+                    const footer = this.$state.settings.startupOptions.footerText;
+                    return typeof footer === 'string' ?
+                        footer :
+                        '';
+                },
+                buttonText() {
+                    if (this.loading) {
+                        return '';
+                    }
+
+                    if (!this.showLogin) {
+                        return 'Create my account';
+                    }
+
+                    const buttonText = this.$state.settings.startupOptions.buttonText;
+                    return typeof buttonText === 'string' ?
+                        buttonText :
+                        // TODO translation
+                        'Login';
+                },
+                showRemember() {
+                    const options = this.$state.settings.startupOptions;
+                    return this.showLogin && options.state_key && !options.hideRemember;
+                },
+            },
+            created() {
+                const connectOptions = this.connectOptions();
+                const bouncer = new BouncerProvider(this.$state);
+                bouncer.enable(
+                    connectOptions.hostname,
+                    connectOptions.port,
+                    connectOptions.tls,
+                    connectOptions.direct,
+                    connectOptions.direct_path
+                );
+            },
+            mounted() {
+                const username = this.$state.setting('bnc_username');
+                const token = this.$state.setting('bnc_token');
+                if (username && token) {
+                    this.username = username;
+                    this.password = token;
+                    this.remember = true;
+                    this.tokenLogin = true;
+                    this.startUp();
+                }
+            },
             methods: {
+                init() {
+                    let options = this.$state.settings.startupOptions;
+                    options.remember_buffers = false;
+                },
                 onSubmit() {
-                    var data = new FormData();
+                    if (this.showLogin) {
+                        this.startUp();
+                    } else {
+                        this.createAccount();
+                    }
+                },
+                startUp() {
+                    this.loading = true;
+                    this.errorMessage = '';
+
+                    const options = Object.assign({}, this.$state.settings.startupOptions);
+                    const connectOptions = this.connectOptions();
+                    const net = this.network || this.$state.addNetwork('Network', this.username, {
+                        server: connectOptions.hostname,
+                        port: connectOptions.port,
+                        tls: connectOptions.tls,
+                        encoding: options.encoding,
+                        direct: connectOptions.direct,
+                        path: connectOptions.direct_path || '',
+                        gecos: options.gecos,
+                        username: this.username,
+                    });
+
+                    // Clear the server buffer in case it already existed and contains messages relating to
+                    // the previous connection, such as errors. They are now redundant since this is a
+                    // new connection.
+                    net.serverBuffer().clearMessages();
+
+                    net.connection.nick = this.username;
+                    net.connection.password = `${this.username}:${this.password}`;
+                    net.password = '';
+
+                    this.network = net;
+
+                    // auto login support
+                    if (this.remember) {
+                        this.$state.$once('irc.bouncer networks', this.requestUserToken);
+                    } else {
+                        const username = this.$state.setting('bnc_username');
+                        const token = this.$state.setting('bnc_token');
+                        if (username || token) {
+                            // Clear out potentially invalid tokens when logging in manually
+                            this.$once('start', () => {
+                                this.$state.setting('bnc_username', null);
+                                this.$state.setting('bnc_token', null);
+                            });
+                        }
+                    }
+
+                    net.ircClient.connect();
+                    const onRegistered = () => {
+                        if (this.$refs.layout) {
+                            this.$refs.layout.close();
+                        }
+                        net.ircClient.off('registered', onRegistered);
+                        net.ircClient.off('close', onClosed);
+                    };
+                    const onClosed = () => {
+                        this.loading = false;
+                        this.errorMessage = net.last_error ||
+                            Misc.networkErrorMessage(net.state_error);
+                        if (this.password.indexOf('__t1') === 0) {
+                            // Connect failed clear out the token
+                            this.password = '';
+                            this.remember = false;
+                            this.tokenLogin = false;
+                            const passBox = this.$el.querySelector('input[type="password"]');
+                            if (passBox) {
+                                passBox.focus();
+                            }
+                        }
+                        this.$state.$off('irc.bouncer networks', this.requestUserToken);
+                        net.ircClient.off('registered', onRegistered);
+                        net.ircClient.off('close', onClosed);
+                    };
+                    net.ircClient.once('registered', onRegistered);
+                    net.ircClient.once('close', onClosed);
+                },
+                createAccount() {
+                    this.loading = true;
+                    this.errorMessage = '';
+
+                    const data = new FormData();
                     data.append('username', this.username);
                     data.append('password', this.password);
-
-                    this.loading = true;
-                    this.error = '';
 
                     fetch('/api/register', {
                         method: 'POST',
                         body: data,
                     })
-                    .then(res => res.json())
-                    .then(resp => {
-                        this.loading = false;
+                        .then((res) => res.json())
+                        .then((resp) => {
+                            this.loading = false;
 
-                        if (resp.error) {
-                            this.error = resp.error;
-                            return;
-                        }
+                            if (resp.error) {
+                                this.errorMessage = this.friendlyErrorMessage(resp.error);
+                                return;
+                            }
 
-                        this.$emit('close', {
-                            nick: this.username,
-                            password: this.password,
-                            error: 'New account created :)',
+                            this.remember = false;
+                            this.startUp();
+                        })
+                        // eslint-disable-next-line handle-callback-err
+                        .catch((err) => {
+                            this.errorMessage = this.friendlyErrorMessage('unknown_error');
+                            this.loading = false;
                         });
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        this.error = 'unknown_error';
-                        this.loading = false;
-                    });
                 },
-                friendlyErrorMessage(err_code) {
-                    let errs = {
+                friendlyErrorMessage(errCode) {
+                    const errs = {
                         missing_params: 'All options are required',
                         username_in_use: 'Unavailable username',
                         invalid_username: 'Invalid username. Use only letters and numbers',
@@ -172,9 +339,60 @@
                         unknown_error: 'An unknown error happened :(',
                     };
 
-                    return errs[err_code] || errs.unknown_error;
+                    return errs[errCode] || errs.unknown_error;
+                },
+                connectOptions() {
+                    const options = Object.assign({}, this.$state.settings.startupOptions);
+                    const connectOptions = Misc.connectionInfoFromConfig(options);
+
+                    // If a server isn't specified in the config, set some defaults
+                    // The webircgateway will have a default network set and will connect
+                    // there instead. This just removes the requirement of specifying the same
+                    // irc network address in both the server-side and client side configs
+                    connectOptions.hostname = connectOptions.hostname || 'default';
+                    if (!connectOptions.port && connectOptions.direct) {
+                        connectOptions.port = connectOptions.tls ?
+                            443 :
+                            80;
+                    } else if (!connectOptions.port && !connectOptions.direct) {
+                        connectOptions.port = connectOptions.tls ?
+                            6697 :
+                            6667;
+                    }
+
+                    return connectOptions;
+                },
+                requestUserToken(event, network) {
+                    if (!network.is_bnc || network.connection.bncnetid) {
+                        return;
+                    }
+
+                    if (this.tokenLogin) {
+                        network.ircClient.say('*bnc', `changetoken ${this.password} 7d`);
+                    } else {
+                        this.$state.$on('irc.message', this.receiveUserToken);
+                        network.ircClient.say('*bnc', 'addtoken 7d webchat');
+                    }
+                },
+                receiveUserToken(event, network) {
+                    if (event.nick !== '*bnc') {
+                        return;
+                    }
+                    if (!event.tags['+auth_token']) {
+                        return;
+                    }
+
+                    const token = event.tags['+auth_token'];
+                    // State peristance is not currently ready. set our username/token when it is
+                    // start is emitted from CommonLayout.vue
+                    this.$once('start', () => {
+                        this.$state.setting('bnc_username', network.nick);
+                        this.$state.setting('bnc_token', token);
+                    });
+                    this.$state.$off('irc.message', this.receiveUserToken);
                 },
             },
+            template: '#kiwibnc-startup',
         };
 
         let AdminScreen = {
@@ -337,6 +555,8 @@
             },
         };
 
+        kiwi.addStartup('kiwibnc', startupScreen);
+
         let adminAdded = false;
         kiwi.on('irc.motd', function(event, network) {
             // kiwibnc admin users get a kiwibnc/admin=token ISUPPORTs token added. The token
@@ -348,22 +568,36 @@
                 kiwi.addTab('settings', 'KiwiBNC Admin', AdminScreen);
             }
         });
-
-        // Add the register link to the footer of the startup screen
-        if (kiwi.state.settings.startupOptions.public_register) {
-            kiwi.state.settings.startupOptions.footerText = '<a class="u-link kiwibnc-registeropen">Create an account</a>';
-            document.addEventListener('click', function(event) {
-                if (event.target.classList.contains('kiwibnc-registeropen')) {
-                    kiwi.state.$set(kiwi.state.settings.startupOptions, 'altComponent', RegisterScreen);
-                }
-            });
-        }
     });
 </script>
 
 <style>
-.kiwibnc-register {
+
+.kiwibnc-startup-form {
     width: 70%;
+    padding: 20px;
+}
+
+.kiwibnc-startup-form h2 {
+    margin: 0 0 20px 0;
+    padding: 0;
+    cursor: default;
+    font-weight: 600;
+    font-size: 2.2em;
+    text-align: center;
+    line-height: 1.2em;
+}
+
+.kiwibnc-startup-form .u-submit {
+    width: 100%;
+    height: 50px;
+    font-size: 1.3em;
+    cursor: pointer;
+}
+
+.kiwibnc-startup-form .u-submit[disabled] {
+    cursor: not-allowed;
+    opacity: 0.65;
 }
 
 .kiwibnc-error {
@@ -374,15 +608,11 @@
     margin: 1em;
 }
 
-.kiwibnc-register button[disabled] {
-    cursor: not-allowed;
-    opacity: .65;
-}
-
 .kiwibnc-adduser {
     clear: left;
     border: 1px solid rgba(0,0,0,0.1);
     padding: 1em;
     margin: 1em 0;
 }
+
 </style>
