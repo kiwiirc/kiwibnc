@@ -100,6 +100,10 @@ class Users {
         let user = this.db.dbUsers('users')
             .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
             .where('user_tokens.token', token)
+            .where((q) => {
+                q.where('user_tokens.expires_at', 0)
+                q.orWhere('user_tokens.expires_at', '>', Helpers.now())
+            })
             .first()
             .then(this.db.factories.User.fromDbResult);
 
