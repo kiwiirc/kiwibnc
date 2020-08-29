@@ -89,7 +89,7 @@ class Users {
             return null;
         }
 
-        if (isUserToken) {
+        if (isUserToken && userHost) {
             this.updateUserTokenAccess(user.id, password, userHost);
         }
 
