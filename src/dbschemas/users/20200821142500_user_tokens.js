@@ -1,7 +1,7 @@
 exports.up = async function(knex) {
     await knex.schema.table('user_tokens', table => {
         table.integer('expires_at');
-        table.integer('accessed_at');
+        table.integer('accessed_at').defaultTo(0);
         table.text('last_ip');
         table.text('comment');
     });
