@@ -480,11 +480,11 @@ commands.LISTTOKENS = async function(input, con, msg) {
     try {
         let tokens = await con.userDb.getUserTokens(con.state.authUserId);
         tokens.forEach(t => {
-            let str = 'Token: ' + t.token;
-            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false });
-            str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false });
+            let str = t.token;
+            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
+            str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
             if (t.comment) {
-                str += ' Comment: ' + t.comment;
+                str += ` (${t.comment})`;
             }
             con.writeStatus(str);
         });
