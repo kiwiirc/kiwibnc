@@ -1,3 +1,6 @@
+const ParseDuration = require('parse-duration');
+const Tokens = require('../libs/tokens');
+
 let commands = Object.create(null);
 
 // Process a message sent to *bnc to control the users account and the bnc itself
@@ -432,12 +435,44 @@ commands.SETPASS = async function(input, con, msg) {
 };
 
 commands.ADDTOKEN = async function(input, con, msg) {
+    const parts = input.split(' ');
+    const duration = parts[0] === '0' ? 0 : ParseDuration(parts[0], 'sec');
+    const comment = duration === null ? input : parts.slice(1).join(' ');
+
     try {
-        let token = await con.userDb.generateUserToken(con.state.authUserId);
-        con.writeStatus('Created new token for your account. You can use it in place of your password: ' + token);
+        let token = await con.userDb.generateUserToken(con.state.authUserId, duration, comment, con.state.host);
+        con.writeStatusWithTags(
+            'Created new token for your account. You can use it in place of your password: ' + token,
+            { '+auth_token': token }
+        );
     } catch (err) {
         l.error('Error creating user token:', err.message);
         con.writeStatus('There was an error creating a new token for your account');
+    }
+};
+
+commands.CHANGETOKEN = async function(input, con, msg) {
+    const parts = input.split(' ');
+    const token = parts[0];
+
+    if (parts.length < 2 || !Tokens.isUserToken(token)) {
+        con.writeStatus('Usage: changetoken <token> [expires] [comment]');
+        return false;
+    }
+
+    const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
+    const comment = duration === null ? parts.slice(1).join(' ') : parts.slice(2).join(' ');
+
+    try {
+        const res = await con.userDb.updateUserToken(con.state.authUserId, token, duration, comment);
+        if (res === 1) {
+            con.writeStatus('Token changed!');
+        } else {
+            con.writeStatus('Failed to change token :(');
+        }
+    } catch (err) {
+        l.error('Error updating user token:', err.message);
+        con.writeStatus('There was an error updating the token for your account');
     }
 };
 
@@ -445,7 +480,13 @@ commands.LISTTOKENS = async function(input, con, msg) {
     try {
         let tokens = await con.userDb.getUserTokens(con.state.authUserId);
         tokens.forEach(t => {
-            con.writeStatus('Token: ' + t.token);
+            let str = t.token;
+            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
+            str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
+            if (t.comment) {
+                str += ` (${t.comment})`;
+            }
+            con.writeStatus(str);
         });
         con.writeStatus('No more tokens.');
     } catch (err) {
@@ -457,7 +498,7 @@ commands.LISTTOKENS = async function(input, con, msg) {
 commands.DELTOKEN = async function(input, con, msg) {
     let parts = input.split(' ');
     let token = parts[0] || '';
-    if (!token) {
+    if (!token || !Tokens.isUserToken(token)) {
         con.writeStatus('Usage: deltoken <token>');
         return false;
     }

@@ -16,7 +16,7 @@ class Users {
         }
 
         try {
-            let comparePass = true;
+            let isUserToken = false;
             let query = this.db.dbUsers('user_networks')
                 .innerJoin('users', 'users.id', 'user_networks.user_id')
                 .where('users.username', 'LIKE', username)
@@ -24,17 +24,21 @@ class Users {
                 .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin');
 
             if (tokens.isUserToken(password)) {
-                comparePass = false;
+                isUserToken = true;
                 query.innerJoin('user_tokens', 'user_tokens.user_id', 'user_networks.user_id');
                 query.where('user_tokens.token', password);
+                query.where((q) => {
+                    q.where('user_tokens.expires_at', 0)
+                    q.orWhere('user_tokens.expires_at', '>', Helpers.now())
+                });
             }
 
             let row = await query.first();
             if (!row) {
                 return ret;
             }
-            
-            if (comparePass) {
+
+            if (!isUserToken) {
                 let correctHash = await bcrypt.compare(password, row._pass);
                 if (!correctHash) {
                     return ret;
@@ -53,21 +57,25 @@ class Users {
         return ret;
     }
 
-    async authUser(username, password) {
+    async authUser(username, password, userHost) {
         if (!Helpers.validUsername(username)) {
             return null;
         }
 
-        let checkPass = true;
+        let isUserToken = false;
         let query = this.db.dbUsers('users')
             .select('users.*')
             .where('username', 'LIKE', username)
             .where('locked', '!=', true);
 
         if (tokens.isUserToken(password)) {
-            checkPass = false;
-            query.innerJoin('user_tokens', 'user_tokens.user_id', 'user_networks.user_id');
+            isUserToken = true;
+            query.innerJoin('user_tokens', 'user_tokens.user_id', 'users.id');
             query.where('user_tokens.token', password);
+            query.where((q) => {
+                q.where('user_tokens.expires_at', 0)
+                q.orWhere('user_tokens.expires_at', '>', Helpers.now())
+            });
         }
 
         let user = await query.first()
@@ -77,35 +85,79 @@ class Users {
             return null;
         }
 
-        if (checkPass && !await user.checkPassword(password)) {
+        if (!isUserToken && !await user.checkPassword(password)) {
             return null;
+        }
+
+        if (isUserToken && userHost) {
+            this.updateUserTokenAccess(user.id, password, userHost);
         }
 
         return user;
     }
 
-    async authUserToken(token) {
+    async authUserToken(token, userHost) {
         let user = this.db.dbUsers('users')
             .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
             .where('user_tokens.token', token)
+            .where((q) => {
+                q.where('user_tokens.expires_at', 0)
+                q.orWhere('user_tokens.expires_at', '>', Helpers.now())
+            })
             .first()
             .then(this.db.factories.User.fromDbResult);
 
         if (user) {
+            if (userHost) {
+                this.updateUserTokenAccess(user.id, token, userHost);
+            }
             return user;
         }
 
         return null;
     }
 
-    async generateUserToken(id) {
-        let token = tokens.generateUserToken();
+    async generateUserToken(userId, duration, comment, userHost) {
+        const token = tokens.generateUserToken();
+        const now = Helpers.now();
+        const expires = duration ? now + duration : 0;
         await this.db.dbUsers('user_tokens').insert({
-            user_id: id,
+            user_id: userId,
             token: token,
-            created_at: Helpers.now(),
+            created_at: now,
+            expires_at: expires,
+            accessed_at: now,
+            last_ip: userHost,
+            comment: comment || '',
         });
         return token;
+    }
+
+    async updateUserToken(userId, token, duration, comment) {
+        const expires = duration ? Helpers.now() + duration : 0;
+        const updateObj = Object.create(null);
+
+        if (duration !== null) {
+            updateObj.expires_at = expires;
+        }
+        if (comment) {
+            updateObj.comment = comment;
+        }
+        if (!Object.keys(updateObj).length) {
+            return 0;
+        }
+
+        return await this.db.dbUsers('user_tokens')
+        .update(updateObj)
+        .where('user_id', userId)
+        .where('token', token);
+    }
+
+    async updateUserTokenAccess(userId, token, userHost) {
+        await this.db.dbUsers('user_tokens').update({
+            accessed_at: Helpers.now(),
+            last_ip: userHost,
+        }).where('user_id', userId).where('token', token);
     }
 
     async getUserTokens(userId) {
@@ -190,7 +242,7 @@ class Users {
         if (maxNetworks > -1) {
             let nets = await this.db.factories.Network.query()
                 .where('user_id', userId);
-            
+
             if (nets.length >= maxNetworks) {
                 throw new BncError('UserError', 'max_networks', 'Max number of networks reached for user');
             }

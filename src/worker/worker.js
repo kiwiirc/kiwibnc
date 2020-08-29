@@ -12,7 +12,7 @@ const ConnectionOutgoing = require('./connectionoutgoing');
 const ConnectionIncoming = require('./connectionincoming');
 const ConnectionDict = require('./connectiondict');
 const hooks = require('./hooks');
-const { parseBindString } = require('../libs/helpers');
+const { parseBindString, now } = require('../libs/helpers');
 
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
