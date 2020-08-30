@@ -14,6 +14,21 @@ module.exports = function(app) {
         );
     });
 
+    router.get('kiwi.bnc_notifications', '/kiwibnc_notifications.html', async (ctx, next) => {
+        ctx.body = await fs.readFile(
+            path.join(__dirname, 'kiwibnc_notifications.html'),
+            { encoding: 'utf8' },
+        );
+    });
+
+    router.get('kiwi.notifications_worker', '/notification-worker.js', async (ctx, next) => {
+        ctx.body = await fs.readFile(
+            path.join(__dirname, 'notification-worker.js'),
+            { encoding: 'utf8' },
+        );
+        ctx.type = 'application/javascript';
+    });
+
     router.get('kiwi.config', '/static/config.json', async (ctx, next) => {
         let config = await fs.readFile(path.join(publicPath, 'static', 'config.json'));
         config = JSON.parse(config);
@@ -23,6 +38,11 @@ module.exports = function(app) {
             kiwiServer: '',
             startupScreen: 'kiwibnc',
         };
+
+        const vapidPublicKey = app.conf.get('webchat.vapid_public_key');
+        if (vapidPublicKey) {
+            config.vapidPublicKey = vapidPublicKey;
+        }
 
         config.startupOptions = {
             ...config.startupOptions,
@@ -44,6 +64,14 @@ module.exports = function(app) {
             url: router.url('kiwi.bnc_plugin', {}),
             basePath: ctx.basePath,
         });
+
+        if (vapidPublicKey) {
+            config.plugins.push({
+                name: 'kiwibnc-notifications',
+                url: router.url('kiwi.bnc_notifications', {}),
+                basePath: ctx.basePath,
+            });
+        }
 
         let extraConf = app.conf.get('webchat');
         for (let prop in extraConf) {
