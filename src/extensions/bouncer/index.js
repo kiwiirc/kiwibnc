@@ -206,6 +206,7 @@ async function handleBouncerCommand(event) {
             upstream.writeLine('PART', buffer.name);
         }
 
+        await upstream.state.save();
         con.writeMsg('BOUNCER', 'delbuffer', network.id, bufferName, 'RPL_OK');
     }
 
@@ -258,6 +259,8 @@ async function handleBouncerCommand(event) {
                 buffer.notifyLevel = levels[tags.notify];
             }
         }
+
+        await upstream.state.save();
     }
 
     if (subCmd === 'ADDNETWORK') {
