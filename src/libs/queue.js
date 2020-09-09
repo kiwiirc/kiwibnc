@@ -1,4 +1,5 @@
 const EventEmitter = require('./eventemitter');
+const ParallelQueue = require('./ParallelQueue');
 const Stats = require('./stats');
 const amqp = require('amqplib/callback_api');
 
@@ -10,7 +11,8 @@ module.exports = class Queue extends EventEmitter {
         this.queueToWorker = conf.get('queue.worker_queue', 'q_worker');
         this.channel = null;
         this.consumerTag = '';
-        this.closing = false;
+        // If closing, this will become a promise that resolves once everything has closed
+        this.closing = null;
         this.stats = Stats.instance().makePrefix('queue');
     }
 
@@ -63,71 +65,101 @@ module.exports = class Queue extends EventEmitter {
 
         l.info('Listening on queue ' + queueName);
         let nextMsgId = 1;
-        let msgQueue = [];
-        let processing = false;
+        let q = new ParallelQueue();
 
-        let processNext = () => {
-            processing = false;
-            processMsgQueue();
-        };
-
+        let cnt=0;
+        let lastCnt=0;
+        let inFlight=0;
         let processMsgQueue = async () => {
-            if (processing) {
+            if (this.closing && q.isEmpty()) {
+                this.closing.resolve();
                 return;
             }
 
-            if (msgQueue.length === 0) {
-                processing = false;
+            if (inFlight >= 1000) {
+                // Limit the number of messages we can process at once
                 return;
             }
 
-            processing = true;
-
-            let id = 'msg' + ++nextMsgId;
-            let msg = msgQueue.shift();
-            l.trace('Queue received:', id, msg.content.toString());
-            let obj = JSON.parse(msg.content.toString());
-
-            if (!obj || obj.length !== 2) {
-                this.stats.increment('message.ignored');
-                this.channel.ack(msg);
-                processNext();
+            let qMessage = q.get();
+            if (!qMessage) {
                 return;
             }
 
-            this.stats.increment('message.received');
-            let messageTmr = this.stats.timerStart('message.received.' + obj[0]);
+            let event = qMessage.item.event;
+            let messageTmr = this.stats.timerStart('message.received.' + event[0]);
 
-            // Don't bother emitting if we have no events for it
-            if (this.listenerCount(obj[0]) > 0) {
-                try {
-                    await this.emit(obj[0], obj[1]);
-                } catch (error) {
-                    l.error(error.stack);
-                }
+            inFlight++;
+            try {
+                await this.emit(event[0], event[1]);
+            } catch (error) {
+                l.error(error.stack);
             }
+            inFlight--;
 
             messageTmr.stop();
-            this.channel.ack(msg);
-            processNext();
-        }
+            qMessage.ack();
+            this.channel.ack(qMessage.item.amqpMsg);
+
+            cnt++;
+            if (now() - lastCnt > 5) {
+                let queues = q.blocks[0]?.queues;
+                let numQueues = queues ? Object.keys(queues).length : 0;
+                console.log(new Date(), 'Messages in 5sec:', cnt, 'inFlight:', inFlight, 'Num. queues:', numQueues);
+                lastCnt = now();
+                cnt = 0;
+            }
+
+            process.nextTick(() => {
+                processMsgQueue();
+            });
+        };
 
         this.channel.consume(queueName, (msg) => {
             if (this.closing) {
                 return;
             }
 
-            
+            // consumerTag is the same for every message here, but keeps tabs of it for future
+            // use anyway.
             this.consumerTag = msg.fields.consumerTag;
-            msgQueue.push(msg);
-            processMsgQueue();
-        }, {noAck: false, exclusive: true});
+
+            let id = 'msg' + ++nextMsgId;
+            l.trace('Queue received:', id, msg.content.toString());
+            let obj = JSON.parse(msg.content.toString());
+
+            // Messages are expected to be an array of 2 items: [event_name, obj_of_params]
+            if (!obj || obj.length !== 2) {
+                this.stats.increment('message.ignored');
+                this.channel.ack(msg);
+                return;
+            }
+
+            this.stats.increment('message.received');
+
+            // Don't bother emitting if we have no events for it
+            if (this.listenerCount(obj[0]) > 0) {
+                if (obj[1] && obj[1].id) {
+                    // This event is related to a connection ID
+                    let conId = obj[1].id;
+                    q.add('connection', conId, {amqpMsg: msg, event: obj});
+                } else {
+                    // An internal bnc event
+                    q.add('bnc', 'internal', {amqpMsg: msg, event: obj});
+                }
+
+                process.nextTick(() => {
+                    processMsgQueue();
+                });
+            }
+        }, {noAck: false, exclusive: false});
     }
 
     stopListening() {
-        return new Promise((resolve, reject) => {
+        let resolveProm = null;
+        this.closing = new Promise((resolve, reject) => {
+            resolveProm = resolve;
             this.stats.increment('stopping');
-            this.closing = true;
 
             if (!this.consumerTag) {
                 resolve();
@@ -138,6 +170,9 @@ module.exports = class Queue extends EventEmitter {
                 resolve();
             });
         });
+
+        this.closing.resolve = resolveProm;
+        return this.closing;
     }
 
     getChannel() {
@@ -167,4 +202,9 @@ module.exports = class Queue extends EventEmitter {
             });
         });
     }
+}
+
+
+function now() {
+    return Math.floor(Date.now() / 1000);
 }

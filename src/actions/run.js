@@ -58,13 +58,12 @@ module.exports = async function(env, options) {
             doubleCtrlCTmr = setTimeout(() => {
                 doubleCtrlCTmr = 0;
                 l('Reloading worker process...');
+                if (workerProc) {
+                    workerProc.kill('SIGQUIT');
+                }
             }, 500);
 
             return false;
-        }
-
-        if (workerProc) {
-            workerProc.kill();
         }
     });
 };

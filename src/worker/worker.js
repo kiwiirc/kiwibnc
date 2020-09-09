@@ -37,6 +37,16 @@ async function run() {
         app.prepareShutdown();
     });
 
+    // process.send only exists if we were forked from the sockets layer. Hijack SIGINT so
+    // that ctrl+c in kiwibnc doesn't do anything to us. Sockets layer will send SIGQUIT to
+    // us if needed.
+    if (process.send) {
+        process.on('SIGINT', () => {
+            // noop
+        });
+    }
+
+
     initWebserver(app);
     initStatus(app);
     initExtensions(app);
