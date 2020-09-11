@@ -37,17 +37,25 @@ async function run() {
         app.prepareShutdown();
     });
 
+    // process.send only exists if we were forked from the sockets layer. Hijack SIGINT so
+    // that ctrl+c in kiwibnc doesn't do anything to us. Sockets layer will send SIGQUIT to
+    // us if needed.
+    if (process.send) {
+        process.on('SIGINT', () => {
+            // noop
+        });
+    }
+
+
     initWebserver(app);
     initStatus(app);
     initExtensions(app);
     broadcastStats(app);
-    listenToQueue(app);
+    await startServers(app);
+    await loadConnections(app);
 
-    // Give some time for the queue to connect + sync up
-    setTimeout(async () => {
-        await startServers(app);
-        loadConnections(app);
-    }, 1000);
+    // Now that all the connection states have been laoded, start accepting events for them
+    listenToQueue(app);
 
     return app;
 }
@@ -88,10 +96,11 @@ function broadcastStats(app) {
     broadcast();
 }
 
-function prepareShutdown(app) {
+async function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
-    app.queue.stopListening().then(process.exit);
+    await app.queue.stopListening();
+    process.exit();
 }
 
 function listenToQueue(app) {
