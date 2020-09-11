@@ -1,7 +1,9 @@
 const EventEmitter = require('./eventemitter');
 const ParallelQueue = require('./ParallelQueue');
+const WaitGroup = require('./WaitGroup');
 const Stats = require('./stats');
 const amqp = require('amqplib/callback_api');
+const { args } = require('commander');
 
 module.exports = class Queue extends EventEmitter {
     constructor(conf) {
@@ -11,8 +13,8 @@ module.exports = class Queue extends EventEmitter {
         this.queueToWorker = conf.get('queue.worker_queue', 'q_worker');
         this.channel = null;
         this.consumerTag = '';
-        // If closing, this will become a promise that resolves once everything has closed
-        this.closing = null;
+        this.closing = false;
+        this.closingWg = new WaitGroup();
         this.stats = Stats.instance().makePrefix('queue');
     }
 
@@ -20,6 +22,7 @@ module.exports = class Queue extends EventEmitter {
         let channel = await this.getChannel();
         await channel.assertQueue(this.queueToSockets, {durable: true});
         await channel.assertQueue(this.queueToWorker, {durable: true});
+        await channel.prefetch(1000);
         this.channel = channel;
     }
 
@@ -69,10 +72,9 @@ module.exports = class Queue extends EventEmitter {
 
         let cnt=0;
         let lastCnt=0;
-        let inFlight=0;
+        let inFlight = 0;
         let processMsgQueue = async () => {
-            if (this.closing && q.isEmpty()) {
-                this.closing.resolve();
+            if (this.closing) {
                 return;
             }
 
@@ -86,6 +88,7 @@ module.exports = class Queue extends EventEmitter {
                 return;
             }
 
+            this.closingWg.add('listenForEvents');
             let event = qMessage.item.event;
             let messageTmr = this.stats.timerStart('message.received.' + event[0]);
 
@@ -110,6 +113,8 @@ module.exports = class Queue extends EventEmitter {
                 cnt = 0;
             }
 
+            this.closingWg.done('listenForEvents');
+
             process.nextTick(() => {
                 processMsgQueue();
             });
@@ -117,6 +122,11 @@ module.exports = class Queue extends EventEmitter {
 
         this.channel.consume(queueName, (msg) => {
             if (this.closing) {
+                return;
+            }
+
+            // msg can be null in some cases such as a purged queue
+            if (!msg) {
                 return;
             }
 
@@ -148,17 +158,20 @@ module.exports = class Queue extends EventEmitter {
                     q.add('bnc', 'internal', {amqpMsg: msg, event: obj});
                 }
 
-                process.nextTick(() => {
-                    processMsgQueue();
-                });
+            } else {
+                this.channel.ack(msg);
             }
+
+            process.nextTick(() => {
+                processMsgQueue();
+            });
         }, {noAck: false, exclusive: false});
     }
 
     stopListening() {
-        let resolveProm = null;
-        this.closing = new Promise((resolve, reject) => {
-            resolveProm = resolve;
+        this.closing = true;
+
+        return new Promise((resolve, reject) => {
             this.stats.increment('stopping');
 
             if (!this.consumerTag) {
@@ -166,13 +179,13 @@ module.exports = class Queue extends EventEmitter {
                 return;
             }
 
+            this.closingWg.add('channel.cancel');
             this.channel.cancel(this.consumerTag, (err, ok) => {
+                this.closingWg.done('channel.cancel');
                 resolve();
             });
-        });
-
-        this.closing.resolve = resolveProm;
-        return this.closing;
+        })
+        .then(() => this.closingWg.wait());
     }
 
     getChannel() {
@@ -208,3 +221,5 @@ module.exports = class Queue extends EventEmitter {
 function now() {
     return Math.floor(Date.now() / 1000);
 }
+
+

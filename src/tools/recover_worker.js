@@ -21,14 +21,21 @@ const Queue = require('../libs/queue');
     let workerQ = new Queue(conf);
 
     try {
-        await workerQ.connect();
-
+        await workerQ.initWorker();
         workerQ.listenForEvents();
     } catch (err) {
         console.error(`Error connecting to the queue: ${err.message}`);
         process.exit(1);
     }
 
+    let onSigint = async () => {
+        process.off('SIGINT', onSigint);
+        console.log('Stopping...');
+        await workerQ.stopListening();
+        process.exit(0);
+    };
+    process.on('SIGINT', onSigint);
+    
     let expectValue = '';
     try {
         expectValue = fs.readFileSync('./lastmessage.txt') || '';

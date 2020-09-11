@@ -51,13 +51,11 @@ async function run() {
     initStatus(app);
     initExtensions(app);
     broadcastStats(app);
-    listenToQueue(app);
+    await startServers(app);
+    await loadConnections(app);
 
-    // Give some time for the queue to connect + sync up
-    setTimeout(async () => {
-        await startServers(app);
-        loadConnections(app);
-    }, 1000);
+    // Now that all the connection states have been laoded, start accepting events for them
+    listenToQueue(app);
 
     return app;
 }
