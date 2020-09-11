@@ -108,7 +108,7 @@ module.exports = class Queue extends EventEmitter {
             if (now() - lastCnt > 5) {
                 let queues = q.blocks[0]?.queues;
                 let numQueues = queues ? Object.keys(queues).length : 0;
-                console.log(new Date(), 'Messages in 5sec:', cnt, 'inFlight:', inFlight, 'Num. queues:', numQueues);
+                l.debug(new Date(), 'Messages in 5sec:', cnt, 'inFlight:', inFlight, 'Num. queues:', numQueues);
                 lastCnt = now();
                 cnt = 0;
             }

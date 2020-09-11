@@ -1,4 +1,4 @@
-// WaitGrop ported from Golang.
+// WaitGroup ported from Golang.
 
 module.exports = class WaitGroup {
     constructor() {
