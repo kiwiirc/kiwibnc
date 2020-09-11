@@ -165,7 +165,7 @@ module.exports = class Queue extends EventEmitter {
             process.nextTick(() => {
                 processMsgQueue();
             });
-        }, {noAck: false, exclusive: false});
+        }, {noAck: false, exclusive: true});
     }
 
     stopListening() {
