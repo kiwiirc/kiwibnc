@@ -26,7 +26,7 @@ async function run() {
     app.queue.on('connection.data', async (event) => {
         let con = cons.get(event.id);
         if (!con) {
-            l.warn('Couldn\'t find connection to send data to.', event.id);
+            l.debug('Couldn\'t find connection to send data to.', event.id);
         } else {
             con.write(event.data);
         }
