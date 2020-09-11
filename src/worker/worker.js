@@ -96,10 +96,11 @@ function broadcastStats(app) {
     broadcast();
 }
 
-function prepareShutdown(app) {
+async function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
-    app.queue.stopListening().then(process.exit);
+    await app.queue.stopListening();
+    process.exit();
 }
 
 function listenToQueue(app) {
