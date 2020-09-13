@@ -43,6 +43,7 @@ class IrcBuffer {
         this.name = name;
         this.key = '';
         this.joined = false;
+        this.partReceived = false;
         this.topic = '';
         this.modes = Object.create(null);
         this.status = '=';

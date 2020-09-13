@@ -351,9 +351,10 @@ commands.PART = async function(msg, con) {
         // Someone else left the channel
         chan.removeUser(msg.nick);
     } else {
+        chan.partReceived = false;
         chan.leave();
     }
-
+    
     await con.state.save();
 };
 
