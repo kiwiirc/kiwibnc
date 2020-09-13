@@ -203,6 +203,8 @@ async function handleBouncerCommand(event) {
 
         upstream.state.delBuffer(buffer.name);
         if (buffer.joined && !buffer.partReceived) {
+            // The client may have sent a PART for this buffer too. If so, don't sent our own
+            // otherwise the server will send an error with 2 PART commands.
             upstream.writeLine('PART', buffer.name);
         }
 

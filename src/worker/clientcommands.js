@@ -363,10 +363,9 @@ commands.PART = async function(msg, con) {
     }
 
     let buffer = con.upstream.state.getBuffer(msg.params[0]);
-    if (!buffer) {
-        return;
+    if (buffer) {
+        buffer.partReceived = true;
     }
-    buffer.partReceived = true;
 
     return true;
 }
