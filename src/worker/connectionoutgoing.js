@@ -164,8 +164,30 @@ class ConnectionOutgoing {
         if (this.state.password) {
             this.writeLine(`PASS ${this.state.password}`);
         }
+
         this.writeLine(`NICK ${this.state.nick}`);
-        this.writeLine(`USER ${this.state.username} * * ${this.state.realname}`);
+
+        let username = this.state.username;
+        let realname = this.state.realname;
+
+        const userPrefix = config.get('users.username_prefix');
+        const realnamePrefix = config.get('users.realname_prefix');
+        if (userPrefix !== undefined || realnamePrefix !== undefined) {
+            let user = await this.db.factories.User.query().where('id', this.state.authUserId).first();
+            if (userPrefix !== undefined) {
+                username = userPrefix + user.username;
+            }
+            if (realnamePrefix !== undefined) {
+                realname = realnamePrefix + this.state.realname;
+            }
+        }
+
+        const realnameForced = config.get('users.realname');
+        if (realnameForced !== undefined) {
+            realname = realnameForced;
+        }
+
+        this.writeLine(`USER ${username} * * ${realname}`);
 
         this.forEachClient((client) => {
             client.writeStatus('Network connected!');
