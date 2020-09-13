@@ -25,7 +25,17 @@ module.exports = async function bootstrap(label) {
     let conf = null;
     try {
         l.info(`Using config file ${confPath}`);
-        conf = Config.instance(confPath);
+        try {
+            conf = Config.instance(confPath);
+        } catch (err) {
+            if (err.code === 'EISDIR') {
+                l.error('Error reading config file from ' + confPath);
+            } else {
+                l.error('Error reading config file:', err.message);
+            }
+
+            process.exit(1);
+        }
 
         // Set some logging config for the rest of the logging output
         l.level = l.levels[conf.get('log.level', 'info')];
