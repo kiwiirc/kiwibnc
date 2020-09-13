@@ -357,6 +357,20 @@ commands.NAMES = async function(msg, con) {
     return false;
 };
 
+commands.PART = async function(msg, con) {
+    if (!con.upstream) {
+        return;
+    }
+
+    let buffer = con.upstream.state.getBuffer(msg.params[0]);
+    if (!buffer) {
+        return;
+    }
+    buffer.partReceived = true;
+
+    return true;
+}
+
 commands.PING = async function(msg, con) {
     con.writeMsg('PONG', msg.params[0]);
     return false;

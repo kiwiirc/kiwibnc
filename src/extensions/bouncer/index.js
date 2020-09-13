@@ -193,7 +193,7 @@ async function handleBouncerCommand(event) {
             return;
         }
 
-        
+
         let buffer = upstream.state.getBuffer(bufferName);
         if (!buffer) {
             // No buffer? No need to delete anything
@@ -202,7 +202,7 @@ async function handleBouncerCommand(event) {
         }
 
         upstream.state.delBuffer(buffer.name);
-        if (buffer.joined) {
+        if (buffer.joined && !buffer.partReceived) {
             upstream.writeLine('PART', buffer.name);
         }
 
@@ -306,7 +306,7 @@ async function handleBouncerCommand(event) {
                 l.error('[BOUNCER] Error adding network to user', err);
                 con.writeMsg('BOUNCER', 'addnetwork', '*', tags.network, 'ERR_UNKNOWN', 'Error saving the network');
             }
-            
+
             return;
         }
 
