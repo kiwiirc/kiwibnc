@@ -35,6 +35,12 @@ class Crypt {
 
         return decrypted;
     }
+
+    static generateKey() {
+        let bytes = crypto.randomBytes(256);
+        let bytesStr = bytes.toString('base64');
+        return bytesStr.substr(0, 32);
+    }
 }
 
 module.exports = Crypt;

@@ -121,7 +121,17 @@ async function prepareConfig() {
         let configPath = path.dirname(process.args.config);
         console.log('Creating new config profile at ' + configPath);
         try {
-            await fs.copy(path.join(__dirname, '../configProfileTemplate'), configPath);
+            // Copy the template data folder
+            let destDataDir = configPath;
+            let sourceDataDir = path.join(__dirname, '../configProfileTemplate');
+            await fs.copy(sourceDataDir, destDataDir);
+
+            // Read the config template, generate a crypt key and pre-fill the config option
+            let rawConfig = await fs.readFile(path.join(sourceDataDir, 'config.ini'), 'utf8');
+            let newCryptKey = Crypt.generateKey();
+            rawConfig = rawConfig.replace(/crypt_key([ ]+)?=([ ]+)?['"]['"]/, `crypt_key="${newCryptKey}"`);
+            await fs.writeFile(path.join(destDataDir, 'config.ini'), rawConfig);
+
         } catch (err) {
             console.error('Failed to create new config profile.', err.message);
             process.exit(1);
