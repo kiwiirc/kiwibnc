@@ -164,8 +164,10 @@ class ConnectionOutgoing {
         if (this.state.password) {
             this.writeLine(`PASS ${this.state.password}`);
         }
+
+        let {username, realname} = await this.makeUserAndRealNames();
         this.writeLine(`NICK ${this.state.nick}`);
-        this.writeLine(`USER ${this.state.username} * * ${this.state.realname}`);
+        this.writeLine(`USER ${username} * * ${realname}`);
 
         this.forEachClient((client) => {
             client.writeStatus('Network connected!');
@@ -248,6 +250,49 @@ class ConnectionOutgoing {
 
             this.open();
         }, reconnectTimeout);
+    }
+
+    async makeUserAndRealNames() {
+        let username = config.get('users.username', '{username}');
+        let realname = config.get('users.realname', '{realname}');
+
+        // Only get the user instance if we need it
+        if (username.includes('{user.') || realname.includes('{user.')) {
+            let user = await this.db.factories.User.query()
+                .where('id', this.state.authUserId)
+                .first();
+            
+            let vals = Object.create(null);
+            vals['{user.username}'] = user.username;
+            vals['{user.id}'] = user.id;
+
+            for (let prop in vals) {
+                username = username.replace(prop, vals[prop]);
+                realname = realname.replace(prop, vals[prop]);
+            }
+        }
+
+        let vals = Object.create(null);
+        vals['{username}'] = this.state.username;
+        vals['{realname}'] = this.state.realname;
+        vals['{nick}'] = this.state.nick;
+        vals['{account}'] = this.state.sasl.account;
+        vals['{nick}'] = this.state.nick;
+
+        for (let prop in vals) {
+            username = username.replace(prop, vals[prop]);
+            realname = realname.replace(prop, vals[prop]);
+        }
+
+        username = username.trim().replace(/ /g, '');
+        realname = realname.trim();
+
+        // There are cases where either value may be empty (eg. '{account}' on a connection
+        // without an account). Set some fallbacks
+        return {
+            username: username || 'user',
+            realname: realname || 'BNC user',
+        };
     }
 
     iSupportToken(tokenName) {
