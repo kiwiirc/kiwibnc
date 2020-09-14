@@ -253,18 +253,18 @@ class ConnectionOutgoing {
     }
 
     async makeUserAndRealNames() {
-        let username = config.get('users.username', '{username}');
-        let realname = config.get('users.realname', '{realname}');
+        let username = config.get('users.username', '{{username}}');
+        let realname = config.get('users.realname', '{{realname}}');
 
         // Only get the user instance if we need it
-        if (username.includes('{user.') || realname.includes('{user.')) {
+        if (username.includes('{{user.') || realname.includes('{{user.')) {
             let user = await this.db.factories.User.query()
                 .where('id', this.state.authUserId)
                 .first();
             
             let vals = Object.create(null);
-            vals['{user.username}'] = user.username;
-            vals['{user.id}'] = user.id;
+            vals['{{user.username}}'] = user.username;
+            vals['{{user.id}}'] = user.id;
 
             for (let prop in vals) {
                 username = username.replace(prop, vals[prop]);
@@ -273,11 +273,11 @@ class ConnectionOutgoing {
         }
 
         let vals = Object.create(null);
-        vals['{username}'] = this.state.username;
-        vals['{realname}'] = this.state.realname;
-        vals['{nick}'] = this.state.nick;
-        vals['{account}'] = this.state.sasl.account;
-        vals['{nick}'] = this.state.nick;
+        vals['{{username}}'] = this.state.username;
+        vals['{{realname}}'] = this.state.realname;
+        vals['{{nick}}'] = this.state.nick;
+        vals['{{account}}'] = this.state.sasl.account;
+        vals['{{nick}}'] = this.state.nick;
 
         for (let prop in vals) {
             username = username.replace(prop, vals[prop]);
