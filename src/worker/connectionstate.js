@@ -362,6 +362,11 @@ class ConnectionState {
             name = '*';
         }
 
+        const target = Helpers.extractTargetGroup(upstreamCon, name);
+        if (target) {
+            name = target.target;
+        }
+
         let buffer = this.getBuffer(name);
         if (buffer) {
             return buffer;
