@@ -333,7 +333,6 @@ class ConnectionIncoming {
             if (len + currentLine.length + 1 + currentName.length > 512) {
                 this.writeMsgFrom(upstream.state.serverPrefix, ...args.concat(currentLine));
                 currentLine = '';
-                continue;
             }
 
             currentLine += currentLine.length > 0 ? ' ' + currentName : currentName;
