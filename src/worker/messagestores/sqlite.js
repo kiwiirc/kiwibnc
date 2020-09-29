@@ -1,7 +1,7 @@
 const sqlite3 = require('better-sqlite3');
 const LRU = require('lru-cache');
-const { isoTime } = require('../../libs/helpers');
 const Stats = require('../../libs/stats');
+const Helpers = require('../../libs/helpers');
 
 const IrcMessage = require('irc-framework').Message;
 
@@ -331,7 +331,7 @@ class SqliteMessageStore {
         let msgId = '';
         // If no prefix, it's because we're sending it upstream (from the client)
         let prefix = clientCon ? clientCon.state.nick : message.nick;
-        let time = new Date(message.tags.time || isoTime());
+        let time = new Date(message.tags.time || Helpers.isoTime());
 
         // Ignore CTCP request/responses
         if (
@@ -347,19 +347,19 @@ class SqliteMessageStore {
 
         if (message.command === 'PRIVMSG') {
             type = MSG_TYPE_PRIVMSG;
-            bufferName = bufferNameIfPm(message, conState.nick, 0);
+            bufferName = Helpers.extractBufferName(upstreamCon, message, 0);
             data = message.params[1];
             params = message.params.slice(0, message.params.length - 1).join(' ');
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
         } else if (message.command === 'NOTICE') {
             type = MSG_TYPE_NOTICE;
-            bufferName = bufferNameIfPm(message, conState.nick, 0);
+            bufferName = Helpers.extractBufferName(upstreamCon, message, 0);
             // We store the last param as data so that it is searchable in future
             data = message.params[1];
             params = message.params.slice(0, message.params.length - 1).join(' ');
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
         }
-        
+
         if (!type) {
             this.storeQueueLooping = false;
             return;
@@ -402,18 +402,6 @@ class SqliteMessageStore {
 
 module.exports = SqliteMessageStore;
 
-function bufferNameIfPm(message, nick, messageNickIdx) {
-    if (!message.nick) {
-        // A client sent a message
-        return message.params[messageNickIdx];
-    } else if (nick.toLowerCase() === message.params[messageNickIdx].toLowerCase()) {
-        // We are the target so it's a PM
-        return message.nick;
-    } else {
-        return message.params[messageNickIdx];
-    }
-}
-
 function dbRowsToMessage(rows) {
     return rows.map((row) => {
         let m = new IrcMessage();
@@ -427,7 +415,7 @@ function dbRowsToMessage(rows) {
 
         m.prefix = row.prefix;
         m.tags = JSON.parse(row.msgtags);
-        m.tags.time = m.tags.time || isoTime(new Date(row.time));
+        m.tags.time = m.tags.time || Helpers.isoTime(new Date(row.time));
         m.params = row.params.split(' ');
         m.params.push(row.data);
 

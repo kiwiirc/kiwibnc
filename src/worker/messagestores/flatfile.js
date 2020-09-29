@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { isoTime } = require('../../libs/helpers');
+const Helpers = require('../../libs/helpers');
 
 const IrcMessage = require('irc-framework').Message;
 
@@ -38,7 +38,7 @@ class FlatfileMessageStore {
         }
 
         let line = '';
-        let bufferName = bufferNameIfPm(message, upstreamCon.state.nick, 0);
+        let bufferName = Helpers.extractBufferName(upstreamCon, message, 0);
         // Messages such as this we don't want to log
         // :2.chimera.network.irc.com NOTICE * :*** Looking up your hostname...
         if (bufferName === '*') {
@@ -46,7 +46,7 @@ class FlatfileMessageStore {
         }
 
         let prefix = clientCon ? clientCon.state.nick : message.nick;
-        let time = message.tags.time ? isoTime(new Date(message.tags.time)) : isoTime();
+        let time = message.tags.time ? Helpers.isoTime(new Date(message.tags.time)) : Helpers.isoTime();
 
         // Ignore CTCP request/responses
         if (
@@ -93,15 +93,3 @@ class FlatfileMessageStore {
 }
 
 module.exports = FlatfileMessageStore;
-
-function bufferNameIfPm(message, nick, messageNickIdx) {
-    if (!message.nick) {
-        // A client sent a message
-        return message.params[messageNickIdx];
-    } else if (nick.toLowerCase() === message.params[messageNickIdx].toLowerCase()) {
-        // We are the target so it's a PM
-        return message.nick;
-    } else {
-        return message.params[messageNickIdx];
-    }
-}

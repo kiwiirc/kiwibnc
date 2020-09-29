@@ -228,3 +228,47 @@ function getModesStatus(buffer) {
     }
     return '=';
 }
+
+module.exports.extractTargetGroup = extractTargetGroup;
+function extractTargetGroup(con, target) {
+    const statusMsg = con.iSupportToken('STATUSMSG');
+
+    if (!statusMsg) {
+        return null;
+    }
+
+    const target_group = _.find(statusMsg, function(prefix) {
+        if (prefix === target[0]) {
+            target = target.substring(1);
+
+            return prefix;
+        }
+    });
+
+    if (!target_group) {
+        return null;
+    }
+
+    return {
+        target: target,
+        target_group: target_group,
+    };
+};
+
+module.exports.extractBufferName = extractBufferName;
+function extractBufferName(con, message, messageNickIdx) {
+    if (!message.nick) {
+        // A client sent a message
+        return message.params[messageNickIdx];
+    } else if (con.state.nick.toLowerCase() === message.params[messageNickIdx].toLowerCase()) {
+        // We are the target so it's a PM
+        return message.nick;
+    } else {
+        let buffer = message.params[messageNickIdx];
+        const target = extractTargetGroup(con, buffer);
+        if (target) {
+            buffer = target.target;
+        }
+        return buffer;
+    }
+}
