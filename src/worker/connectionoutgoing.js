@@ -1,5 +1,6 @@
 const uuidv4 = require('uuid/v4');
 const hooks = require('./hooks');
+const Helpers = require('../libs/helpers');
 const { ConnectionState, IrcBuffer } = require('./connectionstate');
 
 // Upstream commands can be hot reloaded as they contain no state
@@ -48,8 +49,7 @@ class ConnectionOutgoing {
     async open() {
         await this.state.loadConnectionInfo();
 
-        let whitelist = config.get('connections.whitelist', []);
-        if (whitelist.length > 0 && !whitelist.includes(this.state.host.toLowerCase())) {
+        const sendForbidden = () => {
             l.info('Attempted connection to forbidden network, ' + this.state.host);
             this.forEachClient((client) => {
                 if (client.state.netRegistered) {
@@ -59,7 +59,18 @@ class ConnectionOutgoing {
                     client.close();
                 }
             });
+        }
 
+        const lcHost = this.state.host.toLowerCase();
+        const blacklist = config.get('connections.blacklist', []);
+        if (blacklist.length > 0 && Helpers.hasMinimatch(blacklist, lcHost)) {
+            sendForbidden();
+            return;
+        }
+
+        const whitelist = config.get('connections.whitelist', []);
+        if (whitelist.length > 0 && !Helpers.hasMinimatch(whitelist, lcHost)) {
+            sendForbidden();
             return;
         }
 
@@ -261,7 +272,7 @@ class ConnectionOutgoing {
             let user = await this.db.factories.User.query()
                 .where('id', this.state.authUserId)
                 .first();
-            
+
             let vals = Object.create(null);
             vals['{{user.username}}'] = user.username;
             vals['{{user.id}}'] = user.id;

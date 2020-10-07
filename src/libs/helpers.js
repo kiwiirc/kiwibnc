@@ -1,4 +1,5 @@
 const strftime = require('strftime').timezone('+0');
+const minimatch = require("minimatch");
 const _ = require('lodash');
 
 module.exports.isoTime = isoTime;
@@ -271,4 +272,14 @@ function extractBufferName(con, message, messageNickIdx) {
         }
         return buffer;
     }
+}
+
+module.exports.hasMinimatch = hasMinimatch;
+function hasMinimatch(list, value) {
+    for (const item of list) {
+        if (minimatch(value, item)) {
+            return true;
+        }
+    }
+    return false;
 }
