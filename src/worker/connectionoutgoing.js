@@ -164,8 +164,14 @@ class ConnectionOutgoing {
         this.state.isupports = [];
         this.state.registrationLines = [];
 
+        // wait 5 seconds before classing as successful connection in case we get killed by services
+        this.safeConnectTimeout = setTimeout(async () => {
+            if (this.state.connected) {
+                await this.state.tempSet('reconnecting', null);
+            }
+        }, 5000);
+
         // tempSet() saves the state
-        await this.state.tempSet('reconnecting', null);
         await this.state.tempSet('irc_error', null);
 
         hooks.emit('connection_open', {upstream: this});
@@ -186,10 +192,10 @@ class ConnectionOutgoing {
     }
 
     async onUpstreamClosed(err) {
-        // If we were trying to reconnect, continue with that instead
-        if (this.state.tempGet('reconnecting')) {
-            this.reconnect();
-            return;
+        // Connection closed clear the safe connect timeout if set
+        if (this.safeConnectTimeout) {
+            clearTimeout(this.safeConnectTimeout);
+            this.safeConnectTimeout = 0;
         }
 
         let shouldReconnect = this.state.connected &&
@@ -203,6 +209,12 @@ class ConnectionOutgoing {
         this.state.connected = false;
         this.state.netRegistered = false;
         this.state.receivedMotd = false;
+
+        // If we were trying to reconnect, continue with that instead
+        if (this.state.tempGet('reconnecting')) {
+            this.reconnect();
+            return;
+        }
 
         for (let chanName in this.state.buffers) {
             let channel = this.state.buffers[chanName];
@@ -246,11 +258,19 @@ class ConnectionOutgoing {
     }
 
     async reconnect() {
+        const maxAttempts = config.get('connections.reconnect_max_attempts', 30);
+        const maxDelay = config.get('connections.reconnect_max_delay', 60);
         let numAttempts = this.state.tempGet('reconnecting') || 0;
         numAttempts++;
-        await this.state.tempSet('reconnecting', numAttempts);
 
-        let reconnectTimeout = (Math.min(numAttempts ** 2, 60) * 1000) + rand(300, 5000);
+        if (numAttempts <= maxAttempts) {
+            await this.state.tempSet('reconnecting', numAttempts);
+        } else {
+            await this.state.tempSet('reconnecting', null);
+            return;
+        }
+
+        let reconnectTimeout = (Math.min(numAttempts ** 2, maxDelay) * 1000) + rand(300, 5000);
         l('Reconnection attempt ' + numAttempts + ' in ' + reconnectTimeout + 'ms');
 
         setTimeout(() => {

@@ -354,7 +354,7 @@ commands.PART = async function(msg, con) {
         chan.partReceived = false;
         chan.leave();
     }
-    
+
     await con.state.save();
 };
 
