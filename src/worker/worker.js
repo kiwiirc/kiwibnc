@@ -49,7 +49,7 @@ async function run() {
 
     initWebserver(app);
     initStatus(app);
-    initExtensions(app);
+    await initExtensions(app);
     broadcastStats(app);
     await startServers(app);
     await loadConnections(app);
@@ -62,7 +62,8 @@ async function run() {
 
 async function initExtensions(app) {
     let extensions = app.conf.get('extensions.loaded') || [];
-    extensions.forEach(async extName => {
+    for(let i=0; i<extensions.length; i++){
+        let extName = extensions[i];
         try {
             let extPath = (extName[0] === '.' || extName[0] === '/') ?
                 app.conf.relativePath(extName) :
@@ -70,11 +71,13 @@ async function initExtensions(app) {
 
             l.info('Loading extension ' + extPath);
             let ext = require(extPath);
-            await ext.init(hooks, app);
+            if (ext && typeof ext.init === 'function') {
+                await ext.init(hooks, app);
+            }
         } catch (err) {
             l.error('Error loading extension ' + extName + ': ', err.stack);
         }
-    });
+    }
 
     // Extensions can add their hooks before the builtin hooks so that they have
     // a chance to override any if they need
