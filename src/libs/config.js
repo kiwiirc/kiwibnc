@@ -78,9 +78,11 @@ module.exports = class Config extends EventEmitter {
             return;
         }
 
+        // Remove empty lines and #comment lines
         let lines = content.split('\n')
             .map(line => line.trim())
-            .filter(line => !!line);
+            .filter(line => !!line)
+            .filter(line => line[0] !== '#');
 
         lines.forEach(line => {
             let pos = line.indexOf('=');
