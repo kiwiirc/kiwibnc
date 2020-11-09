@@ -251,6 +251,11 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         const client = event.client;
         const msg = event.message;
 
+        const enabled = config.get('notifications.enabled', true);
+        if (!enabled) {
+            return;
+        }
+
         if (!['PRIVMSG', 'NOTICE'].includes(msg.command.toUpperCase())) {
             return;
         }
