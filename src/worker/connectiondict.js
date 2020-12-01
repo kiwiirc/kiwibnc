@@ -50,8 +50,7 @@ class ConnectionDictionary {
         this.map.forEach((con) => {
             if (
                 con.state.type === TYPE_OUTGOING &&
-                con.state.authUserId === userId &&
-                con.state.authNetworkId === networkId
+                con.state.authUserId === userId
             ) {
                 foundCons.push(con);
             }
@@ -59,7 +58,7 @@ class ConnectionDictionary {
 
         // If a specific network was requested then just return that single one
         if (networkId) {
-            return foundCons[0] || null;
+            return foundCons.find((con) => con.state.authNetworkId === networkId) || null;
         } else {
             return foundCons;
         }
