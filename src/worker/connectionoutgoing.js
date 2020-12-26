@@ -178,7 +178,7 @@ class ConnectionOutgoing {
 
         let {username, realname} = await this.makeUserAndRealNames();
         this.writeLine(`NICK ${this.state.nick}`);
-        this.writeLine(`USER ${username} * * ${realname}`);
+        this.writeLine(`USER ${username} * * :${realname}`);
 
         this.forEachClient((client) => {
             client.writeStatus('Network connected!');

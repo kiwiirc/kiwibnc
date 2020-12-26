@@ -13,6 +13,7 @@
     "http-proxy": "^1.18.0",
     "ip-cidr": "^2.0.17",
     "irc-framework": "^4.4.0",
+    "keyvals": "^1.0.0",
     "knex": "^0.21.6",
     "koa": "^2.10.0",
     "koa-body": "^4.1.1",

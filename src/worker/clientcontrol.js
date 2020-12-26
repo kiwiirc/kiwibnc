@@ -1,5 +1,6 @@
 const ParseDuration = require('parse-duration');
 const Tokens = require('../libs/tokens');
+const keyvals = require('keyvals');
 
 let commands = Object.create(null);
 
@@ -216,17 +217,13 @@ commands.CHANGENETWORK = {
             channels: 'channels'
         };
 
-        input.split(' ').forEach(part => {
-            let pos = part.indexOf('=');
-            if (pos === -1) {
-                pos = part.length;
-            }
-
-            let field = part.substr(0, pos).toLowerCase();
-            let val = part.substr(pos + 1);
+        let options = keyvals.parse(input);
+        for (let optionName in options) {
+            let field = optionName.toLowerCase();
+            let val = options[optionName];
 
             if (!columnMap[field]) {
-                return;
+                continue;
             }
 
             let column = '';
@@ -254,7 +251,7 @@ commands.CHANGENETWORK = {
 
                 toUpdate[column] = num;
             }
-        });
+        }
 
         if (Object.keys(toUpdate).length > 0) {
             for (let prop in toUpdate) {
@@ -303,17 +300,13 @@ commands.ADDNETWORK = {
             channels: 'channels',
         };
 
-        input.split(' ').forEach(part => {
-            let pos = part.indexOf('=');
-            if (pos === -1) {
-                pos = part.length;
-            }
-
-            let field = part.substr(0, pos).toLowerCase();
-            let val = part.substr(pos + 1);
+        let options = keyvals.parse(input);
+        for (let optionName in options) {
+            let field = optionName.toLowerCase();
+            let val = options[optionName];
 
             if (!columnMap[field]) {
-                return;
+                continue;
             }
 
             let column = '';
@@ -341,7 +334,7 @@ commands.ADDNETWORK = {
 
                 toUpdate[column] = num;
             }
-        });
+        }
 
         let missingFields = [];
         let requiredFields = ['name', 'host', 'port', 'nick'];
