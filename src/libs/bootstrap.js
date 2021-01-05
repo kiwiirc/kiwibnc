@@ -21,12 +21,14 @@ module.exports = async function bootstrap(label) {
 
     l.debug(`Starting ${label}`);
 
-    let confPath = process.args.config || './config.ini';
+    let workDir = path.resolve(process.args.workingdir || './');
+    let confPath = path.resolve(process.args.config || './config.ini');
     let conf = null;
     try {
+        l.info(`Using working directory ${workDir}`);
         l.info(`Using config file ${confPath}`);
         try {
-            conf = Config.instance(confPath);
+            conf = Config.instance(workDir, confPath);
         } catch (err) {
             if (err.code === 'EISDIR') {
                 l.error('Error reading config file from ' + confPath);

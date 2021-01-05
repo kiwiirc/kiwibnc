@@ -13,11 +13,13 @@ const actionDeleteUser = require('./actions/deleteuser');
     // Make the args available globally
     process.args = commander;
 
-    let defaultConfigPath = path.join(os.homedir(), '.kiwibnc', 'config.ini')
+    let defaultWorkingDir = path.join(os.homedir(), '.kiwibnc');
+    let defaultConfigPath = path.join(defaultWorkingDir, 'config.ini')
 
     commander
         .version(version)
         .option('-c, --config <path>', 'Config file path', defaultConfigPath)
+        .option('-w, --workingdir <path>', 'Working directory path', defaultWorkingDir)
         .option('-i, --interactive', 'Interactive mode. Enables "r" key to reload', false);
 
     commander

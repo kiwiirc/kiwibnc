@@ -7,10 +7,10 @@ const _ = require('lodash');
 let singletonInstance = null;
 
 module.exports = class Config extends EventEmitter {
-    constructor(filePath) {
+    constructor(workDir, filePath) {
         super();
         this.filePath = filePath;
-        this.baseDir = path.resolve(path.dirname(filePath));
+        this.baseDir = workDir;
         this.c = {};
         this.env = {};
     }
