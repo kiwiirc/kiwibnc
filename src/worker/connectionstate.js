@@ -126,8 +126,9 @@ class IrcBuffer {
 module.exports.IrcBuffer = IrcBuffer;
 
 class ConnectionState {
-    constructor(id, db) {
+    constructor(con, id, db) {
         this.db = db;
+        this.con = con;
         this.conId = id;
         // loaded - State has been loaded from the db
         this.loaded = false;
@@ -248,7 +249,7 @@ class ConnectionState {
             // Add any channels that we don't already have
             (net.channels || '').split(',').forEach(chanName => {
                 if (chanName.trim()) {
-                    let buffer = this.getOrAddBuffer(chanName.trim());
+                    let buffer = this.getOrAddBuffer(chanName.trim(), this.con);
                     buffer.joined = true;
                 }
             });
@@ -307,7 +308,7 @@ class ConnectionState {
             this.buffers = Object.create(null);
             let rowChans = JSON.parse(row.buffers);
             for (let chanName in rowChans) {
-                this.addBuffer(rowChans[chanName]);
+                this.addBuffer(rowChans[chanName], this.con);
             }
             this.nick = row.nick;
             this.account = row.account;

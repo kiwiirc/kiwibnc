@@ -88,8 +88,8 @@ async function handleBouncerCommand(event) {
         upstream = con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
         if (upstream && !upstream.state.connected) {
             upstream.open();
-        } else if(!upstream) {
-            upstream = await con.makeUpstream(network);
+        } else if (!upstream) {
+            upstream = await con.makeUpstream(network, true);
         }
     }
 

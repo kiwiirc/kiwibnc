@@ -18,7 +18,7 @@ hotReloadClientCommands();
 class ConnectionIncoming {
     constructor(_id, db, userDb, messages, queue, conDict) {
         let id = _id || uuidv4();
-        this.state = new ConnectionState(id, db);
+        this.state = new ConnectionState(this, id, db);
         this.state.type = 1;
         this.queue = queue;
         this.conDict = conDict;
@@ -364,7 +364,8 @@ class ConnectionIncoming {
         }
     }
 
-    async makeUpstream(network) {
+    async makeUpstream(network, skipLink) {
+        // skipLink prevents the client connection being linked to the outgoing connection
         // May not be logged into a network
         if (!this.state.authNetworkId && !network) {
             return null;
@@ -386,7 +387,9 @@ class ConnectionIncoming {
         con.state.password = network.password;
         con.state.sasl.account = network.sasl_account || '';
         con.state.sasl.password = network.sasl_pass || '';
-        con.state.linkIncomingConnection(this.id);
+        if (!skipLink) {
+            con.state.linkIncomingConnection(this.id);
+        }
         await con.state.save();
 
         con.open();
