@@ -89,8 +89,8 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         let caps = event.client.state.caps;
         let m = event.message;
         if (!caps.has('extended-join') && m.command === 'JOIN' && m.params.length > 2) {
-            // Drop the account name from the params (The * in the above example)
-            m.params.splice(1, 1);
+            // Drop the account name (The * in the above example) and realname from the params 
+            m.params.splice(1, 2);
         }
     });
 
