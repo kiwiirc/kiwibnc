@@ -20,51 +20,39 @@ module.exports.init = async function init(hooks, app) {
 
     hooks.on('auth', async (event) => {
         const user = await app.userDb.getUser(event.username);
-        if (user) {
+        // Ensure username and password exist or sasl auth will not be attempted
+        if (user || !event.username || !event.password) {
             return;
         }
 
         l.trace('Attempting to auth new user with SASL:', event.username);
 
+        event.preventDefault();
+
         const netInfo = { ...netConfig };
         netInfo.name = event.username;
+        netInfo.nick = event.username;
         netInfo.sasl_account = event.username;
         netInfo.sasl_pass = event.password;
-        netInfo.nick = event.username;
-        netInfo.channels = '';
+        netInfo.username = event.username;
 
         let network = await app.userDb.getNetworkByName(-1, netInfo.name);
         if (network) {
-            // Temp network exists but it maybe stale so cleanup time
-            const upstream = await app.cons.findUsersOutgoingConnection(-1, network.id);
-            if (upstream) {
-                await cleanTempNetwork(upstream);
-            } else {
-                await app.db.dbUsers('user_networks').where('id', network.id).delete();
-            }
+            // Temp network exists
+            await event.client.writeMsg('ERROR', 'Auth already in progress');
+            event.client.close();
+            event.client.destroy();
+            return;
         }
 
         network = await app.userDb.addNetwork(-1, netInfo);
         const con = new ConnectionOutgoing(null, app.db, app.messages, app.queue, app.cons);
-        con.state.authUserId = -1;
         con.state.setNetwork(network);
-        con.state.host = network.host;
-        con.state.port = network.port;
-        con.state.tls = network.tls;
-        con.state.nick = network.nick || 'kiwibnc';
-        con.state.username = network.username || network.nick || 'kiwibnc';
-        con.state.realname = network.realname || network.nick || 'kiwibnc';
-        con.state.password = network.password;
-        con.state.sasl.account = network.sasl_account || '';
-        con.state.sasl.password = network.sasl_pass || '';
-
-        await con.state.save();
+        await con.state.loadConnectionInfo();
+        con.state.authUserId = -1;
+        // linkIncomingConnection() also saves the connection state
+        con.state.linkIncomingConnection(event.client.state.conId);
         await con.open();
-
-        const conId = event.client.state.conId;
-        con.state.linkIncomingConnection(conId);
-
-        event.preventDefault();
     });
 
     hooks.on('message_from_upstream', async (event) => {
@@ -104,7 +92,7 @@ module.exports.init = async function init(hooks, app) {
     hooks.on('connection_close', async (event) => {
         if (event.upstream.state.authUserId === -1) {
             l.trace('Temp connection closed, destroying', event.upstream.conId);
-            event.upstream.destroy();
+            await cleanTempNetwork(event.upstream);
         }
     });
 
@@ -128,13 +116,6 @@ module.exports.init = async function init(hooks, app) {
 
         upstream.state.authUserId = user.id;
         await upstream.state.save();
-
-        (netConfig.channels || '').split(',').forEach((chanName) => {
-            if (chanName.trim()) {
-                const buffer = upstream.state.getOrAddBuffer(chanName.trim(), upstream);
-                buffer.joined = true;
-            }
-        });
     }
 
     async function failed(upstream) {
@@ -153,9 +134,10 @@ module.exports.init = async function init(hooks, app) {
         if (upstream.state.connected) {
             // Connection will be destroyed when it closes
             upstream.close();
-        } else {
-            upstream.destroy();
+            return;
         }
+
+        upstream.destroy();
         await app.db.dbUsers('user_networks').where('id', upstream.state.authNetworkId).delete();
     }
 };
