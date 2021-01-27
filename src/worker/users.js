@@ -239,7 +239,8 @@ class Users {
 
     async addNetwork(userId, netInf) {
         let maxNetworks = config.get('users.max_networks', -1);
-        if (maxNetworks > -1) {
+        // userId -1 is used for temp connections
+        if (userId > 0 && maxNetworks > -1) {
             let nets = await this.db.factories.Network.query()
                 .where('user_id', userId);
 
