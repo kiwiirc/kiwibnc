@@ -354,7 +354,7 @@ commands.PART = async function(msg, con) {
         chan.partReceived = false;
         chan.leave();
     }
-    
+
     await con.state.save();
 };
 
@@ -474,9 +474,12 @@ commands.NOTICE = async function(msg, con) {
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
-
-    // Make sure we have this buffer
-    con.state.getOrAddBuffer(bufferNameIfPm(msg, con.state.nick, 0), con);
+    const bufferName = bufferNameIfPm(msg, con.state.nick, 0);
+    // Some notices come from the server without a nick, don't create an empty buffername for these
+    if (bufferName) {
+        // Make sure we have this buffer
+        con.state.getOrAddBuffer(bufferName, con);
+    }
 };
 
 commands.ERROR = async function(msg, con) {
