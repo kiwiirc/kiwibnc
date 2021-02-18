@@ -269,6 +269,8 @@ commands.NOTICE = async function(msg, con) {
         m.tags.msgid = msgId;
         await con.messages.storeMessage(m, con.upstream, con);
     }
+
+    return true;
 };
 
 commands.PRIVMSG = async function(msg, con) {
