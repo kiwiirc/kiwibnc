@@ -285,6 +285,13 @@ commands['376'] = async function(msg, con) {
 // ERR_NOMOTD
 commands['422'] = commands['376'];
 
+// ERR_YOUREBANNEDCREEP
+commands['465'] = async function(msg, con) {
+    // Don't auto reconnect on AKILL
+    con.state.tempSet('requested_close', true);
+    return true;
+};
+
 // keep track of login/logout to forward lines to new clients
 commands['900'] = async function(msg, con) {
     let account = msg.params[2];
