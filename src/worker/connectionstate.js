@@ -362,9 +362,13 @@ class ConnectionState {
             name = '*';
         }
 
-        const target = Helpers.extractTargetGroup(upstreamCon, name);
-        if (target) {
-            name = target.target;
+        // If we have an upstreamCon then use it for some extra protection to remove any status
+        // message prefixes from the name (ie. +@ etc). Some cases don't need this so it's optional
+        if (upstreamCon) {
+            const target = Helpers.extractTargetGroup(upstreamCon, name);
+            if (target) {
+                name = target.target;
+            }
         }
 
         let buffer = this.getBuffer(name);
