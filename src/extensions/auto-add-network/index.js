@@ -14,13 +14,13 @@ module.exports.init = async function init(hooks, app) {
 
         let addNeeded = true;
         networks.forEach((net) => {
-            if (net.host === extConf.host) {
+            if ((net.host || '').toLowerCase() === (extConf.host || '').toLowerCase()) {
                 addNeeded = false;
             }
         });
 
         if (addNeeded) {
-            addNetwork(con, user);
+            await addNetwork(con, user);
         }
     });
 }
