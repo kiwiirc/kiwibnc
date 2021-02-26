@@ -32,6 +32,8 @@ $ npm install
 ## Usage
 Running KiwiBNC for the first time will auto generate a config file in your home directory. You can also create your own using [this](https://github.com/kiwiirc/kiwibnc/blob/master/src/configProfileTemplate/config.ini) as a template and passing `--config=/path/to/config.ini` when running.
 
+You may use environment vars by using the `$ENV_NAME` syntax - any instance of `$ENV_NAME` will be replaced by the `NAME` environment var. A `.env` file in the same directory as your config file will be loaded to provide extra environment vars at runtime.
+
 #### Add a user
 ```shell
 $ node kiwibnc adduser
