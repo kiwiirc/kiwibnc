@@ -364,7 +364,7 @@ class ConnectionIncoming {
         }
     }
 
-    async makeUpstream(network) {
+    async makeUpstream(network, opts={}) {
         // May not be logged into a network
         if (!this.state.authNetworkId && !network) {
             return null;
@@ -386,7 +386,9 @@ class ConnectionIncoming {
         con.state.password = network.password;
         con.state.sasl.account = network.sasl_account || '';
         con.state.sasl.password = network.sasl_pass || '';
-        con.state.linkIncomingConnection(this.id);
+        if (opts.linkConnections !== false) {
+            con.state.linkIncomingConnection(this.id);
+        }
         await con.state.save();
 
         con.open();

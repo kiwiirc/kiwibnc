@@ -89,7 +89,10 @@ async function handleBouncerCommand(event) {
         if (upstream && !upstream.state.connected) {
             upstream.open();
         } else if(!upstream) {
-            upstream = await con.makeUpstream(network);
+            // Don't link the client<>upstream connections. If the netId was * (use the active
+            // connection) then it will already be linked, or if a specific netId was provided then
+            // we are acting on an unrelated upstream.
+            upstream = await con.makeUpstream(network, { linkConnections: false });
         }
     }
 
