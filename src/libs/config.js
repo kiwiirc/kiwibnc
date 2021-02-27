@@ -36,6 +36,14 @@ module.exports = class Config extends EventEmitter {
 
         let confObj = toml.parse(confContent);
 
+        // Set the data path now so that any relativePath() calls use it correctly
+        if (confObj.data_dir) {
+            this.baseDir = path.resolve(confObj.data_dir);
+        } else {
+            // Relative to the config file
+            this.baseDir = path.resolve(path.dirname(this.filePath));
+        }
+
         this.emit('loaded', confObj);
         this.c = confObj;
         this.emit('updated');
@@ -73,7 +81,10 @@ module.exports = class Config extends EventEmitter {
         }
 
         try  {
-            content = fs.readFileSync(this.relativePath(filename), 'utf8');
+            // the dotfile is always by the side of the config file
+            let configFilePath = path.dirname(this.filePath);
+            let filePath = path.resolve(path.join(configFilePath, filename));
+            content = fs.readFileSync(filePath, 'utf8');
         } catch (err) {
             return;
         }
