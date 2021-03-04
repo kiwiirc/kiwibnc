@@ -14,7 +14,7 @@ class User extends DatabaseSavable {
     get id() { return this.getData('id'); }
 
     get username() { return this.getData('username'); }
-    set username(newVal) { return this.setData('username', newVal); }
+    set username(newVal) { return this.setData('username', newVal.toLowerCase()); }
 
     get password() { return this.getData('password'); }
     set password(newVal) {
