@@ -169,6 +169,9 @@ function listenToQueue(app) {
             await con.onUpstreamConnected();
         }
     });
+    app.queue.on('connection.error', async (event) => {
+        l.error(`Server error ${event.id} ${event.error.message}`);
+    });
     app.queue.on('connection.close', async (event) => {
         if (event.error) {
             l.debug(`Connection ${event.id} closed. Error: ${event.error.code}`);
