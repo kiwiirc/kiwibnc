@@ -70,7 +70,8 @@ async function dataIntegrityCheck(app) {
         .first().then(r => r.count);
 
     if (count > 0) {
-        l.error('Case sensitive usernames detected in database')
+        l.error('Case sensitive usernames detected in database... Shutting down!');
+        l.error('for more information see: https://github.com/kiwiirc/kiwibnc/wiki/Fixing-Case-Sensitive-Usernames');
         process.exit(15);
     }
 }
