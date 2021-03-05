@@ -111,7 +111,7 @@ module.exports = class SocketServer extends EventEmitter {
             this.queue.sendToWorker('connection.close', {id: this.id, error: withError ? lastError : null});
         });
         this.server.on('error', (err) => {
-            this.queue.sendToWorker('connection.error', {id: this.id, error: err});
+            this.queue.sendToWorker('connection.error', {id: this.id, error: {...err, message: err.message}});
             this.server.close();
         });
         this.server.on('listening', (err) => {
