@@ -5,10 +5,11 @@ const uuidv4 = require('uuid/v4');
 const Throttler = require('../libs/throttler');
 
 module.exports = class SocketConnection extends EventEmitter {
-    constructor(conId, queue, sock) {
+    constructor(conId, queue, sock, conf) {
         super();
 
         this.queue = queue;
+        this.appConf = conf;
         this.id = conId || uuidv4();
         this.type = 0;
         this.buffer = [];
@@ -56,6 +57,18 @@ module.exports = class SocketConnection extends EventEmitter {
             this.readBuffer += data;
 
             let lines = this.readBuffer.split('\n');
+
+            // Make sure we don't exceed our max buffer len
+            let maxLen = this.appConf.get('connections.buffer', 10240);
+            for (let i=0; i<lines.length; i++) {
+                let numBytes = lines[i].length - 1;
+                if (numBytes > maxLen) {
+                    l.warn(`Connection exceeded max buffer size with ${numBytes} bytes ${this.id}`);
+                    this.close();
+                    return;
+                }
+            }
+
             if (lines[lines.length - 1] !== '') {
                 this.readBuffer = lines.pop();
             } else {

@@ -17,6 +17,7 @@ const { parseBindString, now } = require('../libs/helpers');
 async function run() {
     let app = await require('../libs/bootstrap')('worker');
     await app.initQueue('worker');
+    app.queue.sendToSockets('config.reload');
     global.config = app.conf;
 
     try {

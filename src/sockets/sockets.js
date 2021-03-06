@@ -23,6 +23,11 @@ async function run() {
     broadcastStats(app);
     app.queue.listenForEvents();
 
+    app.queue.on('config.reload', async (event) => {
+        l.info('Reloading configuration');
+        app.conf.load();
+    });
+
     app.queue.on('connection.data', async (event) => {
         let con = cons.get(event.id);
         if (!con) {
@@ -69,7 +74,7 @@ async function run() {
         }
 
         if (!con) {
-            con = new SocketConnection(event.id, app.queue);
+            con = new SocketConnection(event.id, app.queue, null, app.conf);
             con.type = 1;
             addCon(con);
         }
@@ -143,7 +148,7 @@ async function run() {
         }
 
         srv.on('connection.new', (socket) => {
-            let con = new SocketConnection(null, app.queue, socket);
+            let con = new SocketConnection(null, app.queue, socket, app.conf);
             con.type = 2;
             addCon(con);
             app.queue.sendToWorker('connection.new', {
