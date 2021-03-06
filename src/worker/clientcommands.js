@@ -373,7 +373,7 @@ commands.PART = async function(msg, con) {
 }
 
 commands.PING = async function(msg, con) {
-    con.writeMsg('PONG', msg.params[0]);
+    con.writeFromBnc('PONG', '*bnc', msg.params[0]);
     return false;
 };
 
