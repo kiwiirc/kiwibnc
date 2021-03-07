@@ -323,6 +323,7 @@ class ConnectionState {
             this.linkedIncomingConIds = new Set(JSON.parse(row.linked_con_ids || '[]'));
             this.logging = !!row.logging;
             this.tempData = JSON.parse(row.temp);
+            this.safeConnectTimeout = 0;
         }
 
         this.loaded = true;
