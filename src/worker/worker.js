@@ -66,7 +66,7 @@ async function dataIntegrityCheck(app) {
         return;
     }
     const count = await app.db.dbUsers('users').count('* as count')
-        .whereRaw('LOWER(`username`) != `username`')
+        .whereRaw('LOWER(username) != username')
         .first().then(r => r.count);
 
     if (count > 0) {
