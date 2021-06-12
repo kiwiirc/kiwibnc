@@ -1,4 +1,5 @@
 const uuidv4 = require('uuid/v4');
+const Irc = require('irc-framework');
 const hooks = require('./hooks');
 const Helpers = require('../libs/helpers');
 const { ConnectionState, IrcBuffer } = require('./connectionstate');
@@ -103,8 +104,26 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.throttle', {id: this.id, interval});
     }
 
-    write(data) {
-        this.queue.sendToSockets('connection.data', {id: this.id, data: data});
+    write(msg) {
+        let msgObj;
+
+        if (typeof msg === 'string') {
+            msgObj = Irc.ircLineParser(msg);
+        } else {
+            msgObj = msg;
+        }
+
+        return hooks.emit('message_to_upstream', {upstream: this, message: msgObj}).then(hook => {
+            if (hook.prevent) {
+                return;
+            }
+
+            if (!this.state.caps.has('message-tags')) {
+                msgObj.tags = {};
+            }
+
+            this.queue.sendToSockets('connection.data', {id: this.id, data: msgObj.to1459() + '\r\n'});
+        });
     }
 
     writeLine(...params) {
