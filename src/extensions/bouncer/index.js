@@ -250,7 +250,7 @@ async function handleBouncerCommand(event) {
                 new Date(tags.seen).getTime();
 
             if (!isNaN(seen)) {
-                buffer.lastSeen[con.clientid] = seen;
+                buffer.lastSeen[con.state.clientid] = seen;
             }
         }
 
