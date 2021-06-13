@@ -119,6 +119,10 @@ class ConnectionOutgoing {
             }
 
             if (!this.state.caps.has('message-tags')) {
+                if (msgObj.command.toUpperCase() === 'TAGMSG') {
+                    return;
+                }
+
                 msgObj.tags = {};
             }
 
