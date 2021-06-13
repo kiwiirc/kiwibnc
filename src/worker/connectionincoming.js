@@ -121,6 +121,10 @@ class ConnectionIncoming {
                 return;
             }
 
+            if (['NOTICE', 'PRIVMSG'].includes(msgObj.command.toUpperCase())) {
+                this.updateLastSeen(msgObj.params[0]);
+            }
+
             let toWrite = hook.event.raw || msgObj.to1459() + '\r\n';
             this.write(toWrite);
         });
@@ -280,17 +284,26 @@ class ConnectionIncoming {
                 continue;
             }
 
-            let messages = await this.messages.getMessagesBeforeTime(
+            let day = (1000 * 60 * 60 * 24);
+            let messages = await this.messages.getMessagesBetween(
                 this.state.authUserId,
                 this.state.authNetworkId,
                 buffer.name,
-                Date.now()
+                {
+                    type: 'timestamp',
+                    value: buffer.lastSeen[this.state.clientid] || Date.now() - (day * 1),
+                },
+                {
+                    type: 'timestamp',
+                    value: Date.now(),
+                },
+                50
             );
 
             let supportsTime = this.state.caps.has('server-time');
             messages.forEach(async (msg) => {
                 if (!supportsTime) {
-                    msg.params[1] = `[${strftime('%H:%M:%S')}] ${msg.params[1]}`;
+                    msg.params[1] = `[${strftime('%H:%M:%S', new Date(msg.tags.time))}] ${msg.params[1]}`;
                 }
                 await this.writeMsg(msg);
             });
@@ -343,6 +356,33 @@ class ConnectionIncoming {
         }
 
         this.writeMsgFrom(upstream.state.serverPrefix, '366', this.state.nick, buffer.name, 'End of /NAMES list.');
+    }
+
+    async updateLastSeen(bufferNames=[]) {
+        // Accept '#buffer' or ['#buffer']
+        if (typeof bufferNames === 'string') {
+            bufferNames = [bufferNames];
+        }
+
+        if (!this.upstream) {
+            return;
+        }
+
+        let changed = false;
+        bufferNames.forEach(bufName => {
+            let buf = this.upstream.state.getBuffer(bufName);
+            if (buf) {
+                let current = buf.lastSeen[this.state.clientid] || 0;
+                if (current < Date.now()) {
+                    buf.lastSeen[this.state.clientid] = Date.now();
+                    changed = true;
+                }
+            }
+        });
+
+        if (changed) {
+            await this.upstream.state.save();
+        }
     }
 
     // Handy helper to reach the hotReloadClientCommands() function

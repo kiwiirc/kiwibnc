@@ -48,7 +48,7 @@ class IrcBuffer {
         this.modes = Object.create(null);
         this.status = '=';
         this.isChannel = !!isChannel;
-        this.lastSeen = 0;
+        this.lastSeen = Object.create(null); // {clientid: timestamp}
         this.notifyLevel = Helpers.notifyLevel.Mention;
         this.users = Object.create(null);
     }
@@ -107,7 +107,7 @@ class IrcBuffer {
         Object.assign(c.modes, obj.modes);
         c.status = obj.status || '=';
         c.isChannel = !!obj.isChannel;
-        c.lastSeen = obj.lastSeen || 0;
+        c.lastSeen = obj.lastSeen || Object.create(null);
         c.notifyLevel = obj.notifyLevel || Helpers.notifyLevel.Mention;
 
         if (obj.users) {
@@ -140,6 +140,7 @@ class ConnectionState {
         this.userModes = Object.create(null);
         this.nick = 'unknown-user';
         this.account = '';
+        this.clientid = 'bnc';
         this.username = 'user';
         this.realname = 'BNC user';
         this.password = '';
@@ -190,6 +191,7 @@ class ConnectionState {
             tlsverify: this.tlsverify,
             type: this.type,
             account: this.account,
+            clientid: this.clientid,
             username: this.username,
             realname: this.realname,
             password: this.password,
@@ -307,10 +309,19 @@ class ConnectionState {
             this.buffers = Object.create(null);
             let rowChans = JSON.parse(row.buffers);
             for (let chanName in rowChans) {
-                this.addBuffer(rowChans[chanName]);
+                let chan = rowChans[chanName];
+                // Older kiwibnc instances used a single number for lastSeen. Migrate it to use
+                // the multiple clientid format {'clientid': timestamp}
+                if (typeof chan === 'object' && typeof chan.lastSeen === 'number') {
+                    let lastSeen = Object.create(null);
+                    lastSeen.bnc = chan.lastSeen;
+                    chan.lastSeen = lastSeen;
+                }
+                this.addBuffer(chan);
             }
             this.nick = row.nick;
             this.account = row.account;
+            this.clientid = row.clientid || 'bnc';
             this.username = row.username;
             this.realname = row.realname;
             this.password = row.password;

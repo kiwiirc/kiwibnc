@@ -74,22 +74,25 @@ async function maybeProcessRegistration(con) {
 
     // get bnc username and password
     let username = '';
+    let clientid = 'bnc';
     let networkName = '';
     let password = '';
     let network = null;
 
-    let m = regState.pass.match(/([^\/:]+)(?:\/([^:]*))?(?::(.*))?/);
-    let mu = regState.user.match(/([^\/]+)(?:\/(.+))?/);
+    let m = regState.pass.match(/^(?<username>[^\/:@]+)(?:@(?<clientid>[a-z0-9]+))?(?:\/(?<network>[^:]*))?(?::(?<password>.*))?$/);
+    let mu = regState.user.match(/^(?<username>[^\/:@]+)(?:@(?<clientid>[a-z0-9]+))?(?:\/(?<network>.+))?$/);
     if (m && regState.pass.includes(':')) {
-        // PASS user/network:pass or user/:pass or user:pass
-        username = m[1] || '';
-        networkName = m[2] || '';
-        password = m[3] || '';
+        // PASS user/network:pass or user/:pass or user:pass or user@clientid:pass etc
+        username = m.groups.username || '';
+        clientid = m.groups.clientid || '';
+        networkName = m.groups.network || '';
+        password = m.groups.password || '';
     } else if (mu && regState.pass) {
         // PASS pass
-        // USER user/network or user
-        username = mu[1] || '';
-        networkName = mu[2] || '';
+        // USER user/network or user or user@clientid
+        username = mu.groups.username || '';
+        clientid = mu.groups.clientid || '';
+        networkName = mu.groups.network || '';
         password = regState.pass || '';
     } else {
         await con.writeMsg('ERROR', 'Invalid password');
@@ -97,10 +100,14 @@ async function maybeProcessRegistration(con) {
         return false;
     }
 
-    let hook = await hooks.emit('auth', {username, networkName, password, client: con, userId: null, network: null, isAdmin: false});
+    let hook = await hooks.emit('auth', {username, clientid, networkName, password, client: con, userId: null, network: null, isAdmin: false});
     if (hook.prevent) {
         return false;
     }
+
+    // Parts of the BNC may depend on the clientid as it's configuring itself, so make sure that's
+    // set correctly before anything else. Defaulting to bnc
+    con.state.clientid = hook.event.clientid || 'bnc';
 
     if (hook.event.userId) {
         // An extension has authed the user
