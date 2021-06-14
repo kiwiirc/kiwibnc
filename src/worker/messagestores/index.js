@@ -77,6 +77,12 @@ class MessageStores {
             await store.storeMessage(...args);
         });
     }
+
+    async purgeMessages(...args) {
+        this.stores.filter(s => s.supportsWrite).forEach(async store => {
+            await store.purgeMessages(...args);
+        });
+    }
 }
 
 module.exports = MessageStores;
