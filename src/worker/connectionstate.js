@@ -394,8 +394,9 @@ class ConnectionState {
     }
 
     getBuffer(name) {
-        if (name.indexOf('.') > -1) {
+        if (name.indexOf('.') > -1 && name.match(/^[a-z0-9_\-.]+$/i)) {
             // Route server messages to the server buffer
+            // Server names only contain alphanumeric and .
             name = '*';
         }
 
