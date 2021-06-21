@@ -323,6 +323,16 @@ async function initWebserver(app) {
     app.webserver.proxy = true;
     app.webserver.context.basePath = basePath;
 
+    app.webserver.on('error', (error) => {
+        if (error.code === 'EPIPE' || error.code === 'ECONNRESET') {
+            // These errors are expected as clients always disconnect at random times before
+            // waiting for a response, or general network issues
+            return;
+        } else {
+            l.error('Webserver error', error);
+        }
+    });
+
     let router = app.webserver.router = new KoaRouter({
         prefix: basePath,
     });
