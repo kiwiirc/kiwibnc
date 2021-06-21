@@ -196,6 +196,7 @@ function listenToQueue(app) {
 
         let msg = ircLineParser(event.data);
         if (!msg) {
+            l.warn('Recieved malformed IRC line from connection ' + event.id);
             return;
         }
 

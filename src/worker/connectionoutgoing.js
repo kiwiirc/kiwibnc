@@ -126,7 +126,17 @@ class ConnectionOutgoing {
                 msgObj.tags = {};
             }
 
-            this.queue.sendToSockets('connection.data', {id: this.id, data: msgObj.to1459() + '\r\n'});
+            let rawLine = '';
+            try {
+                rawLine = msgObj.to1459();
+            } catch (err) {
+                // This should only ever happen if an extension has incorrectly modified the
+                // message in some way
+                l.error('Error constructing line for upstream.', err.stack, '\n', msgObj);
+                return;
+            }
+
+            this.queue.sendToSockets('connection.data', {id: this.id, data: rawLine + '\r\n'});
         });
     }
 
