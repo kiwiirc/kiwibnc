@@ -532,8 +532,8 @@ commands['353'] = async function(msg, con) {
         user = parseMask(mask);
 
         buffer.addUser(user.nick, {
-            host: user.hostname || undefined,
-            username: user.ident || undefined,
+            host: user.host || undefined,
+            username: user.user || undefined,
             prefixes: modes || undefined,
         });
     });
