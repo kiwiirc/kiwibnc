@@ -10,8 +10,14 @@ class IrcUser {
     }
 
     updatePrefixes(mode, upstreamCon) {
+        const prefixes = Helpers.parsePrefixes(upstreamCon.iSupportToken('PREFIX'));
+        const modePrefix = prefixes.find(p => p.mode === mode.mode[1]);
+        if (!modePrefix) {
+            return;
+        }
+
         const add = mode.mode[0] === '+';
-        const idx = this.prefixes.indexOf(mode.prefix);
+        const idx = this.prefixes.indexOf(modePrefix.symbol);
 
         if ((add && idx > -1) || (!add && idx === -1)) {
             // Attempting to perform an unneded action
@@ -25,8 +31,6 @@ class IrcUser {
             return;
         }
 
-        // Use PREFIX iSupportToken to maintain prefixes in order of priority
-        const prefixes = Helpers.parsePrefixes(upstreamCon.iSupportToken('PREFIX'));
         const newPrefixes = [];
         for (let i = 0; i < prefixes.length; i++) {
             const existing = this.prefixes.indexOf(prefixes[i].symbol) > -1
