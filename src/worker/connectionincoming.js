@@ -121,11 +121,29 @@ class ConnectionIncoming {
                 return;
             }
 
-            if (['NOTICE', 'PRIVMSG'].includes(msgObj.command.toUpperCase())) {
-                this.updateLastSeen(msgObj.params[0]);
+            // Shouldn't happen but cover the case where an extension sets an empty message
+            if (!hook.event.message) {
+                l.error('Extension removed the message object before write');
+                return;
             }
 
-            let toWrite = hook.event.raw || msgObj.to1459() + '\r\n';
+            // Update any lastSeen markers if we're sending the client a message of some form. Usually
+            // effects clientid usage to prevent re-delivering old chat chistory
+            if (['NOTICE', 'PRIVMSG'].includes(String(hook.event.message.command || '').toUpperCase())) {
+                let message = hook.event.message;
+                let isPm = String(message.params[0]).toLowerCase() === this.state.nick.toLowerCase();
+                let bufName = isPm ? message.nick : message.params[0];
+                this.updateLastSeen(bufName);
+            }
+
+            let toWrite = '';
+            try {
+                toWrite = hook.event.raw || hook.event.message.to1459() + '\r\n';
+            } catch (err) {
+                l.error('Error building IRC message for write', err.stack);
+                return;
+            }
+
             this.write(toWrite);
         });
     }
