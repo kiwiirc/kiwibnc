@@ -45,8 +45,45 @@ module.exports.run = async function(msg, con) {
 commands.HELP = {
     requiresNetworkAuth: false,
     fn: async function(input, con, msg) {
-        con.writeStatus(`Here are the supported commands:`);
-        con.writeStatus(Object.keys(commands).sort().join(' '));
+        let commandName = input.split(' ')[0];
+        if (commandName) {
+            let command = commands[commandName.toUpperCase()];
+            if (!command) {
+                con.writeStatus(`There is no command by that name`);
+                return;
+            }
+
+            if (!command.description) {
+                con.writeStatus(`No help available for that command`);
+                return;
+            }
+
+            con.writeStatus(`${commandName}: ${command.description}`);
+
+        } else {
+            let isAdmin = con.state.authAdmin;
+            let userCommandList = [];
+            let adminCommandList = [];
+            
+            Object.entries(commands).forEach(([name, command]) => {
+                if (command.skipCommandList === true) {
+                    return;
+                }
+                if (command.requiresAdmin) {
+                    adminCommandList.push(name);
+                } else {
+                    userCommandList.push(name);
+                }
+            });
+
+            con.writeStatus(`Available commands:`);
+            con.writeStatus(userCommandList.sort().join(' '));
+            if (isAdmin) {
+                con.writeStatus(`Admin commands:`);
+                con.writeStatus(adminCommandList.sort().join(' '));
+            }
+            con.writeStatus(`Type "help <command>" for help on a specific command`);
+        }
     },
 };
 
@@ -56,6 +93,7 @@ commands.HI =
 commands.OLA =
 commands.HOLA = {
     requiresNetworkAuth: false,
+    skipCommandList: true,
     fn: async function(input, con, msg) {
         con.writeStatus(`Hello!`);
     },
@@ -63,6 +101,7 @@ commands.HOLA = {
 
 commands.CONNECT = {
     requiresNetworkAuth: true,
+    description: 'Connect to the current network',
     fn: async function(input, con, msg) {
         if (con.upstream && con.upstream.state.connected) {
             con.writeStatus(`Already connected`);
@@ -74,6 +113,7 @@ commands.CONNECT = {
 
 commands.DISCONNECT = {
     requiresNetworkAuth: true,
+    description: 'Disconnect from the current network',
     fn: async function(input, con, msg) {
         if (con.upstream && con.upstream.state.connected) {
             con.upstream.close();
@@ -85,6 +125,7 @@ commands.DISCONNECT = {
 
 commands.LISTCLIENTS = {
     requiresNetworkAuth: true,
+    description: 'List all connected clients logged into this network',
     fn: async function(input, con, msg) {
         let entries = [];
         if (con.upstream) {
@@ -98,77 +139,84 @@ commands.LISTCLIENTS = {
     },
 };
 
-commands.LISTNETWORKS = async function(input, con, msg) {
-    let nets = await con.userDb.getUserNetworks(con.state.authUserId);
-    con.writeStatus(`${nets.length} network(s)`)
-    nets.forEach((net) => {
-        let netCon = con.conDict.findUsersOutgoingConnection(
-            con.state.authUserId,
-            net.id,
-        );
-        let activeNick = netCon ?
-            netCon.state.nick :
-            net.nick;
-        let connected = netCon && netCon.state.connected ?
-            'Yes' :
-            'No';
-        let lastErr = netCon && netCon.state.tempGet('irc_error') ?
-            'Error: ' + netCon.state.tempGet('irc_error') :
-            undefined;
-        let info = [
-            `${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
-            `Nick: ${activeNick}`,
-            `Connected? ${connected}`,
-            lastErr,
-        ];
-        con.writeStatus(info.join('. '));
-    });
+commands.LISTNETWORKS = {
+    description: 'List the networks in your account',
+    fn: async function(input, con, msg) {
+        let nets = await con.userDb.getUserNetworks(con.state.authUserId);
+        con.writeStatus(`${nets.length} network(s)`)
+        nets.forEach((net) => {
+            let netCon = con.conDict.findUsersOutgoingConnection(
+                con.state.authUserId,
+                net.id,
+            );
+            let activeNick = netCon ?
+                netCon.state.nick :
+                net.nick;
+            let connected = netCon && netCon.state.connected ?
+                'Yes' :
+                'No';
+            let lastErr = netCon && netCon.state.tempGet('irc_error') ?
+                'Error: ' + netCon.state.tempGet('irc_error') :
+                undefined;
+            let info = [
+                `${net.name} (${net.host}:${net.tls?'+':''}${net.port})`,
+                `Nick: ${activeNick}`,
+                `Connected? ${connected}`,
+                lastErr,
+            ];
+            con.writeStatus(info.join('. '));
+        });
+    },
 };
 
-commands.ATTACH = async function(input, con, msg) {
-    // attach network_name
+commands.ATTACH = {
+    description: 'Attach to a network within your account. Usage: "attach <network_name>"',
+    fn: async function(input, con, msg) {
+        // attach network_name
 
-    let parts = input.split(' ');
-    if (!input || parts.length === 0) {
-        con.writeStatus('Usage: attach <network_name>');
-        return;
-    }
-
-    if (con.state.authNetworkId) {
-        con.writeStatus('Already attached to a netork');
-        return;
-    }
-
-    let netName = parts[0];
-
-    // Make sure the network exists
-    let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
-    if (!network) {
-        con.writeStatus(`Network ${netName} could not be found`);
-        return;
-    }
-
-    con.state.setNetwork(network);
-    con.cachedUpstreamId = false;
-
-    // Close any active upstream connections we have for this network
-    let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
-    if (upstream && !upstream.state.connected) {
-        // The upstream connection will call con.registerClient() once it's registered
-        con.writeStatus('Connecting to the network..');
-        upstream.open();
-    } else if (upstream) {
-        con.writeStatus(`Attaching you to the network`);
-        if (upstream.state.receivedMotd) {
-            await con.registerClient();
+        let parts = input.split(' ');
+        if (!input || parts.length === 0) {
+            con.writeStatus('Usage: attach <network_name>');
+            return;
         }
-    } else {
-        con.makeUpstream(network);
-        con.writeStatus('Connecting to the network..');
-    }
+
+        if (con.state.authNetworkId) {
+            con.writeStatus('Already attached to a netork');
+            return;
+        }
+
+        let netName = parts[0];
+
+        // Make sure the network exists
+        let network = await con.userDb.getNetworkByName(con.state.authUserId, netName);
+        if (!network) {
+            con.writeStatus(`Network ${netName} could not be found`);
+            return;
+        }
+
+        con.state.setNetwork(network);
+        con.cachedUpstreamId = false;
+
+        // Close any active upstream connections we have for this network
+        let upstream = await con.conDict.findUsersOutgoingConnection(con.state.authUserId, network.id);
+        if (upstream && !upstream.state.connected) {
+            // The upstream connection will call con.registerClient() once it's registered
+            con.writeStatus('Connecting to the network..');
+            upstream.open();
+        } else if (upstream) {
+            con.writeStatus(`Attaching you to the network`);
+            if (upstream.state.receivedMotd) {
+                await con.registerClient();
+            }
+        } else {
+            con.makeUpstream(network);
+            con.writeStatus('Connecting to the network..');
+        }
+    },
 };
 
 commands.CHANGENETWORK = {
+    description: 'Change a setting for the active network, or another under your account. Usage: "changenetwork [network_name] option=val"',
     fn: async function(input, con, msg) {
         // changenetwork [network name] option=value
 
@@ -269,6 +317,7 @@ commands.CHANGENETWORK = {
 
 commands.ADDNETWORK = {
     requiresNetworkAuth: false,
+    description: 'Add a new network to your account. Usage: "addnetwork name=example server=irc.example.net port=6697 tls=yes nick=mynick"',
     fn: async function(input, con, msg) {
         // addnetwork host=irc.freenode.net port=6667 tls=1
 
@@ -380,6 +429,7 @@ commands.ADDNETWORK = {
 
 commands.DELNETWORK = {
     requiresNetworkAuth: false,
+    description: 'Delete a network from your account. Usage: "delnetwork <network_name>"',
     fn: async function(input, con, msg) {
         // delnetwork network_name
 
@@ -410,103 +460,119 @@ commands.DELNETWORK = {
     },
 };
 
-commands.SETPASS = async function(input, con, msg) {
-    let parts = input.split(' ');
-    let newPass = parts[0] || '';
-    if (!newPass) {
-        con.writeStatus('Usage: setpass <newpass>');
-        return false;
-    }
-
-    try {
-        await con.userDb.changeUserPassword(con.state.authUserId, newPass);
-        con.writeStatus('New password set');
-    } catch (err) {
-        l.error('Error setting new password:', err.message);
-        con.writeStatus('There was an error changing your password');
-    }
-};
-
-commands.ADDTOKEN = async function(input, con, msg) {
-    const parts = input.split(' ');
-    const duration = parts[0] === '0' ? 0 : ParseDuration(parts[0], 'sec');
-    const comment = duration === null ? input : parts.slice(1).join(' ');
-
-    try {
-        let token = await con.userDb.generateUserToken(con.state.authUserId, duration, comment, con.state.host);
-        con.writeStatusWithTags(
-            'Created new token for your account. You can use it in place of your password: ' + token,
-            { '+auth_token': token }
-        );
-    } catch (err) {
-        l.error('Error creating user token:', err.message);
-        con.writeStatus('There was an error creating a new token for your account');
-    }
-};
-
-commands.CHANGETOKEN = async function(input, con, msg) {
-    const parts = input.split(' ');
-    const token = parts[0];
-
-    if (parts.length < 2 || !Tokens.isUserToken(token)) {
-        con.writeStatus('Usage: changetoken <token> [expires] [comment]');
-        return false;
-    }
-
-    const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
-    const comment = duration === null ? parts.slice(1).join(' ') : parts.slice(2).join(' ');
-
-    try {
-        const res = await con.userDb.updateUserToken(con.state.authUserId, token, duration, comment);
-        if (res === 1) {
-            con.writeStatus('Token changed!');
-        } else {
-            con.writeStatus('Failed to change token :(');
+commands.SETPASS = {
+    description: 'Change the password for your BNC account. Usage: "setpass <newpass>"',
+    fn: async function(input, con, msg) {
+        let parts = input.split(' ');
+        let newPass = parts[0] || '';
+        if (!newPass) {
+            con.writeStatus('Usage: setpass <newpass>');
+            return false;
         }
-    } catch (err) {
-        l.error('Error updating user token:', err.message);
-        con.writeStatus('There was an error updating the token for your account');
-    }
+
+        try {
+            await con.userDb.changeUserPassword(con.state.authUserId, newPass);
+            con.writeStatus('New password set');
+        } catch (err) {
+            l.error('Error setting new password:', err.message);
+            con.writeStatus('There was an error changing your password');
+        }
+    },
 };
 
-commands.LISTTOKENS = async function(input, con, msg) {
-    try {
-        let tokens = await con.userDb.getUserTokens(con.state.authUserId);
-        tokens.forEach(t => {
-            let str = t.token;
-            str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
-            str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
-            if (t.comment) {
-                str += ` (${t.comment})`;
+commands.ADDTOKEN = {
+    description: 'Add an auth token to log into your BNC account in place of a password. Handy for bots. Usage: "addtoken [expires] [token comment]"',
+    fn: async function(input, con, msg) {
+        const parts = input.split(' ');
+        const duration = parts[0] === '0' ? 0 : ParseDuration(parts[0], 'sec');
+        const comment = duration === null ? input : parts.slice(1).join(' ');
+
+        try {
+            let token = await con.userDb.generateUserToken(con.state.authUserId, duration, comment, con.state.host);
+            con.writeStatusWithTags(
+                'Created new token for your account. You can use it in place of your password: ' + token,
+                { '+auth_token': token }
+            );
+        } catch (err) {
+            l.error('Error creating user token:', err.message);
+            con.writeStatus('There was an error creating a new token for your account');
+        }
+    },
+};
+
+commands.CHANGETOKEN = {
+    description: 'Change an existing auth token on your BNC account. Usage: changetoken <token> [expires] [comment]',
+    fn: async function(input, con, msg) {
+        const parts = input.split(' ');
+        const token = parts[0];
+
+        if (parts.length < 2 || !Tokens.isUserToken(token)) {
+            con.writeStatus('Usage: changetoken <token> [expires] [comment]');
+            return false;
+        }
+
+        const duration = parts[1] === '0' ? 0 : ParseDuration(parts[1], 'sec');
+        const comment = duration === null ? parts.slice(1).join(' ') : parts.slice(2).join(' ');
+
+        try {
+            const res = await con.userDb.updateUserToken(con.state.authUserId, token, duration, comment);
+            if (res === 1) {
+                con.writeStatus('Token changed!');
+            } else {
+                con.writeStatus('Failed to change token :(');
             }
-            con.writeStatus(str);
-        });
-        con.writeStatus('No more tokens.');
-    } catch (err) {
-        l.error('Error reading user tokens:', err.message);
-        con.writeStatus('There was an error reading the tokens for your account');
-    }
+        } catch (err) {
+            l.error('Error updating user token:', err.message);
+            con.writeStatus('There was an error updating the token for your account');
+        }
+    },
 };
 
-commands.DELTOKEN = async function(input, con, msg) {
-    let parts = input.split(' ');
-    let token = parts[0] || '';
-    if (!token || !Tokens.isUserToken(token)) {
-        con.writeStatus('Usage: deltoken <token>');
-        return false;
-    }
+commands.LISTTOKENS = {
+    description: 'List all auth tokens on your BNC account',
+    fn: async function(input, con, msg) {
+        try {
+            let tokens = await con.userDb.getUserTokens(con.state.authUserId);
+            tokens.forEach(t => {
+                let str = t.token;
+                str += ' Created: ' + new Date(t.created_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
+                str += ' Expires: ' + new Date(t.expires_at * 1000).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false }) + '.';
+                if (t.comment) {
+                    str += ` (${t.comment})`;
+                }
+                con.writeStatus(str);
+            });
+            con.writeStatus('No more tokens.');
+        } catch (err) {
+            l.error('Error reading user tokens:', err.message);
+            con.writeStatus('There was an error reading the tokens for your account');
+        }
+    },
+};
 
-    try {
-        await con.userDb.removeUserToken(con.state.authUserId, token);
-        con.writeStatus('Token deleted');
-    } catch (err) {
-        l.error('Error deleting user token:', err.message);
-        con.writeStatus('There was an error deleting the token from your account');
-    }
+commands.DELTOKEN = {
+    description: 'Delete an auth token from your BNC account. Usage: "deltoken <token>"',
+    fn: async function(input, con, msg) {
+        let parts = input.split(' ');
+        let token = parts[0] || '';
+        if (!token || !Tokens.isUserToken(token)) {
+            con.writeStatus('Usage: deltoken <token>');
+            return false;
+        }
+
+        try {
+            await con.userDb.removeUserToken(con.state.authUserId, token);
+            con.writeStatus('Token deleted');
+        } catch (err) {
+            l.error('Error deleting user token:', err.message);
+            con.writeStatus('There was an error deleting the token from your account');
+        }
+    },
 };
 
 commands.ADDUSER = {
     requiresAdmin: true,
+    description: 'Add a BNC user account. Usage: "adduser <username> <password>"',
     fn: async function(input, con, msg) {
         let parts = input.split(' ');
         let username = parts[0] || '';
@@ -532,24 +598,28 @@ commands.ADDUSER = {
     },
 };
 
-commands.STATUS = async function(input, con, msg) {
-    let parts = input.split(' ');
-    if (con.upstream && con.upstream.state.connected) {
-        con.writeStatus('Connected to ' + con.upstream.state.host);
-    } else if (!con.state.authNetworkId) {
-        con.writeStatus(`Not logged into a network`);
-    } else {
-        con.writeStatus('Not connected');
-    }
+commands.STATUS = {
+    description: 'Show the connection status for the active network',
+    fn: async function(input, con, msg) {
+        let parts = input.split(' ');
+        if (con.upstream && con.upstream.state.connected) {
+            con.writeStatus('Connected to ' + con.upstream.state.host);
+        } else if (!con.state.authNetworkId) {
+            con.writeStatus(`Not logged into a network`);
+        } else {
+            con.writeStatus('Not connected');
+        }
 
-    if (parts[0] === 'more' && con.upstream) {
-        con.writeStatus('This ID: ' + con.id);
-        con.writeStatus('Upstream ID: ' + con.upstream.id);
-    }
+        if (parts[0] === 'more' && con.upstream) {
+            con.writeStatus('This ID: ' + con.id);
+            con.writeStatus('Upstream ID: ' + con.upstream.id);
+        }
+    },
 };
 
 commands.KILL = {
     requiresAdmin: true,
+    description: 'Kill the BNC worker process and automatically restart it, applying any new configuration. Does not close any IRC connections',
     fn: async function(input, con, msg) {
         con.queue.stopListening().then(process.exit);
         return false;
