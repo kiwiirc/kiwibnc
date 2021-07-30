@@ -42,11 +42,13 @@ class IrcUser {
     }
 }
 
+// IrcBuffer gets JSON.stringify()'ied so all properties must support this
 class IrcBuffer {
     constructor(name, isChannel) {
         this.name = name;
         this.key = '';
         this.joined = false;
+        this.shouldBeJoined = false;
         this.partReceived = false;
         this.topic = '';
         this.modes = Object.create(null);
@@ -59,6 +61,7 @@ class IrcBuffer {
 
     leave() {
         this.joined = false;
+        this.shouldBeJoined = false;
         this.users = Object.create(null);
     }
 
@@ -107,6 +110,9 @@ class IrcBuffer {
         let c = new IrcBuffer(obj.name);
         c.key = obj.key || '';
         c.joined = obj.joined || false;
+        c.shouldBeJoined = obj.shouldBeJoined === undefined ?
+            c.joined :
+            !!obj.shouldBeJoined;
         c.topic = obj.topic || '';
         Object.assign(c.modes, obj.modes);
         c.status = obj.status || '=';

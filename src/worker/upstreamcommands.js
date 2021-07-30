@@ -272,7 +272,9 @@ commands['376'] = async function(msg, con) {
             let b = con.state.buffers[buffName];
             if (b.isChannel) {
                 b.joined = false;
-                con.writeLine('JOIN', b.name);
+                if (b.shouldBeJoined) {
+                    con.writeLine('JOIN', b.name);
+                }
             }
         }
 
@@ -336,6 +338,7 @@ commands.JOIN = async function(msg, con) {
     con.writeLine('MODE', chanName);
 
     chan.joined = true;
+    chan.shouldBeJoined = true;
     await con.state.save();
 };
 
