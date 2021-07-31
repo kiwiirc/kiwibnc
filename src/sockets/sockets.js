@@ -1,3 +1,4 @@
+const fs = require('fs');
 const SocketConnection = require('./connection');
 const SocketServer = require('./socketserver');
 const Throttler = require('../libs/throttler');
@@ -185,7 +186,13 @@ async function run() {
             app.stats.gauge('stats.memoryheapused', mem.heapUsed);
             app.stats.gauge('stats.memoryheaptotal', mem.heapTotal);
             app.stats.gauge('stats.memoryrss', mem.rss);
-    
+
+            fs.readdir('/proc/self/fd', (err, list) => {
+                // Expected errors on OSs without /proc/
+                if (err) return;
+                app.stats.gauge('stats.fdcount', list.length);
+            });
+
             setTimeout(broadcast, 10000);
         }
     
