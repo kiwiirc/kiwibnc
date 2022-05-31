@@ -18,11 +18,11 @@ module.exports = class SocketServer extends EventEmitter {
 
         const proxyCidrStrings = this.appConfig.get('webserver.upstream_proxies', ['127.0.0.1/8']);
         proxyCidrStrings.forEach((str) => {
-            const cidr = new IpCidr(str);
-            if (!cidr.isValid()) {
+            if (!IpCidr.isValidAddress(str)) {
                 l.error('webserver.upstream_proxies CIDR is invalid:', str);
                 return;
             }
+            const cidr = new IpCidr(str);
             this.upstreamProxies.push(cidr);
         });
     }

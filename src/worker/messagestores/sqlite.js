@@ -22,7 +22,6 @@ class SqliteMessageStore {
 
         this.dataCache = new LRU({
             max: 50 * 1000 * 1000, // very roughly 50mb cache
-            length: (entry, key) => key.length,
         });
     }
 

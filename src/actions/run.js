@@ -26,7 +26,7 @@ module.exports = async function(env, options) {
         workerProc.on('exit', spawnWorker);
     };
 
-    if (process.args.interactive) {
+    if (process.args.opts().interactive) {
         readline.emitKeypressEvents(process.stdin);
         process.stdin.setRawMode(true);
         process.stdin.on('keypress', (str, key) => {
@@ -37,14 +37,14 @@ module.exports = async function(env, options) {
 
             if (key.name === 'r' && workerProc) {
                 l('Reloading worker process...');
-                workerProc.kill('SIGQUIT');
+                workerProc.kill('SIGTERM');
             }
         });
     }
 
     process.on('SIGHUP', () => {
         l('SIGHUP received. Reloading worker process...');
-        workerProc.kill('SIGQUIT');
+        workerProc.kill('SIGTERM');
     });
 
     spawnWorker();
@@ -59,7 +59,7 @@ module.exports = async function(env, options) {
                 doubleCtrlCTmr = 0;
                 l('Reloading worker process...');
                 if (workerProc) {
-                    workerProc.kill('SIGQUIT');
+                    workerProc.kill('SIGTERM');
                 }
             }, 500);
 

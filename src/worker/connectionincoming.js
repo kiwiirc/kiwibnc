@@ -1,4 +1,4 @@
-const uuidv4 = require('uuid/v4');
+const { v4: uuidv4 } = require('uuid');
 const IrcMessage = require('irc-framework').Message;
 const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
