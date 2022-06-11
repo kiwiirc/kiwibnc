@@ -124,7 +124,7 @@ function listenToQueue(app) {
         await app.db.dbConnections.raw('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
 
         // Since there are now no incoming connections, clear all incoming<>outgoing links
-        await app.db.dbConnections.raw('UPDATE connections SET linked_con_ids = "[]"');
+        await app.db.dbConnections.raw('UPDATE connections SET linked_con_ids = ?', '[]');
 
         // If we don't have any connections then we have nothing to clear out. We do
         // need to start our servers again though
