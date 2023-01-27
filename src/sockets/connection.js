@@ -1,7 +1,7 @@
 const net = require('net');
 const tls = require('tls');
 const { EventEmitter } = require('events');
-const uuidv4 = require('uuid/v4');
+const { v4: uuidv4 } = require('uuid');
 const Throttler = require('../libs/throttler');
 
 module.exports = class SocketConnection extends EventEmitter {

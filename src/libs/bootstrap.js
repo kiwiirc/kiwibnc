@@ -11,7 +11,7 @@ const createLogger = require('../libs/logger');
 
 module.exports = async function bootstrap(label) {
     process.title = 'kiwibnc-' + label;
-
+    
     await prepareConfig();
 
     // Helper global logger
@@ -21,7 +21,7 @@ module.exports = async function bootstrap(label) {
 
     l.debug(`Starting ${label}`);
 
-    let confPath = process.args.config || './config.ini';
+    let confPath = process.args.opts().config || './config.ini';
     let conf = null;
     try {
         l.info(`Using config file ${confPath}`);
@@ -115,20 +115,20 @@ async function initDatabase(app) {
 
 async function prepareConfig() {
     let configOption = process.args.options.find(o => o.long === '--config');
-    let isDefaultConfig = (configOption && process.args.config === configOption.defaultValue);
-    let configExists = await fs.pathExists(process.args.config);
+    let isDefaultConfig = (configOption && process.args.opts().config === configOption.defaultValue);
+    let configExists = await fs.pathExists(process.args.opts().config);
 
     if (configExists) {
         return;
     }
 
     if (!isDefaultConfig && !configExists) {
-        console.error('Config file does not exist,', process.args.config);
+        console.error('Config file does not exist,', process.args.opts().config);
         process.exit(1);
     }
 
     if (isDefaultConfig) {
-        let configPath = path.dirname(process.args.config);
+        let configPath = path.dirname(process.args.opts().config);
         console.log('Creating new config profile at ' + configPath);
         try {
             // Copy the template data folder

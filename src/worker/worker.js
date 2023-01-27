@@ -1,11 +1,11 @@
 const fs = require('fs');
-const uuidv4 = require('uuid/v4');
+const { v4: uuidv4 } = require('uuid');
 const { ircLineParser } = require('irc-framework');
 const Koa = require('koa');
 const koaStatic = require('koa-static');
 const KoaRouter = require('@koa/router');
 const KoaMount = require('koa-mount');
-const koaBody = require('koa-body');
+const { koaBody } = require('koa-body');
 const IpCidr = require("ip-cidr");
 const MessageStores = require('./messagestores/');
 const ConnectionOutgoing = require('./connectionoutgoing');
@@ -35,6 +35,9 @@ async function run() {
 
     app.prepareShutdown = () => prepareShutdown(app);
     process.on('SIGQUIT', () => {
+        app.prepareShutdown();
+    });
+    process.on('SIGTERM', () => {
         app.prepareShutdown();
     });
 
@@ -124,7 +127,7 @@ function listenToQueue(app) {
         await app.db.dbConnections.raw('DELETE FROM connections WHERE type = ?', [ConnectionDict.TYPE_INCOMING]);
 
         // Since there are now no incoming connections, clear all incoming<>outgoing links
-        await app.db.dbConnections.raw('UPDATE connections SET linked_con_ids = "[]"');
+        await app.db.dbConnections.raw(`UPDATE connections SET linked_con_ids = '[]'`);
 
         // If we don't have any connections then we have nothing to clear out. We do
         // need to start our servers again though
@@ -454,11 +457,11 @@ async function statusAuth(ctx, next, role, redirect) {
     const allowed = global.config.get('webserver.status_allowed_hosts', ['127.0.0.1/8']);
 
     for (let i = 0; i < allowed.length; i++) {
-        const cidr = new IpCidr(allowed[i]);
-        if (!cidr.isValid()) {
+        if (!IpCidr.isValidAddress(allowed[i])) {
             l.error('CIDR is invalid:', allowed[i]);
             continue;
         }
+        const cidr = new IpCidr(allowed[i]);
         if (cidr.contains(ctx.ip)) {
             return await next();
         }

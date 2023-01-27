@@ -1,4 +1,4 @@
-const uuidv4 = require('uuid/v4');
+const { v4: uuidv4 } = require('uuid');
 const Irc = require('irc-framework');
 const hooks = require('./hooks');
 const Helpers = require('../libs/helpers');

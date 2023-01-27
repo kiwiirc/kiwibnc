@@ -6,7 +6,7 @@ module.exports = class Database {
         let dbConf = config.get('database', {});
 
 		this.dbConnections = knex({
-			client: 'sqlite3',
+			client: 'better-sqlite3',
 			connection: {
                 // dbConf.path is legacy
 				filename: config.relativePath(dbConf.state || dbConf.path || 'connections.db'),
@@ -17,7 +17,7 @@ module.exports = class Database {
 
         let usersConStr = dbConf.users || 'users.db';
         let usersDbCon = {
-			client: 'sqlite3',
+			client: 'better-sqlite3',
             connection: null,
             acquireConnectionTimeout: 10000,
         };
@@ -35,7 +35,7 @@ module.exports = class Database {
             usersDbCon = usersConStr;
         } else {
             // No scheme:// part in the connection string, assume it's an sqlite filename
-            usersDbCon.client = 'sqlite3';
+            usersDbCon.client = 'better-sqlite3';
             usersDbCon.useNullAsDefault = true;
             usersDbCon.connection = { filename: config.relativePath(usersConStr) };
             usersDbCon.pool = { propagateCreateError: false };
