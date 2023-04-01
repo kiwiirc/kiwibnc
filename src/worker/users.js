@@ -9,9 +9,10 @@ class Users {
     }
 
     async authUserNetwork(username, password, network) {
+        const lcUsername = username.toLowerCase();
         let ret = { network: null, user: null };
 
-        if (!Helpers.validUsername(username)) {
+        if (!Helpers.validUsername(lcUsername)) {
             return ret;
         }
 
@@ -19,7 +20,7 @@ class Users {
             let isUserToken = false;
             let query = this.db.dbUsers('user_networks')
                 .innerJoin('users', 'users.id', 'user_networks.user_id')
-                .where('users.username', 'LIKE', username)
+                .where('users.username', 'LIKE', lcUsername)
                 .where('user_networks.name', 'LIKE', network)
                 .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin');
 
@@ -58,14 +59,15 @@ class Users {
     }
 
     async authUser(username, password, userHost) {
-        if (!Helpers.validUsername(username)) {
+        const lcUsername = username.toLowerCase();
+        if (!Helpers.validUsername(lcUsername)) {
             return null;
         }
 
         let isUserToken = false;
         let query = this.db.dbUsers('users')
             .select('users.*')
-            .where('username', 'LIKE', username)
+            .where('username', 'LIKE', lcUsername)
             .where('locked', '!=', true);
 
         if (tokens.isUserToken(password)) {
@@ -172,20 +174,22 @@ class Users {
     }
 
     async getUser(username) {
-        if (!Helpers.validUsername(username)) {
+        const lcUsername = username.toLowerCase();
+        if (!Helpers.validUsername(lcUsername)) {
             return null;
         }
 
-        return this.db.factories.User.query().where('username', 'LIKE', username).first();
+        return this.db.factories.User.query().where('username', 'LIKE', lcUsername).first();
     }
 
     async addUser(username, password, isAdmin) {
-        if (!Helpers.validUsername(username)) {
+        const lcUsername = username.toLowerCase();
+        if (!Helpers.validUsername(lcUsername)) {
             throw new Error('Invalid username');
         }
 
         let user = this.db.factories.User();
-        user.username = username;
+        user.username = lcUsername;
         user.password = password;
         user.created_at = Helpers.now();
         if (isAdmin === true) {
