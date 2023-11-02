@@ -60,7 +60,7 @@ async function downloadKiwiIrc(publicPath, downloadUrl) {
             .on('error', reportError)
             .on('close', async () => {
                 try {
-                    await fs.copy(path.join(downloadPath, 'dist/'), publicPath);
+                    await fs.copy(path.join(downloadPath, 'kiwiirc/'), publicPath);
                 } catch (err) {
                     reportError(err);
                     return;
