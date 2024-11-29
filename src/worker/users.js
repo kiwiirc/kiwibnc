@@ -4,8 +4,9 @@ const { BncError } = require('../libs/errors');
 const tokens = require('../libs/tokens');
 
 class Users {
-    constructor(db) {
-        this.db = db;
+    constructor(app) {
+        this.app = app;
+        this.db = app.db;
     }
 
     async authUserNetwork(username, password, network) {
@@ -197,9 +198,32 @@ class Users {
     };
 
     async deleteUser(user_id) {
-        await this.db.factories.User.query().where('id', user_id).delete();
-        await this.db.factories.Network.query().where('user_id', user_id).delete();
+        // remove user tokens
         await this.db.db('user_tokens').where('user_id', user_id).delete();
+
+        if (this.app.cons) {
+            // app is running disconnect and destroy connected networks
+            const userOutCons = await this.app.cons.findUsersOutgoingConnection(user_id);
+            userOutCons.forEach((con) => {
+                con.close();
+                con.destroy();
+            });
+
+            const userInCons = await this.app.cons.findAllUsersClients(user_id);
+            userInCons.forEach((con) => {
+                con.close();
+                con.destroy();
+            });
+        } else {
+            // app is not running remove user's connections from db
+            await this.db.dbConnections('connections').where('auth_user_id', user_id).delete();
+        }
+
+        // delete networks
+        await this.db.factories.Network.query().where('user_id', user_id).delete();
+
+        // delete user
+        await this.db.factories.User.query().where('id', user_id).delete();
     }
 
     async changeUserPassword(id, password) {

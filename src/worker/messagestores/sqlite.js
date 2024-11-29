@@ -24,6 +24,13 @@ class SqliteMessageStore {
             max: 50 * 1000 * 1000, // very roughly 50mb cache
             length: (entry, key) => key.length,
         });
+
+        this.purgerRunning = false;
+        this.purgerTimeout = 0;
+        // Max number of records to delete in one loop
+        this.purgerLimit = 1000;
+        // Delay in ms between each loop
+        this.purgerDelay = 1000;
     }
 
     async init() {
@@ -49,6 +56,13 @@ class SqliteMessageStore {
             data BLOB UNIQUE
         )`);
 
+        this.db.exec(`
+        CREATE TABLE IF NOT EXISTS logs_deletions (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            before_time INTEGER
+        )`);
+
         this.stmtInsertData = this.db.prepare("INSERT INTO data(data) values(?)");
         this.stmtInsertLogWithId = this.db.prepare(`
             INSERT INTO logs (
@@ -65,6 +79,9 @@ class SqliteMessageStore {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         this.stmtGetExistingDataId = this.db.prepare("SELECT id FROM data WHERE data = ?");
+
+        // Start purging any messages defined in logs_deletions
+        this.startMessagePurger();
     }
 
     // Insert a chunk of data into the data table if it doesn't already exist, returning its ID
@@ -397,6 +414,83 @@ class SqliteMessageStore {
     async storeMessage(message, upstreamCon, clientCon) {
         this.storeQueue.push({message, upstreamCon, clientCon});
         this.storeMessageLoop();
+    }
+
+    async purgeMessages(userId, beforeTime) {
+        if (!userId && !beforeTime) {
+            return;
+        }
+
+        let stmt = this.db.prepare(`
+        INSERT INTO logs_deletions (
+            user_id,
+            before_time
+        ) VALUES (?, ?)
+        `);
+
+        await stmt.run(userId, beforeTime);
+        await this.startMessagePurger();
+    }
+
+    async startMessagePurger() {
+        if (this.purgerRunning) {
+            return;
+        }
+        this.purgerRunning = true;
+        this.messagePurger();
+    }
+
+    async messagePurger() {
+        const selectJob = this.db.prepare(`
+        SELECT
+            id,
+            user_id,
+            before_time
+        FROM logs_deletions
+        ORDER BY id ASC
+        LIMIT 1
+        `);
+
+        const job = selectJob.get();
+        if (!job) {
+            this.purgerRunning = false;
+            return;
+        }
+
+        l('Purging messages matching: [user_id: ' + job.user_id + ' && before_time: ' + job.before_time + ']');
+
+        const whereCond = [];
+        if (job.user_id) {
+            whereCond.push('user_id = :userId');
+        }
+        if (job.before_time) {
+            whereCond.push('time < :beforeTime');
+        }
+
+        const deleteLogs = this.db.prepare(`
+        DELETE FROM logs
+        WHERE ${whereCond.join(' AND ')}
+        AND msgid IN (
+            SELECT msgid
+            FROM logs
+            WHERE ${whereCond.join(' AND ')}
+            ORDER BY time ASC
+            LIMIT :limit
+        )`);
+        const result = deleteLogs.run({
+            userId: job.user_id,
+            beforeTime: job.before_time,
+            limit: this.purgerLimit
+        });
+
+        if (result.changes < this.purgerLimit) {
+            // Last query's changes less than limit, job complete
+            const deleteJob = this.db.prepare('DELETE FROM logs_deletions WHERE id = :jobId');
+            deleteJob.run({jobId: job.id});
+            l('Purging messages complete');
+        }
+
+        this.purgerTimeout = setTimeout(() => { this.messagePurger() }, this.purgerDelay);
     }
 }
 

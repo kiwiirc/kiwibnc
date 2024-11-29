@@ -106,7 +106,7 @@ async function initDatabase(app) {
     app.db = new Database(app.conf);
     await app.db.init();
 
-    app.userDb = new Users(app.db);
+    app.userDb = new Users(app);
     app.db.users = app.userDb;
 
     app.db.factories.Network = require('../libs/dataModels/network').factory(app.db, app.crypt);
