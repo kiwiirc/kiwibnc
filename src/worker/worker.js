@@ -50,6 +50,7 @@ async function run() {
         });
     }
 
+    await dataIntegrityCheck(app);
 
     initWebserver(app);
     initStatus(app);
@@ -62,6 +63,21 @@ async function run() {
     listenToQueue(app);
 
     return app;
+}
+
+async function dataIntegrityCheck(app) {
+    if (app.conf.get('database.skip_data_integrity_check', false)) {
+        return;
+    }
+    const count = await app.db.dbUsers('users').count('* as count')
+        .whereRaw('LOWER(username) != username')
+        .first().then(r => r.count);
+
+    if (count > 0) {
+        l.error('Case sensitive usernames detected in database... Shutting down!');
+        l.error('for more information see: https://github.com/kiwiirc/kiwibnc/wiki/Fixing-Case-Sensitive-Usernames');
+        process.exit(15);
+    }
 }
 
 async function initExtensions(app) {

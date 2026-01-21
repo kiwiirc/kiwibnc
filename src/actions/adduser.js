@@ -30,8 +30,8 @@ module.exports = async function(env, options) {
     }
 
     try {
-        await app.userDb.addUser(username, password, userIsAdmin);
-        console.log(`Added new user ${username}`);
+        const user = await app.userDb.addUser(username, password, userIsAdmin);
+        console.log(`Added new user ${user.username}`);
     } catch (err) {
         l.error('Error adding new user:', err.message);
         console.log('There was an error adding the new user');

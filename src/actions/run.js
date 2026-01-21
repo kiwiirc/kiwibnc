@@ -23,7 +23,15 @@ module.exports = async function(env, options) {
             execArgv: [...process.execArgv],
         });
         socketsApp.queue.emit('_workerProcess', {workerProc});
-        workerProc.on('exit', spawnWorker);
+
+        let handleExit = (exitCode) => {
+            if (!exitCode || exitCode <= 1) {
+                spawnWorker();
+            } else {
+                process.exit(exitCode);
+            }
+        };
+        workerProc.on('exit', handleExit);
     };
 
     if (process.args.opts().interactive) {
