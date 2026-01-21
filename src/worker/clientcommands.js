@@ -131,9 +131,9 @@ async function maybeProcessRegistration(con) {
 
     } else if (networkName) {
         // Logging into a network
-        let auth = await con.userDb.authUserNetwork(username, password, networkName);
-        if (!auth.network) {
-            await con.writeMsg('ERROR', 'Invalid password');
+        const auth = await con.userDb.authUserNetwork(username, password, networkName);
+        if (auth.error) {
+            await con.writeMsg('ERROR', auth.error);
             con.close();
             return false;
         }
@@ -144,15 +144,16 @@ async function maybeProcessRegistration(con) {
         con.state.authAdmin = auth.user && !!auth.user.admin;
     } else {
         // Logging into a user only mode (no attached network)
-        let user = await con.userDb.authUser(username, password, con.state.host);
-        if (!user) {
-            await con.writeMsg('ERROR', 'Invalid password');
+        const auth = await con.userDb.authUser(username, password, con.state.host);
+
+        if (auth.error) {
+            await con.writeMsg('ERROR', auth.error);
             con.close();
             return false;
         }
 
-        con.state.authUserId = user.id;
-        con.state.authAdmin = !!user.admin;
+        con.state.authUserId = auth.user.id;
+        con.state.authAdmin = !!auth.user.admin;
     }
 
     await con.state.save();

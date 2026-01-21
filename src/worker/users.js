@@ -9,10 +9,10 @@ class Users {
     }
 
     async authUserNetwork(username, password, network) {
-        let ret = { network: null, user: null };
-
+        const auth = { network: null, user: null, error: null };
         if (!Helpers.validUsername(username)) {
-            return ret;
+            auth.error = 'Invalid password';
+            return auth;
         }
 
         try {
@@ -21,7 +21,7 @@ class Users {
                 .innerJoin('users', 'users.id', 'user_networks.user_id')
                 .where('users.username', 'LIKE', username)
                 .where('user_networks.name', 'LIKE', network)
-                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin');
+                .select('user_networks.*', 'users.password as _pass', 'users.admin as user_admin', 'users.locked as user_locked');
 
             if (tokens.isUserToken(password)) {
                 isUserToken = true;
@@ -35,29 +35,37 @@ class Users {
 
             let row = await query.first();
             if (!row) {
-                return ret;
+                auth.error = 'Invalid password';
+                return auth;
+            }
+
+            if (row.user_locked) {
+                auth.error = 'Account locked';
+                return auth;
             }
 
             if (!isUserToken) {
                 let correctHash = await bcrypt.compare(password, row._pass);
                 if (!correctHash) {
-                    return ret;
+                    auth.error = 'Invalid password';
+                    return auth;
                 }
             }
 
-            ret.user = { admin: row.user_admin };
+            auth.user = { admin: row.user_admin };
             delete row._pass;
             delete row.user_admin;
 
-            ret.network = this.db.factories.Network.fromDbResult(row);
+            auth.network = this.db.factories.Network.fromDbResult(row);
         } catch (err) {
             l.error('Error logging user in:', err.stack);
         }
 
-        return ret;
+        return auth;
     }
 
     async authUser(username, password, userHost) {
+        const auth = { network: null, user: null, error: null };
         if (!Helpers.validUsername(username)) {
             return null;
         }
@@ -65,8 +73,7 @@ class Users {
         let isUserToken = false;
         let query = this.db.dbUsers('users')
             .select('users.*')
-            .where('username', 'LIKE', username)
-            .where('locked', '!=', true);
+            .where('username', 'LIKE', username);
 
         if (tokens.isUserToken(password)) {
             isUserToken = true;
@@ -82,21 +89,30 @@ class Users {
             .then(this.db.factories.User.fromDbResult);
 
         if (!user) {
-            return null;
+            auth.error = 'Invalid password';
+            return auth;
+        }
+
+        if (user.locked) {
+            auth.error = 'Account locked';
+            return auth;
         }
 
         if (!isUserToken && !await user.checkPassword(password)) {
-            return null;
+            auth.error = 'Invalid password';
+            return auth;
         }
 
+        auth.user = user;
         if (isUserToken && userHost) {
             this.updateUserTokenAccess(user.id, password, userHost);
         }
 
-        return user;
+        return auth;
     }
 
     async authUserToken(token, userHost) {
+        const auth = { network: null, user: null, error: null };
         let user = this.db.dbUsers('users')
             .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
             .where('user_tokens.token', token)
@@ -107,14 +123,21 @@ class Users {
             .first()
             .then(this.db.factories.User.fromDbResult);
 
+        if (user.locked) {
+            auth.error = 'Account locked';
+            return auth;
+        }
+
         if (user) {
             if (userHost) {
                 this.updateUserTokenAccess(user.id, token, userHost);
             }
-            return user;
+            auth.user = user;
+            return auth;
         }
 
-        return null;
+        auth.error = 'Invalid password';
+        return auth;
     }
 
     async generateUserToken(userId, duration, comment, userHost) {
@@ -169,6 +192,10 @@ class Users {
             .where('user_id', userId)
             .where('token', token)
             .delete();
+    }
+
+    async getUserById(id) {
+        return this.db.factories.User.query().where('id', id).first();
     }
 
     async getUser(username) {

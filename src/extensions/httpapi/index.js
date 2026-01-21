@@ -22,8 +22,8 @@ module.exports.init = async function init(hooks, app) {
             return;
         }
 
-        let user = await app.userDb.authUserToken(token, ctx.ip);
-        if (!user) {
+        let auth = await app.userDb.authUserToken(token, ctx.ip);
+        if (!auth.user) {
             ctx.response.status = 401;
             return;
         }
@@ -45,7 +45,7 @@ module.exports.init = async function init(hooks, app) {
 
         try {
             let result = await apiCommands[command](args, {
-                user,
+                user: auth.user,
                 hooks,
                 app,
                 token,
