@@ -23,6 +23,15 @@ module.exports = class Queue extends EventEmitter {
         await channel.assertQueue(this.queueToSockets, {durable: true});
         await channel.assertQueue(this.queueToWorker, {durable: true});
         await channel.prefetch(1000);
+
+        channel.on('error', (err) => {
+            l.warn('AMQP channel error:', err.message);
+        });
+        channel.on('close', () => {
+            l.warn('AMQP channel closed, will reconnect on next send');
+            this.channel = null;
+        });
+
         this.channel = channel;
     }
 
@@ -37,25 +46,41 @@ module.exports = class Queue extends EventEmitter {
     }
 
     async sendToWorker(type, data) {
-        if (!this.channel) {
-            await this.connect();
-        }
-
         let payload = JSON.stringify([type, data]);
         l.trace('Queue sending to worker:', payload);
         this.stats.increment('sendtoworker');
-        this.channel.sendToQueue(this.queueToWorker, Buffer.from(payload), {persistent: true});
+        await this._send(this.queueToWorker, Buffer.from(payload), {persistent: true});
     }
 
     async sendToSockets(type, data) {
+        let payload = JSON.stringify([type, data]);
+        l.trace('Queue sending to sockets: ' + payload);
+        this.stats.increment('sendtosockets');
+        // Use non-persistent for connection.data to reduce disk I/O during channel dumps
+        // Data can be regenerated if lost (client will reconnect)
+        let persistent = (type !== 'connection.data');
+        await this._send(this.queueToSockets, Buffer.from(payload), {persistent});
+    }
+
+    async _send(queue, buffer, options) {
         if (!this.channel) {
             await this.connect();
         }
 
-        let payload = JSON.stringify([type, data]);
-        l.trace('Queue sending to sockets: ' + payload);
-        this.stats.increment('sendtosockets');
-        this.channel.sendToQueue(this.queueToSockets, Buffer.from(payload), {persistent: true});
+        try {
+            this.channel.sendToQueue(queue, buffer, options);
+        } catch (err) {
+            // Channel closed between the null check and the send (race condition).
+            // Null it out and retry once after reconnecting.
+            this.channel = null;
+            l.warn('AMQP sendToQueue failed, reconnecting and retrying:', err.message);
+            await this.connect();
+            try {
+                this.channel.sendToQueue(queue, buffer, options);
+            } catch (retryErr) {
+                l.error('AMQP sendToQueue failed after reconnect, dropping message:', retryErr.message);
+            }
+        }
     }
 
     async listenForEvents() {

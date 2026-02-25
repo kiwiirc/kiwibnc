@@ -132,6 +132,7 @@
 </template>
 
 <script>
+    /* global _ */
     kiwi.plugin('kiwibnc', function(kiwi, log) {
         const basePath = kiwi.state.settings.plugins.find(p => p.name === 'kiwibnc').basePath;
         const InputText = kiwi.require('components/utils/InputText');
@@ -140,6 +141,138 @@
         const Misc = kiwi.require('helpers/Misc');
 
         let adminToken = '';
+        const bouncerSyncState = {
+            listenerAttached: false,
+            knownBuffers: new Map(),
+        };
+
+        // Attach bouncer buffer listener immediately to catch early LISTBUFFERS events
+        // (before MOTD, during registration)
+        function attachBouncerListener() {
+            if (bouncerSyncState.listenerAttached) {
+                return;
+            }
+
+            bouncerSyncState.listenerAttached = true;
+
+            kiwi.on('irc.bouncer buffers', (buffers, network) => {
+                handleBouncerBuffers(buffers, network);
+            });
+        }
+
+        function netStateKey(network, netId) {
+            return `${String(network.id)}:${String(netId || '')}`;
+        }
+
+        function findBuffer(network, bufferName) {
+            if (!network || !bufferName) {
+                return null;
+            }
+
+            if (_.isFunction(network.bufferByName)) {
+                return network.bufferByName(bufferName) || null;
+            }
+
+            return null;
+        }
+
+        function ensureBufferOpen(network, bufferName) {
+            if (!network || !bufferName) {
+                return;
+            }
+            if (findBuffer(network, bufferName)) {
+                return;
+            }
+
+            try {
+                if (kiwi.state && _.isFunction(kiwi.state.addBuffer)) {
+                    kiwi.state.addBuffer(network.id, bufferName);
+                }
+            } catch (err) {
+                log.debug('kiwibnc fallback: unable to open buffer', bufferName, err.message);
+            }
+        }
+
+        function ensureBufferClosed(network, bufferName) {
+            if (!network || !bufferName) {
+                return;
+            }
+
+            const buffer = findBuffer(network, bufferName);
+            if (!buffer) {
+                return;
+            }
+
+            try {
+                if (kiwi.state && _.isFunction(kiwi.state.removeBuffer)) {
+                    kiwi.state.removeBuffer(buffer);
+                }
+            } catch (err) {
+                log.debug('kiwibnc fallback: unable to close buffer', bufferName, err.message);
+            }
+        }
+
+        function handleBouncerBuffers(buffers, network) {
+            if (!network) {
+                console.warn('[KiwiBNC] No network in handleBouncerBuffers');
+                return;
+            }
+
+            const detectedNetId = _.get(buffers, '[0].networkId', '');
+            const netId = String(detectedNetId || _.get(network, 'connection.bncnetid', ''));
+            if (!netId) {
+                console.warn('[KiwiBNC] No netId in handleBouncerBuffers', { detectedNetId, bncnetid: network.connection.bncnetid });
+                return;
+            }
+
+            const key = netStateKey(network, netId);
+            const next = new Set();
+            (buffers || []).forEach((bufferInfo) => {
+                const bufferName = String(_.get(bufferInfo, 'name', ''));
+                if (!bufferName) {
+                    return;
+                }
+
+                next.add(bufferName);
+                ensureBufferOpen(network, bufferName);
+
+                const bufferState = findBuffer(network, bufferName);
+                if (!bufferState) {
+                    return;
+                }
+
+                if (bufferInfo.topic) {
+                    bufferState.topic = bufferInfo.topic;
+                }
+
+                if (_.has(bufferInfo, 'joined')) {
+                    // Parse joined explicitly: '1' = true, '0' = false
+                    // (truthy coercion would treat '0' string as true)
+                    bufferState.joined = bufferInfo.joined === '1' || bufferInfo.joined === 1 || bufferInfo.joined === true;
+                    bufferState.enabled = bufferState.joined;
+                }
+
+                if (bufferInfo.seen) {
+                    const seenTs = Date.parse(bufferInfo.seen);
+                    if (Number.isFinite(seenTs)) {
+                        bufferState.last_read = seenTs;
+                    }
+                }
+
+                if (bufferInfo.notify && _.isFunction(bufferState.setting)) {
+                    bufferState.setting('alert_on', bufferInfo.notify);
+                }
+            });
+
+            const prev = bouncerSyncState.knownBuffers.get(key) || new Set();
+            prev.forEach(bufferName => {
+                if (!next.has(bufferName)) {
+                    ensureBufferClosed(network, bufferName);
+                }
+            });
+            bouncerSyncState.knownBuffers.set(key, next);
+        }
+
 
         const startupScreen = {
             template: '#kiwibnc-startup',
@@ -218,10 +351,6 @@
                 }
             },
             methods: {
-                init() {
-                    let options = this.$state.settings.startupOptions;
-                    options.remember_buffers = false;
-                },
                 onSubmit() {
                     if (this.showLogin) {
                         this.startUp();
@@ -576,6 +705,49 @@
 
         kiwi.addStartup('kiwibnc', startupScreen);
 
+        // Track networks reported as connected by the BNC to handle race conditions
+        // (where BNC reports connection before KiwiIRC creates the network object)
+        const connectedBncNetworks = new Set();
+
+        function autoConnectIfReady(network) {
+            if (!network.connection || !network.connection.bncnetid) {
+                return;
+            }
+
+            if (connectedBncNetworks.has(network.connection.bncnetid.toString())) {
+                if (network.state === 'disconnected') {
+                    network.ircClient.connect();
+                }
+            }
+        }
+
+        // Handle BOUNCER state events to auto-connect networks
+        kiwi.on('irc.bouncer state', function(event, network) {
+            if (event.state === 'connected') {
+                connectedBncNetworks.add(event.networkId.toString());
+
+                // Find the network in KiwiIRC that corresponds to this BNC network ID
+                let targetNet = kiwi.state.networks.find(n =>
+                    n.connection && n.connection.bncnetid == event.networkId
+                );
+
+                // If found and currently disconnected, connect it
+                if (targetNet && targetNet.state === 'disconnected') {
+                    targetNet.ircClient.connect();
+                }
+            } else {
+                connectedBncNetworks.delete(event.networkId.toString());
+            }
+        });
+
+        // When new networks are created, ensure bouncer cap is requested before
+        // any connect. kiwi.on() fires before BouncerProvider's state.$on(), so
+        // without this the cap would be missing if autoConnectIfReady triggers connect.
+        kiwi.on('network.new', (event) => {
+            event.network.ircClient.requestCap('bouncer');
+            autoConnectIfReady(event.network);
+        });
+
         let adminAdded = false;
         kiwi.on('irc.motd', function(event, network) {
             // kiwibnc admin users get a kiwibnc/admin=token ISUPPORTs token added. The token
@@ -586,7 +758,21 @@
                 adminToken = token;
                 kiwi.addTab('settings', 'KiwiBNC Admin', AdminScreen);
             }
+
+            // Sync bouncer buffers at MOTD (like KiwiIRC native BouncerProvider)
+            // The BouncerMiddleware adds bnc.tags() method to decode the bouncer CAP token
+            if (network.ircClient.bnc && network.ircClient.bnc.hasNetwork()) {
+                let netId = network.ircClient.bnc.tags().netid;
+                if (netId) {
+                    network.connection.bncnetid = netId;
+                    // Request buffer list from bouncer - listener will handle the response
+                    network.ircClient.raw('BOUNCER listbuffers ' + netId);
+                }
+            }
         });
+
+        // Attach listener immediately on plugin load
+        attachBouncerListener();
     });
 </script>
 

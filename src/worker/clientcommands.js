@@ -155,7 +155,7 @@ async function maybeProcessRegistration(con) {
         con.state.authAdmin = !!user.admin;
     }
 
-    await con.state.save();
+    con.state.markDirty();
 
     // If after all the authing above we had a network name but couldn't find a network instance
     // to attach to, fail here
@@ -213,6 +213,7 @@ commands.CAP = async function(msg, con) {
         }
 
         await con.state.tempSet('capping', true);
+        await con.state.tempSet('caps_offered', Array.from(availableCaps));
         con.writeFromBnc('CAP', '*', 'LS', Array.from(availableCaps).join(' '));
     }
 
@@ -220,7 +221,7 @@ commands.CAP = async function(msg, con) {
         let requested = mParam(msg, 1, '').split(' ');
         let matched = requested.filter((cap) => availableCaps.has(cap));
         con.state.caps = new Set([...con.state.caps, ...matched]);
-        await con.state.save();
+        con.state.markDirty();
         con.writeFromBnc('CAP', '*', 'ACK', matched.join(' '));
     }
 
@@ -268,13 +269,20 @@ commands.NOTICE = async function(msg, con) {
         client.writeMsg(m);
     }, con);
 
-    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
+    // If the server supports echo-message, it will echo the message back and upstreamcommands
+    // will store it then. Storing here would cause a duplicate entry in the history.
+    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered
+            && !con.upstream.state.caps.has('echo-message')) {
         // Add a msgid tag to the message before it's stored. We don't add it to the original
         // message because we don't want it being sent upstream.
-        // TODO: If labeled-response+msgid+echo-message is enabled upstream, dont store the message
         let m = cloneIrcMessage(msg);
         m.tags.msgid = msgId;
         await con.messages.storeMessage(m, con.upstream, con);
+    }
+
+    // Ensure the buffer exists for outgoing notices to a user so other devices see it
+    if (con.upstream && !con.upstream.isChannelName(msg.params[0])) {
+        con.upstream.state.getOrAddBuffer(msg.params[0], con.upstream);
     }
 
     return true;
@@ -298,13 +306,22 @@ commands.PRIVMSG = async function(msg, con) {
         return false;
     }
 
-    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered) {
+    // If the server supports echo-message, it will echo the message back and upstreamcommands
+    // will store it then. Storing here would cause a duplicate entry in the history.
+    if (con.upstream && con.upstream.state.logging && con.upstream.state.netRegistered
+            && !con.upstream.state.caps.has('echo-message')) {
         // Add a msgid tag to the message before it's stored. We don't add it to the original
         // message because we don't want it being sent upstream.
-        // TODO: If labeled-response+msgid+echo-message is enabled upstream, dont store the message
         let m = cloneIrcMessage(msg);
         m.tags.msgid = msgId;
         await con.messages.storeMessage(m, con.upstream, con);
+    }
+
+    // Ensure the buffer exists for outgoing PMs so other devices see the conversation.
+    // The server won't echo the message back (no echo-message cap), so upstreamcommands
+    // won't create it for us.
+    if (con.upstream && msg.params[0] !== '*bnc' && !con.upstream.isChannelName(msg.params[0])) {
+        con.upstream.state.getOrAddBuffer(msg.params[0], con.upstream);
     }
 
     return true;
@@ -321,7 +338,7 @@ commands.NICK = async function(msg, con) {
     // we will make use of it ourselves first
     if (!con.state.netRegistered) {
         con.state.nick = msg.params[0];
-        con.state.save();
+        con.state.markDirty();
         con.writeMsgFrom(con.state.nick, 'NICK', con.state.nick);
 
         let regState = con.state.tempGet('reg.state');

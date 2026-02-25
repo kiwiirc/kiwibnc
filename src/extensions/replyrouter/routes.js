@@ -50,13 +50,7 @@ let routes = [
         { cmd: '502', ending: true }, // ERR_USERSDONTMATCH
         { cmd: '482', ending: false }, // ERR_CHANOPRIVSNEEDED
     ]},
-    { cmd: 'WHO', params: [], expect: [
-        { cmd: numerics.ERR_NOSUCHSERVER, ending: true },
-        { cmd: numerics.RPL_WHOREPLY, ending: false },
-        { cmd: numerics.RPL_WHOSPCRPL, ending: false }, // whox 
-        { cmd: numerics.RPL_ENDOFWHO, ending: true },
-        { cmd: numerics.ERR_NOTENOUGHPARAMS, ending: true },
-    ]},
+    // WHO is handled via direct streaming in connectionoutgoing.js (whoClientQueue)
     { cmd: 'WHOIS', params: [], expect: [
         { cmd: numerics.ERR_NOSUCHSERVER, ending: true },
         { cmd: numerics.RPL_WHOISUSER, ending: false },

@@ -4,6 +4,9 @@ const { ConnectionState } = require('./connectionstate');
 const ConnectionOutgoing = require('./connectionoutgoing');
 const hooks = require('./hooks');
 const strftime = require('strftime');
+const { isoTime } = require('../libs/helpers');
+
+const yieldToLoop = () => new Promise(r => setImmediate(r));
 
 // Client commands can be hot reloaded as they contain no state
 let ClientCommands = null;
@@ -26,6 +29,10 @@ class ConnectionIncoming {
         this.userDb = userDb;
         this.messages = messages;
         this.cachedUpstreamId = '';
+
+        // Output buffering to reduce IPC message volume
+        this.outBuffer = '';
+        this.outFlushTimer = null;
 
         this.conDict.set(id, this);
     }
@@ -74,8 +81,14 @@ class ConnectionIncoming {
     }
 
     destroy() {
+        if (this.outFlushTimer) {
+            clearImmediate(this.outFlushTimer);
+            this.outFlushTimer = null;
+        }
+
         if (this.upstream) {
             this.upstream.state.unlinkIncomingConnection(this.id);
+            this.upstream.whoClientQueue = this.upstream.whoClientQueue.filter(id => id !== this.id);
         }
 
         this.conDict.delete(this.id);
@@ -83,13 +96,36 @@ class ConnectionIncoming {
     }
 
     close() {
+        this.flushBuffer();
         this.queue.sendToSockets('connection.close', {
             id: this.id,
         });
     }
 
     write(data) {
-        this.queue.sendToSockets('connection.data', {id: this.id, data: data});
+        this.outBuffer += data;
+
+        // Flush immediately if buffer is large enough
+        if (this.outBuffer.length >= 4096) {
+            this.flushBuffer();
+        } else if (!this.outFlushTimer) {
+            // Schedule flush on next tick for small writes
+            this.outFlushTimer = setImmediate(() => this.flushBuffer());
+        }
+    }
+
+    flushBuffer() {
+        if (this.outFlushTimer) {
+            clearImmediate(this.outFlushTimer);
+            this.outFlushTimer = null;
+        }
+
+        if (!this.outBuffer) {
+            return;
+        }
+
+        this.queue.sendToSockets('connection.data', {id: this.id, data: this.outBuffer});
+        this.outBuffer = '';
     }
 
     writeStatus(data) {
@@ -116,6 +152,13 @@ class ConnectionIncoming {
             msgObj = msg;
         }
 
+        // Fast path for numeric responses (3-digit commands like WHO 352, LIST 322, etc.)
+        // These don't need full hook processing - just server-time and essential cap handling
+        const cmd = String(msgObj.command || '');
+        if (/^\d{3}$/.test(cmd)) {
+            return this.writeMsgFast(msgObj);
+        }
+
         return hooks.emit('message_to_client', {client: this, message: msgObj, raw: ''}).then(hook => {
             if (hook.prevent) {
                 return;
@@ -128,7 +171,7 @@ class ConnectionIncoming {
             }
 
             // Update any lastSeen markers if we're sending the client a message of some form. Usually
-            // effects clientid usage to prevent re-delivering old chat chistory
+            // effects clientid usage to prevent re-delivering old chat history.
             if (['NOTICE', 'PRIVMSG'].includes(String(hook.event.message.command || '').toUpperCase())) {
                 let message = hook.event.message;
                 let isPm = String(message.params[0]).toLowerCase() === this.state.nick.toLowerCase();
@@ -148,6 +191,101 @@ class ConnectionIncoming {
         });
     }
 
+    // Fast path for numeric messages - skips async hook processing
+    writeMsgFast(msgObj) {
+        const caps = this.state.caps;
+
+        // Handle server-time cap
+        if (caps.has('server-time')) {
+            if (!msgObj.tags['time']) {
+                msgObj.tags['time'] = isoTime();
+            }
+        } else {
+            delete msgObj.tags['time'];
+        }
+
+        // Strip message-tags if client doesn't support them
+        if (!caps.has('message-tags') && !caps.has('server-time')) {
+            msgObj.tags = {};
+        }
+
+        // Handle multi-prefix for 352 (WHO) - strip extra prefixes if client doesn't support
+        if (msgObj.command === '352' && this.upstream) {
+            const clientCaps = caps;
+            const upstreamCaps = this.upstream.state.caps;
+            if (!clientCaps.has('multi-prefix') && upstreamCaps.has('multi-prefix')) {
+                let status = msgObj.params[6] || '';
+                let remapped = '';
+                if (status[0] === 'H' || status[0] === 'A') {
+                    remapped += status[0];
+                    status = status.substr(1);
+                }
+                if (status[0] === '*') {
+                    remapped += status[0];
+                    status = status.substr(1);
+                }
+                if (status[0]) {
+                    remapped += status[0];
+                }
+                msgObj.params[6] = remapped;
+            }
+        }
+
+        // Handle multi-prefix and userhost-in-names for 353 (NAMES)
+        if (msgObj.command === '353' && this.upstream) {
+            const clientCaps = caps;
+            const upstreamCaps = this.upstream.state.caps;
+
+            let prefixes = this.upstream.state.isupports.find(token => token.indexOf('PREFIX=') === 0);
+            prefixes = (prefixes || '').split('=')[1] || '';
+            prefixes = prefixes.substr(prefixes.indexOf(')') + 1);
+
+            let list = msgObj.params[3].split(' ');
+
+            // Process each name in the list
+            list = list.map(item => {
+                // Split prefix and nick
+                let itemPrefixes = '';
+                let nick = '';
+                for (let i = 0; i < item.length; i++) {
+                    if (prefixes.indexOf(item[i]) > -1) {
+                        itemPrefixes += item[i];
+                    } else {
+                        nick = item.substr(i);
+                        break;
+                    }
+                }
+
+                // Strip to single prefix if client doesn't support multi-prefix
+                if (!clientCaps.has('multi-prefix') && upstreamCaps.has('multi-prefix')) {
+                    itemPrefixes = itemPrefixes[0] || '';
+                }
+
+                // Strip userhost if client doesn't support userhost-in-names
+                if (!clientCaps.has('userhost-in-names')) {
+                    let pos = nick.indexOf('!');
+                    if (pos !== -1) {
+                        nick = nick.substring(0, pos);
+                    }
+                }
+
+                return itemPrefixes + nick;
+            });
+
+            msgObj.params[3] = list.join(' ');
+        }
+
+        let toWrite = '';
+        try {
+            toWrite = msgObj.to1459() + '\r\n';
+        } catch (err) {
+            l.error('Error building IRC message for fast write', err.stack);
+            return;
+        }
+
+        this.write(toWrite);
+    }
+
     writeMsgFrom(fromMask, command, ...args) {
         let m = new IrcMessage(command, ...args);
         m.prefix = fromMask;
@@ -165,6 +303,43 @@ class ConnectionIncoming {
         }
 
         return false;
+    }
+
+    async syncAvailableCaps() {
+        let availableCaps = new Set();
+        await hooks.emit('available_caps', {client: this, caps: availableCaps});
+        let availableList = Array.from(availableCaps);
+        let previouslyOffered = this.state.tempGet('caps_offered') || [];
+        let previouslyOfferedSet = new Set(previouslyOffered);
+
+        await this.state.tempSet('caps_offered', availableList);
+
+        // No previous CAP LS to compare with, or not yet registered.
+        // Just cache the latest offered list for future diffs.
+        if (!this.state.netRegistered || previouslyOffered.length === 0) {
+            return;
+        }
+
+        let addedCaps = availableList.filter(cap => !previouslyOfferedSet.has(cap));
+        let removedCaps = previouslyOffered.filter(cap => !availableCaps.has(cap));
+        if (addedCaps.length === 0 && removedCaps.length === 0) {
+            return;
+        }
+
+        let serverPrefix = this.upstream ?
+            this.upstream.state.serverPrefix :
+            '*bnc';
+
+        if (this.supportsCapNotify()) {
+            if (addedCaps.length > 0) {
+                this.writeMsgFrom(serverPrefix, 'CAP', this.state.nick, 'NEW', addedCaps.join(' '));
+            }
+            if (removedCaps.length > 0) {
+                this.writeMsgFrom(serverPrefix, 'CAP', this.state.nick, 'DEL', removedCaps.join(' '));
+            }
+        } else {
+            this.writeFromBnc('CAP', '*', 'LS', availableList.join(' '));
+        }
     }
 
     async registerLocalClient() {
@@ -209,7 +384,7 @@ class ConnectionIncoming {
         regLines.forEach(line => this.writeFromBnc(...line));
 
         this.state.netRegistered = true;
-        await this.state.save();
+        this.state.markDirty();
         await hooks.emit('client_registered', {client: this});
     }
 
@@ -270,6 +445,7 @@ class ConnectionIncoming {
         // itself and then request messages as needed
         if (!this.state.caps.has('bouncer')) {
             await this.dumpChannels();
+            this.flushBuffer();  // Ensure NAMES data is sent before registration continues
         }
 
         // If we previously set them away, now bring them back
@@ -278,53 +454,75 @@ class ConnectionIncoming {
             await upstream.state.tempSet('set_away', null);
         }
 
-        await this.state.save();
+        await this.syncAvailableCaps();
+
+        this.state.markDirty();
         await hooks.emit('client_registered', {client: this});
     }
 
     async dumpChannels() {
         let upstream = this.upstream;
 
-        // Dump all our joined channels..
+        // Dump all our joined channels - fire writes synchronously, yield periodically
+        let channelsProcessed = 0;
         for (let chanName in upstream.state.buffers) {
             let channel = upstream.state.buffers[chanName];
             if (channel.isChannel && channel.joined) {
-                await this.writeMsgFrom(this.state.nick, 'JOIN', channel.name);
-                channel.topic && await this.writeMsg('TOPIC', channel.name, channel.topic);
+                // Write JOIN directly (sync) - writeMsgFrom uses hooks which are async
+                // and would cause NAMES to be written before JOIN
+                let joinMsg = new IrcMessage('JOIN', channel.name);
+                joinMsg.prefix = this.state.nick;
+                this.write(joinMsg.to1459() + '\r\n');
+
+                if (channel.topic) {
+                    // TOPIC is also non-numeric, write directly
+                    let topicMsg = new IrcMessage('TOPIC', channel.name, channel.topic);
+                    topicMsg.prefix = upstream.state.serverPrefix;
+                    this.write(topicMsg.to1459() + '\r\n');
+                }
                 this.sendNames(channel);
+
+                channelsProcessed++;
+                if (channelsProcessed % 5 === 0) {
+                    await yieldToLoop();  // Let other connections process
+                }
             }
         }
 
         // Now the client has a channel list, send any messages we have for them
+        // Yield before each DB query to keep event loop responsive
         for (let buffName in upstream.state.buffers) {
             let buffer = upstream.state.buffers[buffName];
             if (buffer.isChannel && !buffer.joined) {
                 continue;
             }
 
+            await yieldToLoop();  // Yield before each DB query
+
+            const maxMessages = this.messages.connectHistory;
+            if (maxMessages === 0) {
+                continue;
+            }
+
             let day = (1000 * 60 * 60 * 24);
+            let since = buffer.lastSeen[this.state.clientid] || Date.now() - (day * 1);
             let messages = await this.messages.getMessagesBetween(
                 this.state.authUserId,
                 this.state.authNetworkId,
                 buffer.name,
-                {
-                    type: 'timestamp',
-                    value: buffer.lastSeen[this.state.clientid] || Date.now() - (day * 1),
-                },
-                {
-                    type: 'timestamp',
-                    value: Date.now(),
-                },
-                50
+                { type: 'timestamp', value: since },
+                { type: 'timestamp', value: Date.now() },
+                maxMessages
             );
 
+            // Fire messages synchronously (batching handles IPC reduction)
             let supportsTime = this.state.caps.has('server-time');
-            messages.forEach(async (msg) => {
+            for (const msg of messages) {
                 if (!supportsTime) {
                     msg.params[1] = `[${strftime('%H:%M:%S', new Date(msg.tags.time))}] ${msg.params[1]}`;
                 }
-                await this.writeMsg(msg);
-            });
+                this.writeMsg(msg);  // No await - fire and forget
+            }
         }
     }
 
@@ -399,7 +597,7 @@ class ConnectionIncoming {
         });
 
         if (changed) {
-            await this.upstream.state.save();
+            this.upstream.state.markDirty();
         }
     }
 
@@ -416,6 +614,10 @@ class ConnectionIncoming {
         }
 
         if (this.upstream && this.upstream.state.connected) {
+            // Track WHO requests so replies stream directly to this client
+            if (message.command.toUpperCase() === 'WHO') {
+                this.upstream.whoClientQueue.push(this.id);
+            }
             this.upstream.write(raw + '\n');
         } else {
             l.debug('No connected upstream, not forwarding client data');
@@ -447,7 +649,7 @@ class ConnectionIncoming {
         if (opts.linkConnections !== false) {
             con.state.linkIncomingConnection(this.id);
         }
-        await con.state.save();
+        con.state.markDirty();
 
         con.open();
 

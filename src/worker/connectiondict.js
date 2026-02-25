@@ -58,7 +58,8 @@ class ConnectionDictionary {
 
         // If a specific network was requested then just return that single one
         if (networkId) {
-            return foundCons.find((con) => con.state.authNetworkId === networkId) || null;
+            const targetId = String(networkId);
+            return foundCons.find((con) => String(con.state.authNetworkId) === targetId) || null;
         } else {
             return foundCons;
         }

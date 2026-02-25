@@ -55,6 +55,7 @@ async function run() {
     initStatus(app);
     await initExtensions(app);
     broadcastStats(app);
+    monitorEventLoop(app);
     await startServers(app);
     await loadConnections(app);
 
@@ -109,9 +110,43 @@ function broadcastStats(app) {
     broadcast();
 }
 
+function monitorEventLoop(app) {
+    let lastCheck = Date.now();
+    const interval = 1000;
+
+    setInterval(() => {
+        const now = Date.now();
+        const lag = now - lastCheck - interval;
+        lastCheck = now;
+
+        // Record lag in milliseconds
+        // A lag > 20-50ms indicates CPU saturation
+        app.stats.gauge('worker.eventloop_lag', Math.max(0, lag));
+    }, interval);
+}
+
 async function prepareShutdown(app) {
     // This worker will get restarted by the sockets process automatically
     l.info('Gracefully shutting down...');
+
+    // Flush all dirty connection states before exiting
+    const savePromises = [];
+    app.cons.map.forEach((con) => {
+        if (con.state._dirty) {
+            if (con.state._saveTimer) {
+                clearTimeout(con.state._saveTimer);
+                con.state._saveTimer = null;
+            }
+            con.state._dirty = false;
+            savePromises.push(con.state.save());
+        }
+    });
+
+    if (savePromises.length > 0) {
+        l.info(`Flushing ${savePromises.length} dirty connection states...`);
+        await Promise.all(savePromises);
+    }
+
     await app.queue.stopListening();
     process.exit();
 }
@@ -179,6 +214,18 @@ function listenToQueue(app) {
             await con.onUpstreamConnected();
         }
     });
+
+    // When the socket layer reports a connection is already active (worker restart scenario)
+    app.queue.on('connection.existing', async (event) => {
+        let con = cons.get(event.id);
+        if (con && con instanceof ConnectionOutgoing) {
+            l.info(`Connection ${event.id} already active in sockets, restoring state`);
+            con.state.connected = true;
+            con.state.netRegistered = true;
+            con.state.receivedMotd = true;
+            con.state.markDirty();
+        }
+    });
     app.queue.on('connection.error', async (event) => {
         l.error(`Server error ${event.id} ${event.error.message}`);
     });
@@ -197,9 +244,11 @@ function listenToQueue(app) {
         }
     });
     app.queue.on('connection.data', async (event) => {
+        let timer = app.stats.timerStart('worker.process_message_time');
         let con = cons.get(event.id);
         if (!con) {
             l.warn('Recieved data for unknown connection ' + event.id);
+            timer.stop();
             return;
         }
 
@@ -210,6 +259,7 @@ function listenToQueue(app) {
                 snippet += '...';
             }
             l.warn('Recieved malformed IRC line from connection ' + event.id + ' - ' + snippet);
+            timer.stop();
             return;
         }
 
@@ -217,6 +267,34 @@ function listenToQueue(app) {
             await con.messageFromClient(msg, event.data);
         } else {
             await con.messageFromUpstream(msg, event.data);
+        }
+        timer.stop();
+    });
+
+    // Handle batched data from sockets (more efficient than individual messages)
+    app.queue.on('connection.data.batch', async (event) => {
+        let con = cons.get(event.id);
+        if (!con) {
+            l.warn('Recieved batch data for unknown connection ' + event.id);
+            return;
+        }
+
+        for (const line of event.lines) {
+            let msg = ircLineParser(line);
+            if (!msg) {
+                let snippet = line.substr(0, 300);
+                if (line.length > 300) {
+                    snippet += '...';
+                }
+                l.warn('Recieved malformed IRC line from connection ' + event.id + ' - ' + snippet);
+                continue;
+            }
+
+            if (con instanceof ConnectionIncoming) {
+                await con.messageFromClient(msg, line);
+            } else {
+                await con.messageFromUpstream(msg, line);
+            }
         }
     });
 }
@@ -280,21 +358,19 @@ async function loadConnections(app) {
     let rows = await app.db.dbConnections.raw('SELECT conid, type, bind_host FROM connections');
     l.info(`Loading ${rows.length} connections`);
     let types = ['OUTGOING', 'INCOMING', 'LISTENING'];
-    rows.forEach(async (row) => {
+    for (const row of rows) {
         l.debug(`connection ${row.conid} ${types[row.type]} ${row.bind_host}`);
 
         if (row.type === ConnectionDict.TYPE_INCOMING) {
-            app.cons.loadFromId(row.conid, row.type);
+            await app.cons.loadFromId(row.conid, row.type);
         } else if (row.type === ConnectionDict.TYPE_OUTGOING) {
             let con = await app.cons.loadFromId(row.conid, row.type);
-            if (con.state.connected) {
-                con.open();
-            }
+            con.open();
         } else if (row.type === ConnectionDict.TYPE_LISTENING) {
             let parts = parseBindString(row.bind_host);
             if (!parts) {
                 l.error('Invalid listening server type, ' + row.bind_host);
-                return;
+                continue;
             }
             let host = parts.hostname || '0.0.0.0';
             let port = parseInt(parts.port || '6667', 10);
@@ -307,7 +383,7 @@ async function loadConnections(app) {
                 id: row.conid,
             });
         }
-    });
+    }
 }
 
 // Connect to the database, logging warnings if it takes too long

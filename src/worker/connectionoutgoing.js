@@ -4,6 +4,23 @@ const hooks = require('./hooks');
 const Helpers = require('../libs/helpers');
 const { ConnectionState, IrcBuffer } = require('./connectionstate');
 
+const yieldToLoop = () => new Promise(r => setImmediate(r));
+
+// User-initiated "fire-and-forget" commands that bypass the write throttle for
+// immediate delivery. Only includes commands whose responses (if any) are
+// identified by distinct IRC numerics, so reordering relative to throttled
+// commands cannot cause response-routing confusion.
+//
+// MODE is intentionally excluded: it serves as both an action and a query,
+// and its query replies could interleave with other pending queries if sent
+// out of throttler order.
+const PRIORITY_COMMANDS = new Set([
+    'PRIVMSG', 'NOTICE', 'JOIN', 'PART', 'KICK', 'TOPIC', 'QUIT', 'NICK'
+]);
+
+// WHO reply numerics - streamed directly to requesting client, bypassing hooks/replyrouter
+const WHO_NUMERICS = new Set(['352', '354', '315', '402']);
+
 // Upstream commands can be hot reloaded as they contain no state
 let UpstreamCommands = null;
 
@@ -27,6 +44,12 @@ class ConnectionOutgoing {
         this.messages = messages;
         this.queue = queue;
         this.conDict = conDict;
+
+        // Counter for yielding during high-volume message forwarding (e.g., /list)
+        this.messageForwardCount = 0;
+
+        // FIFO queue of client IDs that sent WHO, for direct-streaming replies
+        this.whoClientQueue = [];
 
         this.conDict.set(id, this);
     }
@@ -136,7 +159,12 @@ class ConnectionOutgoing {
                 return;
             }
 
-            this.queue.sendToSockets('connection.data', {id: this.id, data: rawLine + '\r\n'});
+            let isPriority = PRIORITY_COMMANDS.has(msgObj.command.toUpperCase());
+            this.queue.sendToSockets('connection.data', {
+                id: this.id,
+                data: rawLine + '\r\n',
+                priority: isPriority
+            });
         });
     }
 
@@ -161,6 +189,27 @@ class ConnectionOutgoing {
     async messageFromUpstream(message, raw) {
         await this.state.maybeLoad();
 
+        // Yield periodically during high-volume message forwarding (e.g., /list with 5000+ channels)
+        // This prevents blocking the event loop and keeps other connections responsive
+        this.messageForwardCount++;
+        if (this.messageForwardCount % 50 === 0) {
+            await yieldToLoop();
+        }
+
+        // Direct-stream WHO replies to the requesting client, bypassing hooks/replyrouter
+        if (this.whoClientQueue.length > 0 && WHO_NUMERICS.has(message.command)) {
+            let clientId = this.whoClientQueue[0];
+            let client = this.conDict.get(clientId);
+            if (client && client.state.netRegistered) {
+                client.writeMsgFast(message);
+            }
+            // Pop queue on ending reply (315 RPL_ENDOFWHO, 402 ERR_NOSUCHSERVER)
+            if (message.command === '315' || message.command === '402') {
+                this.whoClientQueue.shift();
+            }
+            return;
+        }
+
         let passDownstream = await UpstreamCommands.run(message, this);
         if (passDownstream !== false) {
             // Send this data down to any linked clients
@@ -176,16 +225,17 @@ class ConnectionOutgoing {
                 return;
             }
 
-            hook.event.clients.forEach(async client => {
+            // Use for...of instead of forEach to properly handle async
+            for (const client of hook.event.clients) {
                 // Keep track of any changes to our user in this client instance
                 let isUs = message.nick.toLowerCase() === client.state.nick.toLowerCase();
                 if (message.command.toUpperCase() === 'NICK' && isUs) {
                     client.state.nick = message.params[0];
-                    await client.state.save();
+                    client.state.markDirty();
                 }
 
-                await client.writeMsg(message);
-            });
+                client.writeMsg(message);  // Fire-and-forget, IPC batching handles efficiency
+            }
         }
     }
 
@@ -248,7 +298,7 @@ class ConnectionOutgoing {
             channel.leave();
         }
 
-        await this.state.save();
+        this.state.markDirty();
 
         hooks.emit('connection_close', {upstream: this});
 

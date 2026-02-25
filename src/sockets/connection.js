@@ -21,6 +21,10 @@ module.exports = class SocketConnection extends EventEmitter {
 
         if (sock) {
             this.sock = sock;
+            // Disable Nagle's algorithm for immediate writes (only for TCP sockets, not WebSockets)
+            if (typeof this.sock.setNoDelay === 'function') {
+                this.sock.setNoDelay(true);
+            }
             this.connected = true;
             this.socketLifecycle();
         }
@@ -76,11 +80,12 @@ module.exports = class SocketConnection extends EventEmitter {
                 this.readBuffer = '';
             }
 
-            lines.forEach((_line) => {
-                let line = _line.replace(/[\r\n]+$/, '');
-                l.debug(`[in ${this.id}]`, [line]);
-                this.queue.sendToWorker('connection.data', {id: this.id, data: line});
-            });
+            // Batch all lines into a single IPC message for efficiency
+            let cleanLines = lines.map(_line => _line.replace(/[\r\n]+$/, ''));
+            if (cleanLines.length > 0) {
+                cleanLines.forEach(line => l.debug(`[in ${this.id}]`, [line]));
+                this.queue.sendToWorker('connection.data.batch', {id: this.id, lines: cleanLines});
+            }
         };
         let onTimeout = () => {
             l.debug(`[timeout ${this.id}]`);
@@ -149,6 +154,7 @@ module.exports = class SocketConnection extends EventEmitter {
         };
 
         sock.setTimeout(opts.connectTimeout || 5000);
+        sock.setNoDelay(true);  // Disable Nagle's algorithm for immediate writes
         sock.connect(connectOpts);
         this.socketLifecycle(useTls ? { servername: opts.servername, tlsverify: opts.tlsverify } : null);
     }
@@ -162,9 +168,12 @@ module.exports = class SocketConnection extends EventEmitter {
         });
     }
 
-    write(data) {
+    write(data, priority = false) {
         if (!this.connected) {
             this.buffer.push(data);
+        } else if (priority) {
+            // Priority messages (user commands) skip throttle for immediate delivery
+            this.forceWrite(data);
         } else {
             this.throttledWrite(data);
         }

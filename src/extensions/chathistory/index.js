@@ -117,20 +117,39 @@ async function commandBetween(msg, con, messageDb) {
 async function commandLatest(msg, con, messageDb) {
     let messages = [];
     let target = mParam(msg, 1, '');
-    let msgRef = parseReference(mParam(msg, 2, ''));
+    let rawRef = mParam(msg, 2, '');
+    let msgRef = parseReference(rawRef);
     let paramLimit = parseLimit(mParam(msg, 3, ''), MAX_MESSAGES);
 
-    // We want to get messages between msgRef and NOW(), max paramLimit messages
     if (msgRef.type === 'timestamp') {
-        messages = await messageDb.getMessagesBeforeTime(
+        if (rawRef === '*') {
+            // '*' means no lower bound — return the last N messages
+            messages = await messageDb.getMessagesBeforeTime(
+                con.state.authUserId,
+                con.state.authNetworkId,
+                target,
+                Date.now(),
+                paramLimit,
+            );
+        } else {
+            // A specific timestamp was given — return messages AFTER that timestamp
+            let ts = dateToTs(msgRef.value);
+            messages = await messageDb.getMessagesFromTime(
+                con.state.authUserId,
+                con.state.authNetworkId,
+                target,
+                ts,
+                paramLimit,
+            );
+        }
+    } else if (msgRef.type === 'msgid') {
+        messages = await messageDb.getMessagesFromMsgId(
             con.state.authUserId,
             con.state.authNetworkId,
             target,
-            Date.now(),
+            msgRef.value,
             paramLimit,
         );
-    } else if (msgRef.type === 'msgid') {
-        // TODO: This LATEST subcommand is weird. implement this when its refactored
     } else {
         con.writeMsg(
             'FAIL',

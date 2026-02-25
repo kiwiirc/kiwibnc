@@ -72,6 +72,11 @@ class MessageStores {
         return await readable.getMessagesBetween(...args);
     }
 
+    get connectHistory() {
+        let readable = this.stores.find(s => s.supportsRead);
+        return readable ? readable.connectHistory : 50;
+    }
+
     async storeMessage(...args) {
         this.stores.filter(s => s.supportsWrite).forEach(async store => {
             await store.storeMessage(...args);

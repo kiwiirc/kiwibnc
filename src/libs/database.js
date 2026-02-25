@@ -4,6 +4,7 @@ const knex = require('knex');
 module.exports = class Database {
     constructor(config) {
         let dbConf = config.get('database', {});
+        this.dbConf = dbConf;
 
 		this.dbConnections = knex({
 			client: 'better-sqlite3',
@@ -71,5 +72,12 @@ module.exports = class Database {
         await this.dbUsers.migrate.latest({
             directory: path.join(__dirname, '..', 'dbschemas', 'users'),
         });
+
+        // Optimize connections.db for reduced disk I/O
+        let cacheSize = this.dbConf.cache_size || 2000; // in KB, default 2MB
+        await this.dbConnections.raw('PRAGMA journal_mode = WAL');
+        await this.dbConnections.raw('PRAGMA synchronous = NORMAL');
+        await this.dbConnections.raw(`PRAGMA cache_size = -${cacheSize}`);
+        await this.dbConnections.raw('PRAGMA temp_store = MEMORY');
     }
 }

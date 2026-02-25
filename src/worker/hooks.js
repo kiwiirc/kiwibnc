@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const IrcMessage = require('irc-framework').Message;
 const EventEmitter = require('../libs/eventemitter');
 const { isoTime, mParam, notifyLevel } = require('../libs/helpers');
 
@@ -89,8 +90,14 @@ commandHooks.addBuiltInHooks = function addBuiltInHooks() {
         let caps = event.client.state.caps;
         let m = event.message;
         if (!caps.has('extended-join') && m.command === 'JOIN' && m.params.length > 2) {
-            // Drop the account name (The * in the above example) and realname from the params 
-            m.params.splice(1, 2);
+            // Create a new message with only channel param to avoid mutating shared object
+            let newMsg = new IrcMessage(m.command, m.params[0]);
+            newMsg.prefix = m.prefix;
+            newMsg.nick = m.nick;
+            newMsg.ident = m.ident;
+            newMsg.hostname = m.hostname;
+            Object.assign(newMsg.tags, m.tags);
+            event.message = newMsg;
         }
     });
 

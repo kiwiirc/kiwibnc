@@ -18,6 +18,11 @@ class SqliteMessageStore {
         this.retentionDaysChannels = loggingConf.retention_days_channels || 0;
         this.retentionDaysPMs = loggingConf.retention_days_pms || 0;
         this.retentionCleanupInterval = loggingConf.retention_cleanup_interval || 1440; // Default 24h
+        this.sqliteCacheSize = loggingConf.cache_size || 2000;  // in KB, default 2MB
+        this.sqliteMmapSize = loggingConf.mmap_size || 0;       // in bytes, default disabled
+        this.connectHistory = loggingConf.connect_history !== undefined
+            ? parseInt(loggingConf.connect_history, 10)
+            : 50; // Messages to replay on client connect (0 = disabled)
         this.stats = Stats.instance().makePrefix('messages');
 
         this.storeQueueLooping = false;
@@ -30,7 +35,16 @@ class SqliteMessageStore {
     }
 
     async init() {
+        // SQLite performance optimizations
         this.db.pragma('journal_mode = WAL');
+        this.db.pragma('synchronous = NORMAL');     // Safe with WAL, reduces fsync calls
+        this.db.pragma(`cache_size = -${this.sqliteCacheSize}`);  // Negative = KB
+        if (this.sqliteMmapSize > 0) {
+            this.db.pragma(`mmap_size = ${this.sqliteMmapSize}`);
+        }
+        this.db.pragma('temp_store = MEMORY');      // Temp tables in RAM
+        this.db.pragma('busy_timeout = 100');        // Short wait for locks; retries are handled async
+
         this.db.exec(`
         CREATE TABLE IF NOT EXISTS logs (
             user_id INTEGER,
@@ -90,6 +104,9 @@ class SqliteMessageStore {
                     // Reduced batch size to ensure we don't hit SQLite variable limits in runDataCleanup
                     // 150 rows * 5 columns = 750 variables (limit is 999)
                     const BATCH_SIZE = 150;
+                    // Collect orphaned data IDs across batches and clean up at the end
+                    // to avoid running expensive NOT EXISTS queries after every small batch
+                    let allDeletedRows = [];
 
                     const processRetention = async (days, isChannel) => {
                         if (days <= 0) return;
@@ -110,16 +127,31 @@ class SqliteMessageStore {
                             busyRetries = 0;
 
                             let rows = [];
-                            // Transaction for the delete batch
-                            this.db.transaction(() => {
-                                rows = this.runRetentionCleanup(days, isChannel, BATCH_SIZE);
-                            })();
+                            // Transaction for the delete batch — retry on SQLITE_BUSY
+                            let retentionRetries = 0;
+                            while (true) {
+                                try {
+                                    this.db.transaction(() => {
+                                        rows = this.runRetentionCleanup(days, isChannel, BATCH_SIZE);
+                                    })();
+                                    break;
+                                } catch (err) {
+                                    if (err.code === 'SQLITE_BUSY' && retentionRetries++ < 10) {
+                                        await new Promise(resolve => setTimeout(resolve, 200));
+                                        continue;
+                                    }
+                                    throw err;
+                                }
+                            }
 
                             if (rows.length > 0) {
-                                this.runDataCleanup(rows);
+                                allDeletedRows.push(...rows);
                                 totalDeleted += rows.length;
-                                // Yield to event loop to prevent blocking for too long
-                                await new Promise(resolve => setImmediate(resolve));
+                                // Yield to event loop between batches so TCP keepalives,
+                                // reconnections and other I/O can be processed.
+                                // Without this delay, continuous synchronous SQLite writes
+                                // starve the event loop and cause IRC connection timeouts.
+                                await new Promise(resolve => setTimeout(resolve, 50));
                             }
 
                             if (rows.length < BATCH_SIZE) {
@@ -133,6 +165,24 @@ class SqliteMessageStore {
                     }
                     if (this.retentionDaysPMs > 0) {
                         await processRetention(this.retentionDaysPMs, false);
+                    }
+
+                    // Run orphaned data cleanup once at the end instead of per-batch.
+                    // runDataCleanup uses synchronous NOT EXISTS queries that block the
+                    // event loop; doing it once reduces that blocking significantly.
+                    if (allDeletedRows.length > 0) {
+                        // Process in chunks to keep each synchronous block short
+                        const DATA_CLEANUP_CHUNK = 500;
+                        for (let i = 0; i < allDeletedRows.length; i += DATA_CLEANUP_CHUNK) {
+                            let chunk = allDeletedRows.slice(i, i + DATA_CLEANUP_CHUNK);
+                            try {
+                                this.runDataCleanup(chunk);
+                            } catch (cleanupErr) {
+                                l.warn('Data cleanup failed, will retry next cycle', cleanupErr.message);
+                            }
+                            // Yield between chunks
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                        }
                     }
 
                     this.stats.gauge('retention.cleanup.rows_deleted', totalDeleted);
@@ -256,7 +306,7 @@ class SqliteMessageStore {
     }
 
     // Insert a chunk of data into the data table if it doesn't already exist, returning its ID
-    async dataId(data) {
+    dataId(data) {
         let cached = this.dataCache.get(data);
         if (cached) {
             return cached;
@@ -282,23 +332,28 @@ class SqliteMessageStore {
 
         let stmt = this.db.prepare(`
             SELECT
-                user_id,
-                network_id,
-                (SELECT data FROM data WHERE id = bufferref) as buffer,
-                time,
-                type,
-                msgid,
-                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
-                (SELECT data FROM data WHERE id = paramsref) as params,
-                (SELECT data FROM data WHERE id = dataref) as data,
-                (SELECT data FROM data WHERE id = prefixref) as prefix
+                logs.user_id,
+                logs.network_id,
+                d_buffer.data as buffer,
+                logs.time,
+                logs.type,
+                logs.msgid,
+                d_msgtags.data as msgtags,
+                d_params.data as params,
+                d_data.data as data,
+                d_prefix.data as prefix
             FROM logs
+            LEFT JOIN data d_buffer ON logs.bufferref = d_buffer.id
+            LEFT JOIN data d_msgtags ON logs.msgtagsref = d_msgtags.id
+            LEFT JOIN data d_params ON logs.paramsref = d_params.id
+            LEFT JOIN data d_data ON logs.dataref = d_data.id
+            LEFT JOIN data d_prefix ON logs.prefixref = d_prefix.id
             WHERE
-                user_id = :user_id
-                AND network_id = :network_id
-                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
-                AND time > (SELECT time FROM logs WHERE msgid = :msgid)
-            ORDER BY time
+                logs.user_id = :user_id
+                AND logs.network_id = :network_id
+                AND logs.bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND logs.time > (SELECT time FROM logs WHERE msgid = :msgid)
+            ORDER BY logs.time
             LIMIT :limit
         `);
         let rows = stmt.all({
@@ -320,23 +375,28 @@ class SqliteMessageStore {
 
         let stmt = this.db.prepare(`
             SELECT
-                user_id,
-                network_id,
-                (SELECT data FROM data WHERE id = bufferref) as buffer,
-                time,
-                type,
-                msgid,
-                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
-                (SELECT data FROM data WHERE id = paramsref) as params,
-                (SELECT data FROM data WHERE id = dataref) as data,
-                (SELECT data FROM data WHERE id = prefixref) as prefix
+                logs.user_id,
+                logs.network_id,
+                d_buffer.data as buffer,
+                logs.time,
+                logs.type,
+                logs.msgid,
+                d_msgtags.data as msgtags,
+                d_params.data as params,
+                d_data.data as data,
+                d_prefix.data as prefix
             FROM logs
+            LEFT JOIN data d_buffer ON logs.bufferref = d_buffer.id
+            LEFT JOIN data d_msgtags ON logs.msgtagsref = d_msgtags.id
+            LEFT JOIN data d_params ON logs.paramsref = d_params.id
+            LEFT JOIN data d_data ON logs.dataref = d_data.id
+            LEFT JOIN data d_prefix ON logs.prefixref = d_prefix.id
             WHERE
-                user_id = :user_id
-                AND network_id = :network_id
-                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
-                AND time > :time
-            ORDER BY time
+                logs.user_id = :user_id
+                AND logs.network_id = :network_id
+                AND logs.bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND logs.time > :time
+            ORDER BY logs.time
             LIMIT :limit
         `);
         let rows = stmt.all({
@@ -358,23 +418,28 @@ class SqliteMessageStore {
 
         let stmt = this.db.prepare(`
             SELECT
-                user_id,
-                network_id,
-                (SELECT data FROM data WHERE id = bufferref) as buffer,
-                time,
-                type,
-                msgid,
-                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
-                (SELECT data FROM data WHERE id = paramsref) as params,
-                (SELECT data FROM data WHERE id = dataref) as data,
-                (SELECT data FROM data WHERE id = prefixref) as prefix
+                logs.user_id,
+                logs.network_id,
+                d_buffer.data as buffer,
+                logs.time,
+                logs.type,
+                logs.msgid,
+                d_msgtags.data as msgtags,
+                d_params.data as params,
+                d_data.data as data,
+                d_prefix.data as prefix
             FROM logs
+            LEFT JOIN data d_buffer ON logs.bufferref = d_buffer.id
+            LEFT JOIN data d_msgtags ON logs.msgtagsref = d_msgtags.id
+            LEFT JOIN data d_params ON logs.paramsref = d_params.id
+            LEFT JOIN data d_data ON logs.dataref = d_data.id
+            LEFT JOIN data d_prefix ON logs.prefixref = d_prefix.id
             WHERE
-                user_id = :user_id
-                AND network_id = :network_id
-                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
-                AND time <= (SELECT time FROM logs WHERE msgid = :msgid)
-            ORDER BY time DESC
+                logs.user_id = :user_id
+                AND logs.network_id = :network_id
+                AND logs.bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND logs.time <= (SELECT time FROM logs WHERE msgid = :msgid)
+            ORDER BY logs.time DESC
             LIMIT :limit
         `);
         let rows = stmt.all({
@@ -398,23 +463,28 @@ class SqliteMessageStore {
 
         let stmt = this.db.prepare(`
             SELECT
-                user_id,
-                network_id,
-                (SELECT data FROM data WHERE id = bufferref) as buffer,
-                time,
-                type,
-                msgid,
-                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
-                (SELECT data FROM data WHERE id = paramsref) as params,
-                (SELECT data FROM data WHERE id = dataref) as data,
-                (SELECT data FROM data WHERE id = prefixref) as prefix
+                logs.user_id,
+                logs.network_id,
+                d_buffer.data as buffer,
+                logs.time,
+                logs.type,
+                logs.msgid,
+                d_msgtags.data as msgtags,
+                d_params.data as params,
+                d_data.data as data,
+                d_prefix.data as prefix
             FROM logs
+            LEFT JOIN data d_buffer ON logs.bufferref = d_buffer.id
+            LEFT JOIN data d_msgtags ON logs.msgtagsref = d_msgtags.id
+            LEFT JOIN data d_params ON logs.paramsref = d_params.id
+            LEFT JOIN data d_data ON logs.dataref = d_data.id
+            LEFT JOIN data d_prefix ON logs.prefixref = d_prefix.id
             WHERE
-                user_id = :user_id
-                AND network_id = :network_id
-                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
-                AND time <= :time
-            ORDER BY time DESC
+                logs.user_id = :user_id
+                AND logs.network_id = :network_id
+                AND logs.bufferref = (SELECT id FROM data WHERE data = :buffer)
+                AND logs.time <= :time
+            ORDER BY logs.time DESC
             LIMIT :limit
         `);
         let rows = stmt.all({
@@ -465,24 +535,29 @@ class SqliteMessageStore {
 
         let stmt = this.db.prepare(`
             SELECT
-                user_id,
-                network_id,
-                (SELECT data FROM data WHERE id = bufferref) as buffer,
-                time,
-                type,
-                msgid,
-                (SELECT data FROM data WHERE id = msgtagsref) as msgtags,
-                (SELECT data FROM data WHERE id = paramsref) as params,
-                (SELECT data FROM data WHERE id = dataref) as data,
-                (SELECT data FROM data WHERE id = prefixref) as prefix
+                logs.user_id,
+                logs.network_id,
+                d_buffer.data as buffer,
+                logs.time,
+                logs.type,
+                logs.msgid,
+                d_msgtags.data as msgtags,
+                d_params.data as params,
+                d_data.data as data,
+                d_prefix.data as prefix
             FROM logs
+            LEFT JOIN data d_buffer ON logs.bufferref = d_buffer.id
+            LEFT JOIN data d_msgtags ON logs.msgtagsref = d_msgtags.id
+            LEFT JOIN data d_params ON logs.paramsref = d_params.id
+            LEFT JOIN data d_data ON logs.dataref = d_data.id
+            LEFT JOIN data d_prefix ON logs.prefixref = d_prefix.id
             WHERE
-                user_id = :user_id
-                AND network_id = :network_id
-                AND bufferref = (SELECT id FROM data WHERE data = :buffer)
+                logs.user_id = :user_id
+                AND logs.network_id = :network_id
+                AND logs.bufferref = (SELECT id FROM data WHERE data = :buffer)
                 ${fromSql}
                 ${toSql}
-            ORDER BY time DESC
+            ORDER BY logs.time DESC
             LIMIT :limit
         `);
         let rows = stmt.all(sqlParams);
@@ -496,6 +571,8 @@ class SqliteMessageStore {
     }
 
     async storeMessageLoop() {
+        this.stats.gauge('messagestore.queue_length', this.storeQueue.length);
+
         if (this.storeQueueLooping) {
             return;
         }
@@ -554,32 +631,47 @@ class SqliteMessageStore {
         }
 
         let messagesTmr = this.stats.timerStart('store.time');
-        this.db.exec('BEGIN');
 
-        let bufferId = await this.dataId(bufferName);
-        let dataId = await this.dataId(data);
-        let msgtagsId = await this.dataId(JSON.stringify(message.tags));
-        let prefixId = await this.dataId(prefix);
-        let paramsId = await this.dataId(params);
+        try {
+            // Use better-sqlite3's transaction() instead of raw exec('BEGIN')/exec('COMMIT') so that
+            // db.inTransaction is properly updated. With raw exec('BEGIN'), better-sqlite3 doesn't
+            // track the open transaction, causing runDataCleanup to wrongly think the db is free and
+            // start its own write transaction, which results in SQLITE_BUSY.
+            this.db.transaction(() => {
+                let bufferId = this.dataId(bufferName);
+                let dataId = this.dataId(data);
+                let msgtagsId = this.dataId(JSON.stringify(message.tags));
+                let prefixId = this.dataId(prefix);
+                let paramsId = this.dataId(params);
 
-        this.stmtInsertLogWithId.run(
-            userId,
-            networkId,
-            bufferId,
-            time.getTime(),
-            type,
-            msgId,
-            msgtagsId,
-            dataId,
-            prefixId,
-            paramsId,
-        );
+                this.stmtInsertLogWithId.run(
+                    userId,
+                    networkId,
+                    bufferId,
+                    time.getTime(),
+                    type,
+                    msgId,
+                    msgtagsId,
+                    dataId,
+                    prefixId,
+                    paramsId,
+                );
+            })();
+        } catch (err) {
+            if (err.code === 'SQLITE_BUSY') {
+                l.warn('storeMessage: database busy, retrying in 100ms');
+                setTimeout(() => { this.storeQueueLooping = false; this.storeMessageLoop(); }, 100);
+                return;
+            }
+            l.error('storeMessage error', err);
+        }
 
-        this.db.exec('COMMIT');
         messagesTmr.stop();
 
         this.storeQueueLooping = false;
-        this.storeMessageLoop();
+        // Use setImmediate to schedule the next item, preventing stack overflow on large queues
+        // and allowing other event loop callbacks to run between items.
+        setImmediate(() => this.storeMessageLoop());
     }
 
     async storeMessage(message, upstreamCon, clientCon) {

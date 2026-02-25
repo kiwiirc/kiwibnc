@@ -109,7 +109,7 @@ commands['CAP'] = async function(msg, con) {
             .includes(cap.split('=')[0].toLowerCase())));
 
         con.state.caps = caps;
-        await con.state.save();
+        con.state.markDirty();
 
         let hook = await hooks.emit('cap_del_upstream', {
             client: con,
@@ -151,7 +151,7 @@ commands['CAP'] = async function(msg, con) {
         }
 
         con.state.caps = new Set(acks);
-        await con.state.save();
+        con.state.markDirty();
 
         await hooks.emit('cap_ack_upstream', {client: this, caps: acks});
 
@@ -209,7 +209,7 @@ commands['001'] = async function(msg, con) {
     con.state.serverPrefix = msg.prefix || '';
     con.state.netRegistered = true;
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    await con.state.save();
+    con.state.markDirty();
 
     // Start throttling messages sent to the server so we don't get flooded off
     con.throttle(config.get('connections.write_throttle', 500));
@@ -218,17 +218,17 @@ commands['001'] = async function(msg, con) {
 };
 commands['002'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    await con.state.save();
+    con.state.markDirty();
     return false;
 };
 commands['003'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    await con.state.save();
+    con.state.markDirty();
     return false;
 };
 commands['004'] = async function(msg, con) {
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    await con.state.save();
+    con.state.markDirty();
     return false;
 };
 
@@ -240,7 +240,7 @@ commands['005'] = async function(msg, con) {
     con.state.isupports = [...con.state.isupports, ...tokens];
 
     con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-    await con.state.save();
+    con.state.markDirty();
     return false;
 };
 
@@ -248,7 +248,7 @@ commands['005'] = async function(msg, con) {
 commands['372'] = async function(msg, con) {
     if (!con.state.receivedMotd) {
         con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
-        await con.state.save();
+        con.state.markDirty();
     }
 };
 
@@ -262,7 +262,7 @@ commands['376'] = async function(msg, con) {
         con.state.receivedMotd = true;
         con.state.registrationLines.push([msg.command, msg.params.slice(1)]);
 
-        await con.state.save();
+        con.state.markDirty();
 
         con.forEachClient((clientCon) => {
             clientCon.registerClient();
@@ -299,13 +299,13 @@ commands['900'] = async function(msg, con) {
     let account = msg.params[2];
 
     con.state.account = account;
-    await con.state.save();
+    con.state.markDirty();
     return true;
 }
 
 commands['901'] = async function(msg, con) {
     con.state.account = '';
-    await con.state.save();
+    con.state.markDirty();
     return true;
 }
 
@@ -339,7 +339,7 @@ commands.JOIN = async function(msg, con) {
 
     chan.joined = true;
     chan.shouldBeJoined = true;
-    await con.state.save();
+    con.state.markDirty();
 };
 
 commands.PART = async function(msg, con) {
@@ -365,7 +365,7 @@ commands.PART = async function(msg, con) {
         chan.leave();
     }
 
-    await con.state.save();
+    con.state.markDirty();
 };
 
 commands.KICK = async function(msg, con) {
@@ -384,7 +384,7 @@ commands.KICK = async function(msg, con) {
         chan.leave();
     }
 
-    await con.state.save();
+    con.state.markDirty();
 };
 
 commands.QUIT = async function(msg, con) {
@@ -394,7 +394,7 @@ commands.QUIT = async function(msg, con) {
         con.state.buffers[bufferName].removeUser(nick);
     }
 
-    await con.state.save();
+    con.state.markDirty();
 };
 
 // RPL_TOPIC
@@ -405,7 +405,7 @@ commands['332'] = async function(msg, con) {
     }
 
     channel.topic = msg.params[2];
-    await con.state.save();
+    con.state.markDirty();
 };
 
 // nick in use
@@ -456,35 +456,59 @@ commands.NICK = async function(msg, con) {
 
         // Try to track nick changes so that they stay in the same buffer instance
         con.state.renameBuffer(buffer.name, msg.params[0]);
-        con.state.save();
+        con.state.markDirty();
 
     } else {
         l.trace(`Our nick changed from ${msg.nick} to ${msg.params[0]}`);
 
         // Our nick changed, keep track of it
         con.state.nick = msg.params[0];
-        con.state.save();
+        con.state.markDirty();
     }
 };
 
 commands.PRIVMSG = async function(msg, con) {
     msgIdGenerator.add(msg);
 
+    const bufferName = bufferNameIfPm(msg, con.state.nick, 0);
+
+    // Check if this is a channel message for a channel we've left
+    // Don't forward messages for channels we're not in (prevents channel reopening after /part)
+    if (con.isChannelName(bufferName)) {
+        let buffer = con.state.getBuffer(bufferName);
+        if (buffer && !buffer.joined) {
+            // We've left this channel, don't forward or store the message
+            return false;
+        }
+    }
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
 
     // Make sure we have this buffer
-    con.state.getOrAddBuffer(bufferNameIfPm(msg, con.state.nick, 0), con);
+    con.state.getOrAddBuffer(bufferName, con);
 };
 
 commands.NOTICE = async function(msg, con) {
     msgIdGenerator.add(msg);
 
+    const bufferName = bufferNameIfPm(msg, con.state.nick, 0);
+
+    // Check if this is a channel notice for a channel we've left
+    // Don't forward messages for channels we're not in (prevents channel reopening after /part)
+    if (bufferName && con.isChannelName(bufferName)) {
+        let buffer = con.state.getBuffer(bufferName);
+        if (buffer && !buffer.joined) {
+            // We've left this channel, don't forward or store the message
+            return false;
+        }
+    }
+
     if (con.state.logging && con.state.netRegistered) {
         await con.messages.storeMessage(msg, con, null);
     }
-    const bufferName = bufferNameIfPm(msg, con.state.nick, 0);
+
     // Some notices come from the server without a nick, don't create an empty buffername for these
     if (bufferName) {
         // Make sure we have this buffer
@@ -541,7 +565,7 @@ commands['353'] = async function(msg, con) {
         });
     });
 
-    await con.state.save();
+    con.state.markDirty();
     return false;
 };
 
