@@ -266,6 +266,7 @@ class Users {
         network.password = netInf.password || '';
         network.sasl_account = netInf.sasl_account || '';
         network.sasl_pass = netInf.sasl_pass || '';
+        network.channels = netInf.channels || '';
 
         await network.save();
         return network;
