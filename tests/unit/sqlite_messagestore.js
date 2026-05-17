@@ -50,8 +50,8 @@ describe('SqliteMessageStore Retention & Cleanup', () => {
     });
 
     afterEach(() => {
-        if (store.db && store.db.open) {
-            store.db.close();
+        if (store) {
+            store.close();
         }
     });
 

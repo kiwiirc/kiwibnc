@@ -147,7 +147,18 @@ class SqliteMessageStore {
 
             runCleanupTask();
             // Run cleanup periodically
-            setInterval(runCleanupTask, this.retentionCleanupInterval * 60 * 1000);
+            this.retentionCleanupTimer = setInterval(runCleanupTask, this.retentionCleanupInterval * 60 * 1000);
+        }
+    }
+
+    close() {
+        if (this.retentionCleanupTimer) {
+            clearInterval(this.retentionCleanupTimer);
+            this.retentionCleanupTimer = null;
+        }
+
+        if (this.db && this.db.open) {
+            this.db.close();
         }
     }
 
