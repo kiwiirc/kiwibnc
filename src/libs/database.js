@@ -1,9 +1,83 @@
 const path = require('path');
+const fs = require('fs');
 const knex = require('knex');
+
+function isMysqlConnectionString(connectionString) {
+    return !!connectionString &&
+        (
+            connectionString.indexOf('mysql://') > -1 ||
+            connectionString.indexOf('mariadb://') > -1
+        );
+}
+
+function timestampForFilename() {
+    return (new Date()).toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\.\d{3}Z$/, 'Z');
+}
+
+function nextRetiredPath(filePath) {
+    const basePath = `${filePath}.retired-${timestampForFilename()}`;
+    let retiredPath = `${basePath}.bak`;
+    let counter = 1;
+
+    while (fs.existsSync(retiredPath)) {
+        retiredPath = `${basePath}-${counter}.bak`;
+        counter++;
+    }
+
+    return retiredPath;
+}
+
+function logRetiredUsersDb(sourcePath, retiredPath) {
+    const msg = `Retired stale SQLite users database ${sourcePath} to ${retiredPath} because database.users is configured for MySQL/MariaDB`;
+    if (global.l && global.l.warn) {
+        global.l.warn(msg);
+    } else {
+        console.warn(msg);
+    }
+}
+
+function configuredSqliteUsersPath(config, configuredUsersConStr, hasConfiguredDatabase) {
+    if (!hasConfiguredDatabase) {
+        return null;
+    }
+
+    const usersConStr = configuredUsersConStr || 'users.db';
+    if (usersConStr.startsWith('postgres://') ||
+        isMysqlConnectionString(usersConStr)) {
+        return null;
+    }
+
+    return config.relativePath(usersConStr);
+}
+
+function archiveStaleUsersDb(usersDbPath) {
+    if (!usersDbPath) {
+        return;
+    }
+
+    if (!fs.existsSync(usersDbPath)) {
+        return;
+    }
+
+    if (!fs.statSync(usersDbPath).isFile()) {
+        return;
+    }
+
+    const retiredPath = nextRetiredPath(usersDbPath);
+    fs.renameSync(usersDbPath, retiredPath);
+    logRetiredUsersDb(usersDbPath, retiredPath);
+}
 
 module.exports = class Database {
     constructor(config) {
+        let hasConfiguredDatabase = !!(config.c && config.c.database);
+        let configuredUsersConStr = config.c && config.c.database ?
+            config.c.database.users :
+            undefined;
         let dbConf = config.get('database', {});
+        this.staleUsersDbPath = null;
 
 		this.dbConnections = knex({
 			client: 'better-sqlite3',
@@ -21,7 +95,7 @@ module.exports = class Database {
             connection: null,
             acquireConnectionTimeout: 10000,
         };
-        if (usersConStr.indexOf('postgres://') > -1) {
+        if (usersConStr.startsWith('postgres://')) {
             // postgres://someuser:somepassword@somehost:381/somedatabase
             usersDbCon.client = 'pg';
             usersDbCon.connection = usersConStr;
@@ -29,7 +103,8 @@ module.exports = class Database {
             if (searchPathM) {
                 usersDbCon.searchPath = searchPathM[1].split(',');
             }
-        } else if (usersConStr.indexOf('mysql://') > -1) {
+        } else if (isMysqlConnectionString(usersConStr)) {
+            this.staleUsersDbPath = configuredSqliteUsersPath(config, configuredUsersConStr, hasConfiguredDatabase);
             // mysql://user:password@127.0.0.1:3306/database
             // knex handles this connection string internally
             usersDbCon = usersConStr;
@@ -64,12 +139,21 @@ module.exports = class Database {
         return this.dbUsers.raw(sql, params);
     }
 
-    async init() {
-        await this.dbConnections.migrate.latest({
+    migrateConnections() {
+        return this.dbConnections.migrate.latest({
             directory: path.join(__dirname, '..', 'dbschemas', 'connections'),
         });
-        await this.dbUsers.migrate.latest({
+    }
+
+    migrateUsers() {
+        return this.dbUsers.migrate.latest({
             directory: path.join(__dirname, '..', 'dbschemas', 'users'),
         });
+    }
+
+    async init() {
+        await this.migrateConnections();
+        await this.migrateUsers();
+        archiveStaleUsersDb(this.staleUsersDbPath);
     }
 }
