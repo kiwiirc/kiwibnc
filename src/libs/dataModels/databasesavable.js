@@ -56,9 +56,12 @@ class DatabaseSavable {
         }
 
         if (!this.getData('id')) {
-            let id = await this._db.dbUsers(this._table).insert(cols).returning('id');
+            let insertQuery = this._db.dbUsers(this._table).insert(cols);
+            let id = DatabaseSavable.supportsInsertReturning(this._db) ?
+                await insertQuery.returning('id') :
+                await insertQuery;
             // knexjs returns the inserted ID within an array
-            id = id[0];
+            id = DatabaseSavable.normalizeInsertedId(id);
             if (id) {
                 this._data.id = { col: 'id', val: id, dirty: false };
             }
@@ -106,6 +109,27 @@ class DatabaseSavable {
         };
 
         return factory;
+    }
+
+    static supportsInsertReturning(db) {
+        let client = db &&
+            db.dbUsers &&
+            db.dbUsers.client &&
+            db.dbUsers.client.config &&
+            db.dbUsers.client.config.client;
+        return client !== 'mysql' && client !== 'mysql2';
+    }
+
+    static normalizeInsertedId(id) {
+        if (Array.isArray(id)) {
+            return DatabaseSavable.normalizeInsertedId(id[0]);
+        }
+
+        if (id && typeof id === 'object' && Object.prototype.hasOwnProperty.call(id, 'id')) {
+            return id.id;
+        }
+
+        return id;
     }
 
 }
