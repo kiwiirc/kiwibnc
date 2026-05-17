@@ -1,9 +1,24 @@
 const path = require('path');
 const knex = require('knex');
 
+const USER_DB_TABLES = new Set([
+    'connections',
+    'users',
+    'user_networks',
+    'user_tokens',
+]);
+
 module.exports = class Database {
     constructor(config) {
         let dbConf = config.get('database', {});
+        let userTablePrefix = dbConf.table_prefix || '';
+        this.userMigrationTableName = `${userTablePrefix}knex_migrations`;
+        let wrapUserIdentifier = (value, origImpl) => {
+            let prefixedValue = USER_DB_TABLES.has(value) ?
+                `${userTablePrefix}${value}` :
+                value;
+            return origImpl(prefixedValue);
+        };
 
 		this.dbConnections = knex({
 			client: 'better-sqlite3',
@@ -25,6 +40,7 @@ module.exports = class Database {
             // postgres://someuser:somepassword@somehost:381/somedatabase
             usersDbCon.client = 'pg';
             usersDbCon.connection = usersConStr;
+            usersDbCon.wrapIdentifier = wrapUserIdentifier;
             let searchPathM = usersConStr.match(/searchPath=([^&]+)/);
             if (searchPathM) {
                 usersDbCon.searchPath = searchPathM[1].split(',');
@@ -39,6 +55,7 @@ module.exports = class Database {
             usersDbCon.useNullAsDefault = true;
             usersDbCon.connection = { filename: config.relativePath(usersConStr) };
             usersDbCon.pool = { propagateCreateError: false };
+            usersDbCon.wrapIdentifier = wrapUserIdentifier;
         }
 
         this.dbUsers = knex(usersDbCon);
@@ -64,12 +81,21 @@ module.exports = class Database {
         return this.dbUsers.raw(sql, params);
     }
 
-    async init() {
-        await this.dbConnections.migrate.latest({
+    migrateConnections() {
+        return this.dbConnections.migrate.latest({
             directory: path.join(__dirname, '..', 'dbschemas', 'connections'),
         });
-        await this.dbUsers.migrate.latest({
+    }
+
+    migrateUsers() {
+        return this.dbUsers.migrate.latest({
             directory: path.join(__dirname, '..', 'dbschemas', 'users'),
+            tableName: this.userMigrationTableName,
         });
+    }
+
+    async init() {
+        await this.migrateConnections();
+        await this.migrateUsers();
     }
 }
