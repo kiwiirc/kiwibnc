@@ -28,7 +28,7 @@ class MessageStores {
     }
 
     async getMessagesFromMsgId(...args) {
-        let readable = this.stores.find(s => s.supportsRead);
+        let readable = this.readableStore();
         if (!readable) {
             return [];
         }
@@ -37,7 +37,7 @@ class MessageStores {
     }
 
     async getMessagesFromTime(...args) {
-        let readable = this.stores.find(s => s.supportsRead);
+        let readable = this.readableStore();
         if (!readable) {
             return [];
         }
@@ -46,7 +46,7 @@ class MessageStores {
     }
 
     async getMessagesBeforeMsgId(...args) {
-        let readable = this.stores.find(s => s.supportsRead);
+        let readable = this.readableStore();
         if (!readable) {
             return [];
         }
@@ -55,7 +55,7 @@ class MessageStores {
     }
 
     async getMessagesBeforeTime(...args) {
-        let readable = this.stores.find(s => s.supportsRead);
+        let readable = this.readableStore();
         if (!readable) {
             return [];
         }
@@ -64,7 +64,7 @@ class MessageStores {
     }
 
     async getMessagesBetween(...args) {
-        let readable = this.stores.find(s => s.supportsRead);
+        let readable = this.readableStore();
         if (!readable) {
             return [];
         }
@@ -76,6 +76,10 @@ class MessageStores {
         this.stores.filter(s => s.supportsWrite).forEach(async store => {
             await store.storeMessage(...args);
         });
+    }
+
+    readableStore() {
+        return this.stores.slice().reverse().find(s => s.supportsRead);
     }
 }
 
