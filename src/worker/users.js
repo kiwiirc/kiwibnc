@@ -97,7 +97,7 @@ class Users {
     }
 
     async authUserToken(token, userHost) {
-        let user = this.db.dbUsers('users')
+        let user = await this.db.dbUsers('users')
             .innerJoin('user_tokens', 'users.id', 'user_tokens.user_id')
             .where('user_tokens.token', token)
             .where((q) => {
