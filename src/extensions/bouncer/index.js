@@ -164,6 +164,35 @@ async function sendBufferListToUsersClients(userId, networkId, excludeConId='') 
     }
 }
 
+const pendingBufferListSyncs = new Map();
+
+function scheduleBufferListSync(userId, networkId) {
+    const key = `${userId}:${networkId}`;
+
+    if (pendingBufferListSyncs.has(key)) {
+        return;
+    }
+
+    const timer = setTimeout(async () => {
+        pendingBufferListSyncs.delete(key);
+
+        try {
+            await sendBufferListToUsersClients(
+                userId,
+                networkId,
+                ''
+            );
+        } catch (err) {
+            l.error(
+                '[BOUNCER] Error syncing buffer list:',
+                err.stack || err.message
+            );
+        }
+    }, 1000);
+
+    pendingBufferListSyncs.set(key, timer);
+}
+
 function clientSupportsBouncer(client) {
     return client.state.caps.has('bouncer') || client.state.tempGet('bouncer_requested');
 }
@@ -385,6 +414,7 @@ async function handleBouncerCommand(event) {
     }
 
     if (subCmd === 'DELBUFFER') {
+
         let netId = getNetworkId(1);
         let bufferName = mParam(msg, 2, '');
         if (!netId || !bufferName) {
@@ -423,7 +453,11 @@ async function handleBouncerCommand(event) {
 
         upstream.state.markDirty();
         con.writeMsg('BOUNCER', 'delbuffer', network.id, bufferName, 'RPL_OK');
-        await sendBufferListToUsersClients(con.state.authUserId, network.id, con.id);
+
+        scheduleBufferListSync(
+            con.state.authUserId,
+            network.id
+        );
     }
 
     if (subCmd === 'CHANGEBUFFER') {
