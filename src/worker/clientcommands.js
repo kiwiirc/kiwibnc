@@ -385,16 +385,28 @@ commands.NAMES = async function(msg, con) {
 
 commands.PART = async function(msg, con) {
     if (!con.upstream) {
-        return;
+        return false;
     }
 
-    let buffer = con.upstream.state.getBuffer(msg.params[0]);
+    const channelName = msg.params[0];
+
+    if (!channelName) {
+        return false;
+    }
+
+    const buffer = con.upstream.state.getBuffer(channelName);
+
     if (buffer) {
+        // Persist the user's PART immediately.
         buffer.partReceived = true;
+        buffer.shouldBeJoined = false;
+
+        con.upstream.state.markDirty();
     }
 
+    // Forward PART upstream.
     return true;
-}
+};
 
 commands.PING = async function(msg, con) {
     con.writeFromBnc('PONG', '*bnc', msg.params[0]);
