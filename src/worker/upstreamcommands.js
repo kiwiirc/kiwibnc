@@ -284,7 +284,7 @@ commands['376'] = async function(msg, con) {
             if (b.isChannel) {
                 b.joined = false;
                 if (b.shouldBeJoined) {
-                    con.writeLine('JOIN', b.name);
+                    con.writeLine('JOIN', b.name, false);
                 }
             }
         }

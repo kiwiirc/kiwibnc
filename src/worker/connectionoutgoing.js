@@ -127,7 +127,7 @@ class ConnectionOutgoing {
         this.queue.sendToSockets('connection.throttle', {id: this.id, interval});
     }
 
-    write(msg) {
+    write(msg, priority = null) {
         let msgObj;
 
         if (typeof msg === 'string') {
@@ -159,7 +159,9 @@ class ConnectionOutgoing {
                 return;
             }
 
-            let isPriority = PRIORITY_COMMANDS.has(msgObj.command.toUpperCase());
+            let isPriority = priority === null ?
+                PRIORITY_COMMANDS.has(msgObj.command.toUpperCase()) :
+                priority;
             this.queue.sendToSockets('connection.data', {
                 id: this.id,
                 data: rawLine + '\r\n',
@@ -169,12 +171,19 @@ class ConnectionOutgoing {
     }
 
     writeLine(...params) {
+        let priority = null;
+
+        if (typeof params[params.length - 1] === 'boolean') {
+            priority = params.pop();
+        }
+
         // If the last param contains a space, turn it into a trailing param
         let lastParam = params[params.length - 1];
         if (params.length > 1 && (lastParam[0] === ':' || lastParam.indexOf(' ') > -1)) {
             params[params.length - 1] = ':' + params[params.length - 1];
         }
-        this.write(params.join(' ') + '\r\n');
+
+        this.write(params.join(' ') + '\r\n', priority);
     }
 
     async forEachClient(fn, excludeCon) {
@@ -302,7 +311,8 @@ class ConnectionOutgoing {
                 });
             }
 
-            channel.leave();
+            channel.joined = false;
+            channel.users = Object.create(null);
         }
 
         this.state.markDirty();
