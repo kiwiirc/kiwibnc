@@ -416,8 +416,21 @@ class ConnectionOutgoing {
     }
 
     isChannelName(inp) {
-        let types = this.iSupportToken('CHANTYPES') || '#&';
-        return types.indexOf(inp[0]) > -1;
+        if (!inp) {
+            return false;
+        }
+
+        const types = this.iSupportToken('CHANTYPES') || '#&';
+
+        if (types.includes(inp[0])) {
+            return true;
+        }
+
+        const statusMsg = this.iSupportToken('STATUSMSG') || '';
+
+        return statusMsg.includes(inp[0]) &&
+            inp.length > 1 &&
+            types.includes(inp[1]);
     }
 }
 
