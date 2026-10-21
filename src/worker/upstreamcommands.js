@@ -497,8 +497,10 @@ commands.PRIVMSG = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
-    // Make sure we have this buffer
-    con.state.getOrAddBuffer(bufferName, con);
+    // Create buffers only for valid channel targets or private message recipients
+    if (bufferName && !/[:\s]/u.test(bufferName)) {
+        con.state.getOrAddBuffer(bufferName, con);
+    }
 };
 
 commands.NOTICE = async function(msg, con) {
@@ -520,9 +522,9 @@ commands.NOTICE = async function(msg, con) {
         await con.messages.storeMessage(msg, con, null);
     }
 
-    // Some notices come from the server without a nick, don't create an empty buffername for these
-    if (bufferName) {
-        // Make sure we have this buffer
+    // Some notices come from the server without a nick.
+    // Don't create buffers for malformed private message targets.
+    if (bufferName && !/[:\s]/u.test(bufferName)) {
         con.state.getOrAddBuffer(bufferName, con);
     }
 };

@@ -281,7 +281,9 @@ commands.NOTICE = async function(msg, con) {
     }
 
     // Ensure the buffer exists for outgoing notices to a user so other devices see it
-    if (con.upstream && !con.upstream.isChannelName(msg.params[0])) {
+    if (con.upstream && msg.params[0] &&
+        !con.upstream.isChannelName(msg.params[0]) &&
+        !/[:\s]/u.test(msg.params[0])) {
         con.upstream.state.getOrAddBuffer(msg.params[0], con.upstream);
     }
 
@@ -320,7 +322,9 @@ commands.PRIVMSG = async function(msg, con) {
     // Ensure the buffer exists for outgoing PMs so other devices see the conversation.
     // The server won't echo the message back (no echo-message cap), so upstreamcommands
     // won't create it for us.
-    if (con.upstream && msg.params[0] !== '*bnc' && !con.upstream.isChannelName(msg.params[0])) {
+    if (con.upstream && msg.params[0] !== '*bnc' &&
+        !con.upstream.isChannelName(msg.params[0]) &&
+        !/[:\s]/u.test(msg.params[0])) {
         con.upstream.state.getOrAddBuffer(msg.params[0], con.upstream);
     }
 

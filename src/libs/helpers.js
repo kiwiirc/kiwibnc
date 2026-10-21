@@ -237,28 +237,23 @@ function getModesStatus(buffer) {
 module.exports.extractTargetGroup = extractTargetGroup;
 function extractTargetGroup(con, target) {
     const statusMsg = con.iSupportToken('STATUSMSG');
+    const chanTypes = con.iSupportToken('CHANTYPES') || '#&';
 
-    if (!statusMsg) {
+    if (!statusMsg || !target || !statusMsg.includes(target[0])) {
         return null;
     }
 
-    const target_group = _.find(statusMsg, function(prefix) {
-        if (prefix === target[0]) {
-            target = target.substring(1);
+    const channel = target.substring(1);
 
-            return prefix;
-        }
-    });
-
-    if (!target_group) {
+    if (!channel || !chanTypes.includes(channel[0])) {
         return null;
     }
 
     return {
-        target: target,
-        target_group: target_group,
+        target: channel,
+        target_group: target[0],
     };
-};
+}
 
 module.exports.extractBufferName = extractBufferName;
 function extractBufferName(con, message, messageNickIdx) {
