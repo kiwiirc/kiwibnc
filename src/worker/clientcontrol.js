@@ -64,8 +64,19 @@ commands.HELP = {
             let isAdmin = con.state.authAdmin;
             let userCommandList = [];
             let adminCommandList = [];
-            
+            let singleNetwork = config.get('users.max_networks', -1) === 1;
+            let singleNetworkCommands = [
+                'ADDNETWORK',
+                'ATTACH',
+                'CHANGENETWORK',
+                'DELNETWORK',
+                'LISTNETWORKS',
+            ];
+
             Object.entries(commands).forEach(([name, command]) => {
+                if (singleNetwork && singleNetworkCommands.includes(name)) {
+                    return;
+                }
                 if (command.skipCommandList === true) {
                     return;
                 }

@@ -7,6 +7,9 @@ let stats = null;
 
 module.exports.init = async function init(hooks, app) {
     stats = app.stats.makePrefix('chathistory');
+    hooks.on('available_caps', event => {
+        event.caps.add('draft/chathistory');
+    });
 
     hooks.on('message_from_client', event => {
         if (event.message.command.toUpperCase() === 'CHATHISTORY') {
