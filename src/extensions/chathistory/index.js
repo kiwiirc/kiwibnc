@@ -46,6 +46,17 @@ async function handleCommand(event) {
         messages = await commandBetween(msg, con, messageDb);
     } else if (subCmd === 'AROUND') {
         messages = await commandAround(msg, con, messageDb);
+    } else {
+        // Anything else (eg. TARGETS) is unsupported. Saying so lets the client fall back,
+        // where an empty batch would read as "no history".
+        con.writeMsg(
+            'FAIL',
+            'CHATHISTORY',
+            'UNKNOWN_COMMAND',
+            subCmd,
+            'Unknown command',
+        );
+        return;
     }
 
     if (messages) {
