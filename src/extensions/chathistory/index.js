@@ -7,6 +7,9 @@ let stats = null;
 
 module.exports.init = async function init(hooks, app) {
     stats = app.stats.makePrefix('chathistory');
+    hooks.on('available_caps', event => {
+        event.caps.add('draft/chathistory');
+    });
 
     hooks.on('message_from_client', event => {
         if (event.message.command.toUpperCase() === 'CHATHISTORY') {
@@ -43,6 +46,17 @@ async function handleCommand(event) {
         messages = await commandBetween(msg, con, messageDb);
     } else if (subCmd === 'AROUND') {
         messages = await commandAround(msg, con, messageDb);
+    } else {
+        // Anything else (eg. TARGETS) is unsupported. Saying so lets the client fall back,
+        // where an empty batch would read as "no history".
+        con.writeMsg(
+            'FAIL',
+            'CHATHISTORY',
+            'UNKNOWN_COMMAND',
+            subCmd,
+            'Unknown command',
+        );
+        return;
     }
 
     if (messages) {

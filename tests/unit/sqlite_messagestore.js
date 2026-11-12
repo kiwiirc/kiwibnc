@@ -104,7 +104,7 @@ describe('SqliteMessageStore Retention & Cleanup', () => {
             insertLog({ bufferref: channelId, time: oldTime, msgid: 'old1' });
             insertLog({ bufferref: channelId, time: newTime, msgid: 'new1' });
 
-            const deleted = store.runRetentionCleanup(30, true, 100);
+            const deleted = store.runRetentionCleanup(30, 'channels', 100);
 
             expect(deleted.length).toBe(1);
             expect(deleted[0].bufferref).toBe(channelId);
@@ -120,7 +120,7 @@ describe('SqliteMessageStore Retention & Cleanup', () => {
 
             insertLog({ bufferref: pmId, time: oldTime, msgid: 'pm1' });
 
-            const deleted = store.runRetentionCleanup(30, true, 100); // isChannel = true
+            const deleted = store.runRetentionCleanup(30, 'channels', 100);
 
             expect(deleted.length).toBe(0);
             
@@ -134,7 +134,7 @@ describe('SqliteMessageStore Retention & Cleanup', () => {
 
             insertLog({ bufferref: pmId, time: oldTime, msgid: 'pm1' });
 
-            const deleted = store.runRetentionCleanup(30, false, 100); // isChannel = false
+            const deleted = store.runRetentionCleanup(30, 'pms', 100);
 
             expect(deleted.length).toBe(1);
         });
