@@ -199,12 +199,7 @@ class SqliteMessageStore {
                             ? null
                             : (isChannel ? 'tmp_ret_ch_bufs' : 'tmp_ret_pm_bufs');
                         if (tempBufs) {
-                            this.db.exec(`DROP TABLE IF EXISTS ${tempBufs}`);
-                            const bufSql = isChannel
-                                ? `CREATE TEMP TABLE ${tempBufs} AS SELECT id FROM data WHERE CAST(data AS TEXT) LIKE '#%' OR CAST(data AS TEXT) LIKE '&%'`
-                                : `CREATE TEMP TABLE ${tempBufs} AS SELECT id FROM data WHERE CAST(data AS TEXT) NOT LIKE '#%' AND CAST(data AS TEXT) NOT LIKE '&%'`;
-                            this.db.exec(bufSql);
-                            this.db.exec(`CREATE INDEX idx_${tempBufs} ON ${tempBufs}(id)`);
+                            this.createRetentionBufferTable(tempBufs, isChannel);
                         }
 
                         while (more) {
@@ -392,6 +387,36 @@ class SqliteMessageStore {
         } finally {
             this.vacuumRunning = false;
         }
+    }
+
+    /**
+     * (Re)creates a temp table holding the ids of every channel buffer, or every PM buffer,
+     * that has at least one message in logs.
+     *
+     * The distinct buffer ids come from the logs_bufferref index, which is small, and only those
+     * few thousand ids are then looked up in 'data' to classify them. Scanning 'data' directly
+     * would read every message body in the database (it holds message text, tags and prefixes,
+     * not only buffer names) and, for PMs, fill the temp table with nearly every row of 'data'.
+     * The CROSS JOIN pins that join order: SQLite never reorders a CROSS JOIN, and without
+     * ANALYZE statistics a plain join could pick the full scan of 'data' instead.
+     *
+     * @param {string} tableName - Name of the temp table to create
+     * @param {boolean} isChannel - true for channel buffers (#, &), false for PM buffers
+     */
+    createRetentionBufferTable(tableName, isChannel) {
+        const match = isChannel
+            ? `CAST(data.data AS TEXT) LIKE '#%' OR CAST(data.data AS TEXT) LIKE '&%'`
+            : `CAST(data.data AS TEXT) NOT LIKE '#%' AND CAST(data.data AS TEXT) NOT LIKE '&%'`;
+
+        this.db.exec(`DROP TABLE IF EXISTS ${tableName}`);
+        this.db.exec(`
+            CREATE TEMP TABLE ${tableName} AS
+            SELECT data.id AS id
+            FROM (SELECT DISTINCT bufferref AS id FROM logs) bufs
+            CROSS JOIN data ON data.id = bufs.id
+            WHERE ${match}
+        `);
+        this.db.exec(`CREATE INDEX idx_${tableName} ON ${tableName}(id)`);
     }
 
     /**

@@ -140,6 +140,60 @@ describe('SqliteMessageStore Retention & Cleanup', () => {
         });
     });
 
+    describe('createRetentionBufferTable', () => {
+        const tableIds = (name) => store.db.prepare(`SELECT id FROM ${name} ORDER BY id`)
+            .all().map(r => Number(r.id));
+
+        let ids;
+        beforeEach(() => {
+            ids = {
+                hashChan: insertData('#chan'),
+                ampChan: insertData('&local'),
+                pm: insertData('alice'),
+                // Strings that look like buffers but are only message bodies or prefixes:
+                // they must never land in the table, since only bufferref counts
+                text: insertData('#not-a-buffer, just message text'),
+                prefix: insertData('bob'),
+                unusedChan: insertData('#no-messages'),
+            };
+            insertLog({ bufferref: ids.hashChan, dataref: ids.text, prefixref: ids.prefix });
+            insertLog({ bufferref: ids.hashChan, prefixref: ids.prefix });
+            insertLog({ bufferref: ids.ampChan });
+            insertLog({ bufferref: ids.pm, prefixref: ids.prefix });
+        });
+
+        test('holds each channel buffer that has messages, once', () => {
+            store.createRetentionBufferTable('tmp_test_ch', true);
+            expect(tableIds('tmp_test_ch'))
+                .toEqual([Number(ids.hashChan), Number(ids.ampChan)].sort((a, b) => a - b));
+        });
+
+        test('holds PM buffers only, not every non-channel row of data', () => {
+            store.createRetentionBufferTable('tmp_test_pm', false);
+            expect(tableIds('tmp_test_pm')).toEqual([Number(ids.pm)]);
+        });
+
+        test('can be recreated, as each retention pass does', () => {
+            store.createRetentionBufferTable('tmp_test_ch', true);
+            insertLog({ bufferref: ids.unusedChan });
+            store.createRetentionBufferTable('tmp_test_ch', true);
+            expect(tableIds('tmp_test_ch')).toContain(Number(ids.unusedChan));
+        });
+
+        test('drives runRetentionCleanup to the same result', () => {
+            const oldTime = Date.now() - (31 * 24 * 60 * 60 * 1000);
+            insertLog({ bufferref: ids.hashChan, time: oldTime, msgid: 'old-chan' });
+            insertLog({ bufferref: ids.pm, time: oldTime, msgid: 'old-pm' });
+
+            store.createRetentionBufferTable('tmp_test_ch', true);
+            const deleted = store.runRetentionCleanup(30, 'channels', 100, 'tmp_test_ch');
+
+            expect(deleted.length).toBe(1);
+            expect(deleted[0].bufferref).toBe(ids.hashChan);
+            expect(store.db.prepare("SELECT 1 FROM logs WHERE msgid = 'old-pm'").get()).toBeTruthy();
+        });
+    });
+
     describe('runDataCleanup', () => {
         test('should delete orphaned data', () => {
             const dataId1 = insertData('orphaned1');
